@@ -107,22 +107,23 @@ constructor(
    * intermediate.
    */
   private fun ByteArray.splitToCharArrayListAt(c: Char): List<CharArray> {
+    val charBuffer = StandardCharsets.UTF_8.decode(ByteBuffer.wrap(this))
     val result = mutableListOf<CharArray>()
     val currentLine = mutableListOf<Char>()
 
-    val arr = StandardCharsets.UTF_8.decode(ByteBuffer.wrap(this)).array()
-    arr.forEachIndexed { i, ch ->
+    for (ch in charBuffer) {
       if (ch == c) {
         result.add(currentLine.toCharArray())
-        currentLine.fill('*')
+        currentLine.fill('\u0000')
         currentLine.clear()
       } else {
         currentLine.add(ch)
       }
-      arr[i] = '*'
     }
     result.add(currentLine.toCharArray()) // last line
-    currentLine.fill('*')
+    currentLine.fill('\u0000')
+
+    charBuffer.array().fill('\u0000')
 
     return result
   }

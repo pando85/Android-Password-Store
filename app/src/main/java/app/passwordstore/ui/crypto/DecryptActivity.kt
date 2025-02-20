@@ -52,7 +52,7 @@ class DecryptActivity : BasePGPActivity() {
       passwordCategory.text = relativeParentPath
       passwordFile.text = name
       passwordFile.setOnLongClickListener {
-        copyTextToClipboard(name.toCharArray())
+        copyTextToClipboard(name.toCharArray(), isSensitive = false)
         true
       }
     }
@@ -190,7 +190,9 @@ class DecryptActivity : BasePGPActivity() {
       }
 
       val adapter =
-        FieldItemAdapter(items, showPassword) { text -> copyTextToClipboard(text?.toCharArray()) }
+        FieldItemAdapter(items, showPassword) { text, isSensitive ->
+          copyPasswordToClipboard(text?.toCharArray(), isSensitive)
+        }
       binding.recyclerView.adapter = adapter
       binding.recyclerView.itemAnimator = null
 

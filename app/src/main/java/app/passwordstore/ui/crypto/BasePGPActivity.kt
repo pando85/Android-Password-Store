@@ -103,31 +103,7 @@ open class BasePGPActivity : AppCompatActivity() {
     window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
   }
 
-  /**
-   * Copies provided [text] to the clipboard. Shows a [Snackbar] which can be disabled by passing
-   * [showSnackbar] as false.
-   */
-  fun copyTextToClipboard(
-    text: CharArray?,
-    showSnackbar: Boolean = true,
-    @StringRes snackbarTextRes: Int = R.string.clipboard_copied_text,
-  ) {
-    val clipboard = clipboard ?: return
-    val clip = ClipData.newPlainText((100000..999999).random().toString(), text?.let { String(it) })
-    clip.description.extras =
-      PersistableBundle().apply {
-        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.S_V2)
-          putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true)
-        else putBoolean("android.content.extra.IS_SENSITIVE", true)
-      }
-    clipboard.setPrimaryClip(clip)
-    if (showSnackbar && Build.VERSION.SDK_INT < Build.VERSION_CODES.S_V2) {
-      snackbar(message = resources.getString(snackbarTextRes))
-    }
-  }
-
-  /**
-   * Function to execute [onKeysExist] only if there are PGP keys imported in the app's key manager.
+  /* Function to execute [onKeysExist] only if there are PGP keys imported in the app's key manager.
    */
   fun requireKeysExist(onKeysExist: () -> Unit) {
     lifecycleScope.launch {
@@ -153,26 +129,27 @@ open class BasePGPActivity : AppCompatActivity() {
    * Copies a provided [password] string to the clipboard. This wraps [copyTextToClipboard] to
    * optionally hide the default [Snackbar] and starts off a timer to clear the clipboard.
    */
-  protected fun copyPasswordToClipboard(password: CharArray?): ScheduledExecutorService? {
-    copyTextToClipboard(password)
+  protected fun copyPasswordToClipboard(
+    password: CharArray?,
+    isSensitive: Boolean = true,
+  ): ScheduledExecutorService? {
+    copyTextToClipboard(password, isSensitive = isSensitive, showSnackbar = false)
 
     val clearAfter = settings.getString(PreferenceKeys.GENERAL_SHOW_TIME)?.toIntOrNull() ?: 45
     val deepClear = settings.getBoolean(PreferenceKeys.CLEAR_CLIPBOARD_HISTORY, false)
     val clipboard = clipboard
 
-    if (clearAfter != 0 && clipboard != null) {
+    if (isSensitive && clearAfter != 0 && clipboard != null) {
       val timer = Executors.newSingleThreadScheduledExecutor()
       timer.schedule(
         {
           logcat { "Clearing the clipboard" }
-          var randomNum = (100000..999999).random().toString()
-          var clip = ClipData.newPlainText(randomNum, randomNum)
-          clipboard.setPrimaryClip(clip)
+          var randomNum = (100000000000000000..999999999999999999).random().toString().toCharArray()
+          copyTextToClipboard(randomNum, isSensitive = false)
           if (deepClear) {
             repeat(CLIPBOARD_CLEAR_COUNT) {
-              randomNum = (100000..999999).random().toString()
-              clip = ClipData.newPlainText(randomNum, randomNum)
-              clipboard.setPrimaryClip(clip)
+              randomNum = (100000000000000000..999999999999999999).random().toString().toCharArray()
+              copyTextToClipboard(randomNum, isSensitive = false)
             }
           }
         },
@@ -183,6 +160,30 @@ open class BasePGPActivity : AppCompatActivity() {
     }
 
     return null
+  }
+
+  /**
+   * Copies provided [text] to the clipboard. Shows a [Snackbar] which can be disabled by passing
+   * [showSnackbar] as false.
+   */
+  fun copyTextToClipboard(
+    text: CharArray?,
+    isSensitive: Boolean = true,
+    showSnackbar: Boolean = true,
+    @StringRes snackbarTextRes: Int = R.string.clipboard_copied_text,
+  ) {
+    val clipboard = clipboard ?: return
+    val clip = ClipData.newPlainText((100000..999999).random().toString(), text?.let { String(it) })
+    clip.description.extras =
+      PersistableBundle().apply {
+        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.S_V2)
+          putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, isSensitive)
+        else putBoolean("android.content.extra.IS_SENSITIVE", isSensitive)
+      }
+    clipboard.setPrimaryClip(clip)
+    if (showSnackbar && Build.VERSION.SDK_INT < Build.VERSION_CODES.S_V2) {
+      snackbar(message = resources.getString(snackbarTextRes))
+    }
   }
 
   /**

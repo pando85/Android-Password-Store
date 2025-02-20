@@ -22,7 +22,7 @@ import com.google.android.material.textfield.TextInputLayout
 class FieldItemAdapter(
   private var fieldItemList: List<FieldItem>,
   private val showPassword: Boolean,
-  private val copyTextToClipboard: (text: String?) -> Unit,
+  private val copyToClipboard: (text: String?, isSensitive: Boolean) -> Unit,
 ) : RecyclerView.Adapter<FieldItemAdapter.FieldItemViewHolder>() {
 
   override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): FieldItemViewHolder {
@@ -31,7 +31,7 @@ class FieldItemAdapter(
   }
 
   override fun onBindViewHolder(holder: FieldItemViewHolder, position: Int) {
-    holder.bind(fieldItemList[position], showPassword, copyTextToClipboard)
+    holder.bind(fieldItemList[position], showPassword, copyToClipboard)
   }
 
   override fun getItemCount(): Int {
@@ -56,7 +56,11 @@ class FieldItemAdapter(
   class FieldItemViewHolder(itemView: View, val binding: ItemFieldBinding) :
     RecyclerView.ViewHolder(itemView) {
 
-    fun bind(fieldItem: FieldItem, showPassword: Boolean, copyTextToClipboard: (String?) -> Unit) {
+    fun bind(
+      fieldItem: FieldItem,
+      showPassword: Boolean,
+      copyToClipboard: (String?, Boolean) -> Unit,
+    ) {
       with(binding) {
         itemText.hint = fieldItem.label
         itemTextContainer.hint = fieldItem.label
@@ -68,14 +72,14 @@ class FieldItemAdapter(
               endIconDrawable =
                 ContextCompat.getDrawable(itemView.context, R.drawable.ic_content_copy)
               endIconMode = TextInputLayout.END_ICON_CUSTOM
-              setEndIconOnClickListener { copyTextToClipboard(itemText.text.toString()) }
+              setEndIconOnClickListener { copyToClipboard(itemText.text.toString(), false) }
             }
             itemText.transformationMethod = null
           }
           FieldItem.ActionType.HIDE -> {
             itemTextContainer.apply {
               endIconMode = TextInputLayout.END_ICON_PASSWORD_TOGGLE
-              setOnClickListener { copyTextToClipboard(itemText.text.toString()) }
+              setOnClickListener { copyToClipboard(itemText.text.toString(), true) }
             }
             itemText.apply {
               transformationMethod =
@@ -92,7 +96,7 @@ class FieldItemAdapter(
                     composeR.font.jetbrainsmono_nl_regular,
                   )
               }
-              setOnClickListener { copyTextToClipboard(itemText.text.toString()) }
+              setOnClickListener { copyToClipboard(itemText.text.toString(), true) }
             }
           }
         }
