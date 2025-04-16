@@ -56,8 +56,7 @@
     <activity
       android:name=".ui.main.LaunchActivity"
       android:configChanges="orientation|screenSize"
-      android:exported="true"
-      android:theme="@style/NoBackgroundThemeM3">
+      android:exported="true">
       <intent-filter>
         <action android:name="android.intent.action.MAIN" />
         <category android:name="android.intent.category.LAUNCHER" />

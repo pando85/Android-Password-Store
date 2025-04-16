@@ -8,10 +8,12 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
-- Allow device PIN authentication for SSH and Git operations
-- Fix app start with biometric authentication in case of missing fingerprint
+- With biometric authentication at app launch, the biometric prompt was immediately hidden, requiring the user to reopen the app before it could be finally unlocked
+- Fix app launch with biometric authentication in case of missing fingerprint
 
 ### Changed
+
+- Allow device PIN authentication for SSH and Git operations
 
 ## [1.14.0] - 2025-04-09
 
