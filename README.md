@@ -4,9 +4,9 @@
 
 ## Download
 
-- [GitHub Releases](https://github.com/agrahn/Android-Password-Store/releases)
-
 - Latest [snapshot build (APK)](https://github.com/agrahn/Android-Password-Store/releases/tag/latest) of this fork
+- [GitHub Releases](https://github.com/agrahn/Android-Password-Store/releases)
+- [<img src="https://f-droid.org/assets/fdroid-logo-text_S0MUfk_FsnAYL7n2MQye-34IoSNm6QM6xYjDnMqkufo=.svg" height="32px"/>](https://f-droid.org/en/packages/app.passwordstore.agrahn)
 
 ## Documentation
 
