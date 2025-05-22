@@ -23,11 +23,12 @@ pluginManagement {
         includeModule("com.gradle", "develocity-gradle-plugin")
         includeModule("com.gradle.develocity", "com.gradle.develocity.gradle.plugin")
         includeModule("me.tylerbwong.gradle.metalava", "plugin")
-        includeModule(
+        /* commented out for f-droid */
+        /*        includeModule(
           "org.gradle.toolchains.foojay-resolver-convention",
           "org.gradle.toolchains.foojay-resolver-convention.gradle.plugin",
         )
-        includeModule("org.gradle.toolchains", "foojay-resolver")
+        includeModule("org.gradle.toolchains", "foojay-resolver") */
       }
     }
     mavenCentral { mavenContent { releasesOnly() } }
@@ -35,7 +36,7 @@ pluginManagement {
 }
 
 plugins {
-  id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
+  /*  id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0" */
   id("com.gradle.develocity") version "4.0.1"
 }
 
