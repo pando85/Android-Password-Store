@@ -48,7 +48,7 @@
       ],
       enabled: false,
       matchPackageNames: [
-        '/^com.android.tools:desugar_jdk_libs/',
+        "^com.android.tools:desugar_jdk_libs",
         // Later versions require newer JDKs
         "^org.eclipse.jgit",
         "^com.squareup.logcat",
