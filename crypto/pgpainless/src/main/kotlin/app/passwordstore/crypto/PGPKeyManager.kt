@@ -28,6 +28,7 @@ import org.bouncycastle.openpgp.PGPPublicKeyRing
 import org.bouncycastle.openpgp.PGPSecretKeyRing
 import org.pgpainless.PGPainless
 import org.pgpainless.key.util.KeyRingUtils
+import org.pgpainless.util.Passphrase
 
 public class PGPKeyManager
 @Inject
@@ -71,6 +72,20 @@ constructor(filesDir: String, private val dispatcher: CoroutineDispatcher) :
         keyFile.writeBytes(key.contents)
 
         key
+      }
+    }
+
+  /** @see KeyManager.generateKey */
+  override suspend fun generateKey(
+    userId: String,
+    passphrase: CharArray?,
+  ): Result<PGPKey, Throwable> =
+    withContext(dispatcher) {
+      runSuspendCatching {
+        val key =
+          PGPainless.generateKeyRing().modernKeyRing(userId, Passphrase(passphrase)).getEncoded()
+        addKey(PGPKey(key), false)
+        PGPKey(key)
       }
     }
 

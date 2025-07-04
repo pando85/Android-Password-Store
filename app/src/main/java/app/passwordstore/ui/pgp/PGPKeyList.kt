@@ -12,9 +12,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -34,6 +36,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -175,13 +178,26 @@ private inline fun DeleteConfirmationDialog(
     AlertDialog(
       onDismissRequest = onDismiss,
       title = {
-        Text(text = stringResource(R.string.pgp_key_manager_delete_confirmation_dialog_title))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+          Icon(
+            painter = painterResource(id = R.drawable.ic_warning_red_24dp),
+            contentDescription = null,
+            tint = Color.Unspecified,
+          )
+          Spacer(modifier = Modifier.width(SpacingLarge))
+          Text(text = stringResource(R.string.pgp_key_manager_delete_confirmation_dialog_title))
+        }
+      },
+      text = {
+        Text(text = stringResource(R.string.pgp_key_manager_delete_confirmation_dialog_message))
       },
       confirmButton = {
-        TextButton(onClick = onConfirm) { Text(text = stringResource(R.string.dialog_yes)) }
+        TextButton(onClick = onConfirm) { Text(text = stringResource(R.string.delete)) }
       },
       dismissButton = {
-        TextButton(onClick = onDismiss) { Text(text = stringResource(R.string.dialog_no)) }
+        TextButton(onClick = onDismiss) {
+          Text(text = stringResource(R.string.dialog_do_not_delete))
+        }
       },
     )
   }
