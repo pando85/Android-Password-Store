@@ -45,13 +45,11 @@ class ApplicationPlugin : Plugin<Project> {
               "proguard-rules-missing-classes.pro",
             )
           )
-          buildConfigField("boolean", "ENABLE_DEBUG_FEATURES", "${project.isSnapshot()}")
         }
         named("debug") {
           applicationIdSuffix = ".debug"
           versionNameSuffix = "-debug"
           isMinifyEnabled = false
-          buildConfigField("boolean", "ENABLE_DEBUG_FEATURES", "true")
         }
       }
 
