@@ -28,6 +28,7 @@ import app.passwordstore.databinding.ActivityOreoAutofillFilterBinding
 import app.passwordstore.util.autofill.AutofillMatcher
 import app.passwordstore.util.autofill.AutofillPreferences
 import app.passwordstore.util.coroutines.DispatcherProvider
+import app.passwordstore.util.extensions.enableEdgeToEdgeView
 import app.passwordstore.util.extensions.viewBinding
 import app.passwordstore.util.settings.DirectoryStructure
 import app.passwordstore.util.viewmodel.FilterMode
@@ -100,6 +101,7 @@ class AutofillFilterView : AppCompatActivity() {
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
+    enableEdgeToEdgeView(binding.root)
     setContentView(binding.root)
     setFinishOnTouchOutside(true)
 

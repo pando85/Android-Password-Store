@@ -17,6 +17,7 @@ import app.passwordstore.crypto.PGPIdentifier
 import app.passwordstore.crypto.PGPKeyManager
 import app.passwordstore.data.crypto.CryptoRepository
 import app.passwordstore.databinding.PgpKeyChangePassphraseActivityBinding
+import app.passwordstore.util.extensions.enableEdgeToEdgeView
 import app.passwordstore.util.extensions.getString
 import app.passwordstore.util.extensions.viewBinding
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -48,6 +49,7 @@ class PGPKeyChangePassphraseActivity : AppCompatActivity() {
       }
 
     with(binding) {
+      enableEdgeToEdgeView(root)
       setContentView(root)
       userid.text = cryptoRepository.getUserIdFromKeyId(identifier)
       oldPassphrase.doOnTextChanged { _, _, _, _ -> oldPassphraseInputLayout.error = null }

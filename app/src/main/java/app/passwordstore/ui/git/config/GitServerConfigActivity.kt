@@ -20,6 +20,7 @@ import app.passwordstore.data.repo.PasswordRepository
 import app.passwordstore.databinding.ActivityGitCloneBinding
 import app.passwordstore.ui.dialogs.BasicBottomSheet
 import app.passwordstore.ui.git.base.BaseGitActivity
+import app.passwordstore.util.extensions.enableEdgeToEdgeView
 import app.passwordstore.util.extensions.snackbar
 import app.passwordstore.util.extensions.viewBinding
 import app.passwordstore.util.settings.AuthMode
@@ -48,6 +49,7 @@ class GitServerConfigActivity : BaseGitActivity() {
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
+    enableEdgeToEdgeView(binding.root)
     val isClone = intent?.extras?.getBoolean("cloning") ?: false
     if (isClone) {
       binding.saveButton.text = getString(R.string.clone_button)

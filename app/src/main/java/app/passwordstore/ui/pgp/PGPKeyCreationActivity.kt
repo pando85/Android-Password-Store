@@ -14,6 +14,7 @@ import app.passwordstore.R
 import app.passwordstore.crypto.KeyUtils.tryGetId
 import app.passwordstore.crypto.PGPKeyManager
 import app.passwordstore.databinding.PgpKeyCreationActivityBinding
+import app.passwordstore.util.extensions.enableEdgeToEdgeView
 import app.passwordstore.util.extensions.getString
 import app.passwordstore.util.extensions.viewBinding
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -34,6 +35,7 @@ class PGPKeyCreationActivity : AppCompatActivity() {
     supportActionBar?.setDisplayHomeAsUpEnabled(true)
     title = getString(R.string.pgp_new_pgp_key_title)
     with(binding) {
+      enableEdgeToEdgeView(root)
       setContentView(root)
       email.doOnTextChanged { _, _, _, _ -> emailInputLayout.error = null }
       passphrase.doOnTextChanged { _, _, _, _ ->

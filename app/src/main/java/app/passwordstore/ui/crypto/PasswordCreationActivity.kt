@@ -33,6 +33,7 @@ import app.passwordstore.util.autofill.AutofillPreferences
 import app.passwordstore.util.extensions.asLog
 import app.passwordstore.util.extensions.base64
 import app.passwordstore.util.extensions.commitChange
+import app.passwordstore.util.extensions.enableEdgeToEdgeView
 import app.passwordstore.util.extensions.getString
 import app.passwordstore.util.extensions.isInsideRepository
 import app.passwordstore.util.extensions.snackbar
@@ -146,6 +147,7 @@ class PasswordCreationActivity : BasePGPActivity() {
     title =
       if (editing) getString(R.string.edit_password) else getString(R.string.new_password_title)
     with(binding) {
+      enableEdgeToEdgeView(root)
       setContentView(root)
       generatePassword.setOnClickListener { generatePassword() }
       otpImportButton.setOnClickListener {

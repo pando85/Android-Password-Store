@@ -11,6 +11,7 @@ import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
 import app.passwordstore.databinding.ActivityGitLogBinding
 import app.passwordstore.ui.git.base.BaseGitActivity
+import app.passwordstore.util.extensions.enableEdgeToEdgeView
 import app.passwordstore.util.extensions.viewBinding
 
 /**
@@ -24,6 +25,7 @@ class GitLogActivity : BaseGitActivity() {
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
+    enableEdgeToEdgeView(binding.root)
     setContentView(binding.root)
     supportActionBar?.setDisplayHomeAsUpEnabled(true)
     createRecyclerView()

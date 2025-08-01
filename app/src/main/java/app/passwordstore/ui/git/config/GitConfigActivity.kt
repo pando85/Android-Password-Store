@@ -19,6 +19,7 @@ import app.passwordstore.ui.dialogs.TextInputDialog
 import app.passwordstore.ui.git.base.BaseGitActivity
 import app.passwordstore.ui.git.log.GitLogActivity
 import app.passwordstore.util.extensions.asLog
+import app.passwordstore.util.extensions.enableEdgeToEdgeView
 import app.passwordstore.util.extensions.launchActivity
 import app.passwordstore.util.extensions.viewBinding
 import com.github.michaelbull.result.fold
@@ -40,6 +41,7 @@ class GitConfigActivity : BaseGitActivity() {
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
+    enableEdgeToEdgeView(binding.root)
     setContentView(binding.root)
     supportActionBar?.setDisplayHomeAsUpEnabled(true)
 

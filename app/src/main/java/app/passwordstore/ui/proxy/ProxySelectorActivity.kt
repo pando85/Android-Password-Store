@@ -20,6 +20,7 @@ import androidx.core.widget.doOnTextChanged
 import app.passwordstore.R
 import app.passwordstore.databinding.ActivityProxySelectorBinding
 import app.passwordstore.injection.prefs.SettingsPreferences
+import app.passwordstore.util.extensions.enableEdgeToEdgeView
 import app.passwordstore.util.extensions.getString
 import app.passwordstore.util.extensions.viewBinding
 import app.passwordstore.util.proxy.ProxyUtils
@@ -38,6 +39,7 @@ class ProxySelectorActivity : AppCompatActivity() {
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
+    enableEdgeToEdgeView(binding.root)
     setContentView(binding.root)
     supportActionBar?.setDisplayHomeAsUpEnabled(true)
     with(binding) {

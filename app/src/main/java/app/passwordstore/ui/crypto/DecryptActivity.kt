@@ -20,6 +20,7 @@ import app.passwordstore.data.password.FieldItem
 import app.passwordstore.data.repo.PasswordRepository
 import app.passwordstore.databinding.DecryptLayoutBinding
 import app.passwordstore.ui.adapters.FieldItemAdapter
+import app.passwordstore.util.extensions.enableEdgeToEdgeView
 import app.passwordstore.util.extensions.getString
 import app.passwordstore.util.extensions.snackbar
 import app.passwordstore.util.extensions.unsafeLazy
@@ -49,6 +50,7 @@ class DecryptActivity : BasePGPActivity() {
     supportActionBar?.setDisplayHomeAsUpEnabled(true)
     title = name
     with(binding) {
+      enableEdgeToEdgeView(root)
       setContentView(root)
       passwordCategory.text = relativeParentPath
       passwordFile.text = name

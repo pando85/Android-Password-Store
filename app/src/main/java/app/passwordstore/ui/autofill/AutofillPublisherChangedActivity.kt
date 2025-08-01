@@ -22,6 +22,7 @@ import app.passwordstore.databinding.ActivityOreoAutofillPublisherChangedBinding
 import app.passwordstore.util.autofill.AutofillMatcher
 import app.passwordstore.util.autofill.AutofillPublisherChangedException
 import app.passwordstore.util.extensions.asLog
+import app.passwordstore.util.extensions.enableEdgeToEdgeView
 import app.passwordstore.util.extensions.getApplicationInfoCompat
 import app.passwordstore.util.extensions.getPackageInfoCompat
 import app.passwordstore.util.extensions.viewBinding
@@ -70,6 +71,7 @@ class AutofillPublisherChangedActivity : AppCompatActivity() {
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
+    enableEdgeToEdgeView(binding.root)
     setContentView(binding.root)
     setFinishOnTouchOutside(true)
 
