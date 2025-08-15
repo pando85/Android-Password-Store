@@ -8,5 +8,6 @@
 <li>Sync with a remote Git repository</li>
 <li>Decrypt and copy passwords</li>
 <li>Automatically fill and save credentials in apps and supported browsers</li>
+<li>Supports time-based one-time passwords (TOTP) for two-step authentication</li>
 </ul>
 </p>
