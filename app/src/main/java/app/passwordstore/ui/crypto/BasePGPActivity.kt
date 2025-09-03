@@ -439,6 +439,7 @@ open class BasePGPActivity : AppCompatActivity() {
         .setMessage(resources.getString(R.string.aes_key_invalidated_dialog_message))
         .setIcon(R.drawable.ic_warning_red_24dp)
         .setPositiveButton(getString(R.string.dialog_ok)) { _, _ -> decrypt(identifiers) }
+        .setCancelable(false)
         .show()
       return
     }
