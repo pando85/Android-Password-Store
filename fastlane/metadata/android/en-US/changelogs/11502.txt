@@ -1,0 +1,4 @@
+Fixed:
+
+- Several edge-to-edge view issues on Android 15 devices
+- Exported PGP keys are now usable as OpenKeychain key backups
