@@ -19,10 +19,7 @@ dependencyResolutionManagement {
     }
     exclusiveContent {
       forRepository { gradlePluginPortal() }
-      filter {
-        includeModule("com.github.ben-manes", "gradle-versions-plugin")
-        includeModule("me.tylerbwong.gradle.metalava", "plugin")
-      }
+      filter { includeModule("com.github.ben-manes", "gradle-versions-plugin") }
     }
     mavenCentral { mavenContent { releasesOnly() } }
   }
