@@ -162,9 +162,10 @@ class RepositorySettings(private val activity: FragmentActivity) : SettingsProvi
 
   private var showSshKeyPref: Preference? = null
 
-  private val generateSshKey =
+  private val sshKeyAction =
     activity.registerForActivityResult(StartActivityForResult()) {
       showSshKeyPref?.visible = SshKey.canShowSshPublicKey
+      showSshKeyPref?.requestRebind()
     }
 
   override fun provideSettings(builder: PreferenceScreen.Builder) {
@@ -204,21 +205,21 @@ class RepositorySettings(private val activity: FragmentActivity) : SettingsProvi
       pref(PreferenceKeys.SSH_KEY) {
         titleRes = R.string.pref_import_ssh_key_title
         onClick {
-          activity.launchActivity(SshKeyImportActivity::class.java)
+          sshKeyAction.launch(Intent(activity, SshKeyImportActivity::class.java))
           true
         }
       }
       pref(PreferenceKeys.SSH_KEYGEN) {
         titleRes = R.string.pref_ssh_keygen_title
         onClick {
-          generateSshKey.launch(Intent(activity, SshKeyGenActivity::class.java))
+          sshKeyAction.launch(Intent(activity, SshKeyGenActivity::class.java))
           true
         }
       }
       showSshKeyPref =
         pref(PreferenceKeys.SSH_SEE_KEY) {
           titleRes = R.string.pref_ssh_see_key_title
-          visible = PasswordRepository.isGitRepo() && SshKey.canShowSshPublicKey
+          visible = SshKey.canShowSshPublicKey
           onClick {
             ShowSshKeyFragment().show(activity.supportFragmentManager, "public_key")
             true
