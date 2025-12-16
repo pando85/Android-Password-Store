@@ -37,15 +37,6 @@ public class PGPainlessCryptoHandler @Inject constructor() :
 
   private val pgpApi = PGPainless.getInstance()
 
-  public override fun passphraseIsCorrect(key: PGPKey, passphrase: CharArray?): Boolean =
-    tryParseCertificateOrKey(key)?.let {
-      if (it is OpenPGPKey)
-        it
-          .getSecretKey(it.getKeys().filter { it.isEncryptionKey() }.first())
-          .isPassphraseCorrect(passphrase)
-      else false
-    } ?: false
-
   /**
    * Decrypts the given [ciphertextStream] using [PGPainless] and writes the decrypted output to
    * [outputStream]. The provided [passphrase] is wrapped in a [SecretKeyRingProtector].
@@ -162,5 +153,29 @@ public class PGPainlessCryptoHandler @Inject constructor() :
   }
 
   public override fun isPassphraseProtected(keys: List<PGPKey>): Boolean =
-    keys.map { key -> KeyUtils.hasSecretKey(key) && !passphraseIsCorrect(key, null) }.all { it }
+    keys
+      .mapNotNull { tryParseCertificateOrKey(it) }
+      .filter { it.isSecretKey() }
+      .let { secretKeys ->
+        !secretKeys.isEmpty() &&
+          secretKeys.all {
+            (it as OpenPGPKey)
+              .getSecretKeys()
+              .values
+              .filter { it.isEncryptionKey() }
+              .first()
+              .isLocked()
+          }
+      }
+
+  public override fun passphraseIsCorrect(key: PGPKey, passphrase: CharArray?): Boolean =
+    tryParseCertificateOrKey(key)?.let {
+      it is OpenPGPKey &&
+        it
+          .getSecretKeys()
+          .values
+          .filter { it.isEncryptionKey() }
+          .first()
+          .isPassphraseCorrect(passphrase)
+    } ?: false
 }

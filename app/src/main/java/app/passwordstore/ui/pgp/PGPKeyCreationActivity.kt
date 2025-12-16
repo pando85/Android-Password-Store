@@ -132,7 +132,8 @@ class PGPKeyCreationActivity : AppCompatActivity() {
   private fun createPgpKey(email: String, passphrase: CharArray) {
     val name = binding.name.text.toString().trim()
     val userId = if (name.length > 0) "${name} <${email}>" else email
-    val (key, error) = keyManager.generateKey(userId, passphrase)
+    val (key, error) =
+      keyManager.generateKey(userId, if (passphrase.isEmpty()) null else passphrase)
 
     if (key != null) {
       MaterialAlertDialogBuilder(this)
