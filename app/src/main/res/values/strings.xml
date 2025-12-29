@@ -443,4 +443,15 @@
   <string name="pin_entry_title">PIN verification</string>
   <string name="pin_entry_description">Enter your PIN code to show this entry</string>
   <string name="pin_entry_wrong_input">Wrong input</string>
+
+  <!-- Passkey settings -->
+  <string name="pref_category_passkey_title">Passkeys</string>
+  <string name="pref_passkey_enable_title">Enable passkey provider</string>
+  <string name="pref_passkey_enable_summary">Allow Password Store to provide passkeys to apps and websites</string>
+  <string name="pref_passkey_manage_title">Manage passkeys</string>
+  <string name="pref_passkey_manage_summary">View and delete stored passkeys</string>
+  <string name="pref_passkey_directory_title">Passkey directory</string>
+  <string name="pref_passkey_directory_summary">Relative path within the password store for passkeys (default: fido2)</string>
+  <string name="pref_passkey_unsupported_title">Passkeys not available</string>
+  <string name="pref_passkey_unsupported_summary">Passkeys require Android 14 or later</string>
 </resources>

@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ~ Copyright © 2014-2025 The Android Password Store Authors. All Rights Reserved.
+  ~ SPDX-License-Identifier: GPL-3.0-only
+  -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!--
+            CredentialProviderService for Android 14+ Credential Manager.
+            This allows APS to provide passkeys to any app via the system UI.
+        -->
+        <service
+            android:name=".PasskeyProviderService"
+            android:enabled="true"
+            android:exported="true"
+            android:label="@string/passkey_provider_label"
+            android:permission="android.permission.BIND_CREDENTIAL_PROVIDER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.credentials.CredentialProviderService" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.credentials.provider"
+                android:resource="@xml/provider_config" />
+        </service>
+
+        <!--
+            Activity for creating new passkeys.
+            Launched when user selects Password Store in credential creation dialog.
+        -->
+        <activity
+            android:name=".CreatePasskeyActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Passkey.Dialog" />
+
+        <!--
+            Activity for using passkeys to sign in.
+            Launched when user selects a passkey from the credential selection dialog.
+        -->
+        <activity
+            android:name=".GetPasskeyActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Passkey.Dialog" />
+    </application>
+
+</manifest>

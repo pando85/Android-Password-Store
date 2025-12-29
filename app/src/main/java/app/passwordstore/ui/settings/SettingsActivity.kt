@@ -29,6 +29,7 @@ class SettingsActivity : AppCompatActivity() {
   private val passwordSettings = PasswordSettings(this)
   private val repositorySettings = RepositorySettings(this)
   private val generalSettings = GeneralSettings(this)
+  private val passkeySettings = PasskeySettings(this)
   private lateinit var pgpSettings: PGPSettings
 
   private val binding by viewBinding(ActivityPreferenceRecyclerviewBinding::inflate)
@@ -78,6 +79,12 @@ class SettingsActivity : AppCompatActivity() {
           titleRes = R.string.pref_category_pgp_title
           iconRes = R.drawable.ic_lock_open_24px
           pgpSettings.provideSettings(this)
+        }
+        subScreen {
+          collapseIcon = true
+          titleRes = R.string.pref_category_passkey_title
+          iconRes = R.drawable.ic_passkey_24px
+          passkeySettings.provideSettings(this)
         }
       }
     val backPressedCallback =

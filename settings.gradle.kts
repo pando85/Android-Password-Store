@@ -84,4 +84,8 @@ include("passgen:diceware")
 
 include("passgen:random")
 
+include("passkey:android")
+
+include("passkey:provider")
+
 include("ui:compose")

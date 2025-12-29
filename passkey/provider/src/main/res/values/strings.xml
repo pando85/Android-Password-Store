@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ~ Copyright © 2014-2025 The Android Password Store Authors. All Rights Reserved.
+  ~ SPDX-License-Identifier: GPL-3.0-only
+  -->
+<resources>
+    <string name="passkey_provider_label">Password Store Passkeys</string>
+    <string name="passkey_auth_title">Authenticate to use passkey</string>
+    <string name="passkey_auth_subtitle">Verify your identity to sign in to %s</string>
+    <string name="passkey_create_title">Create passkey</string>
+    <string name="passkey_create_subtitle">Create a passkey for %s</string>
+</resources>

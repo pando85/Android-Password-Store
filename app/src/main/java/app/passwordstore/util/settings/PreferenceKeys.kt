@@ -104,6 +104,11 @@ object PreferenceKeys {
   const val DISABLE_SYNC_ACTION = "disable_sync_action"
   const val ASCII_ARMOR = "pgpainless_ascii_armor"
 
+  // Passkey settings
+  const val PASSKEY_PROVIDER_ENABLE = "passkey_provider_enable"
+  const val PASSKEY_MANAGE = "passkey_manage"
+  const val PASSKEY_DIRECTORY = "passkey_directory"
+
   @Deprecated(
     message = "We refactored persistent caching of the PGP passphrase and this is no longer used"
   )

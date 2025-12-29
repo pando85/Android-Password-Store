@@ -15,6 +15,7 @@ import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.content.pm.PackageManager.ApplicationInfoFlags
 import android.content.pm.PackageManager.PackageInfoFlags
+import android.credentials.CredentialManager
 import android.os.Build
 import android.util.TypedValue
 import android.view.View
@@ -36,6 +37,14 @@ import logcat.logcat
 /** Get an instance of [AutofillManager]. Only available on Android Oreo and above */
 val Context.autofillManager: AutofillManager?
   get() = getSystemService()
+
+/** Get an instance of [CredentialManager]. Only available on Android 14 and above */
+val Context.credentialProviderManager: CredentialManager?
+  get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+    getSystemService()
+  } else {
+    null
+  }
 
 /** Get an instance of [ClipboardManager] */
 val Context.clipboard
