@@ -33,10 +33,6 @@ gradlePlugin {
       id = "com.github.android-password-store.kotlin-common"
       implementationClass = "app.passwordstore.gradle.KotlinCommonPlugin"
     }
-    register("kotlin-ksp") {
-      id = "com.github.android-password-store.kotlin-ksp"
-      implementationClass = "app.passwordstore.gradle.KotlinKspPlugin"
-    }
     register("kotlin-jvm-library") {
       id = "com.github.android-password-store.kotlin-jvm-library"
       implementationClass = "app.passwordstore.gradle.KotlinJVMLibrary"
