@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file
 
 ## [Unreleased]
 
+### Fixed
+
+- key parsing prematurely stopped on revoked key
+
 ## [1.16.1] - 2026-02-23
 
 ### Changed
