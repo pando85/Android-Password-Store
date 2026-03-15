@@ -55,6 +55,7 @@ dependencyResolutionManagement {
         includeGroupByRegex("androidx.*")
         includeGroupByRegex("com.android.*")
         includeGroup("com.google.android.gms")
+        includeGroup("com.google.android.libraries.identity.googleid")
         includeModule("com.google.android.material", "material")
       }
     }
@@ -85,3 +86,7 @@ include("passgen:diceware")
 include("passgen:random")
 
 include("ui:compose")
+
+include("passkeys:core")
+
+include("passkeys:provider")

@@ -1,0 +1,116 @@
+/*
+ * Copyright (C) 2014-2026 The Android Password Store Authors. All Rights Reserved.
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
+package app.passwordstore.passkeys.model
+
+import org.junit.Assert.assertArrayEquals
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class StoredCredentialTest {
+
+  @Test
+  fun `parse fixture credential 1`() {
+    val bytes = javaClass.getResourceAsStream("/fixtures/07b36924d8924098bb427039d7d0f43b86b4cb52a9dec9aab04bf47472e02d7b.bin")!!.readBytes()
+    val credential = StoredCredential.fromCbor(bytes)
+
+    assertEquals(32, credential.id.size)
+    assertEquals(0x07, credential.id[0].toInt() and 0xFF)
+    assertEquals(0xb3, credential.id[1].toInt() and 0xFF)
+
+    assertEquals("webauthn.io", credential.rp.id)
+    assertNull(credential.rp.name)
+
+    assertEquals("webauthnio-soft-fido2", String(credential.user.id, Charsets.UTF_8))
+    assertEquals("soft-fido2", credential.user.name)
+    assertNull(credential.user.displayName)
+
+    assertEquals(0u, credential.signCount)
+    assertEquals(-8, credential.alg)
+    assertEquals(32, credential.privateKey.size)
+    assertTrue(credential.discoverable)
+    assertEquals(3, credential.extensions.credProtect)
+    assertNull(credential.extensions.hmacSecret)
+  }
+
+  @Test
+  fun `parse fixture credential 2`() {
+    val bytes = javaClass.getResourceAsStream("/fixtures/1381816530c267f00fb7d8a844b65f765cbbc059d8d7c695a40b7a1dea48f139.bin")!!.readBytes()
+    val credential = StoredCredential.fromCbor(bytes)
+
+    assertEquals("webauthn.io", credential.rp.id)
+    assertEquals("passless", credential.user.name)
+    assertEquals(-8, credential.alg)
+    assertEquals(3, credential.extensions.credProtect)
+  }
+
+  @Test
+  fun `roundtrip credential`() {
+    val original = StoredCredential(
+      id = byteArrayOf(0x01, 0x02, 0x03, 0x04),
+      rp = RelyingParty(id = "example.com", name = "Example Site"),
+      user = User(
+        id = byteArrayOf(0x05, 0x06, 0x07),
+        name = "testuser",
+        displayName = "Test User"
+      ),
+      signCount = 42u,
+      alg = StoredCredential.ALG_ES256,
+      privateKey = byteArrayOf(0x10, 0x20, 0x30, 0x40),
+      created = 1234567890L,
+      discoverable = true,
+      extensions = Extensions(credProtect = 2, hmacSecret = true)
+    )
+
+    val encoded = original.toCbor()
+    val decoded = StoredCredential.fromCbor(encoded)
+
+    assertArrayEquals(original.id, decoded.id)
+    assertEquals(original.rp, decoded.rp)
+    assertEquals(original.user, decoded.user)
+    assertEquals(original.signCount, decoded.signCount)
+    assertEquals(original.alg, decoded.alg)
+    assertArrayEquals(original.privateKey, decoded.privateKey)
+    assertEquals(original.created, decoded.created)
+    assertEquals(original.discoverable, decoded.discoverable)
+    assertEquals(original.extensions, decoded.extensions)
+  }
+
+  @Test
+  fun `credential id hex`() {
+    val credential = StoredCredential(
+      id = byteArrayOf(0x01, 0x02, 0x0a, 0x0f, 0xff.toByte()),
+      rp = RelyingParty(id = "test.com"),
+      user = User(id = byteArrayOf(0x01)),
+      signCount = 0u,
+      alg = StoredCredential.ALG_ES256,
+      privateKey = byteArrayOf(0x00),
+      created = 0L,
+    )
+
+    assertEquals("01020a0fff", credential.credentialIdHex())
+  }
+
+  @Test
+  fun `minimal credential`() {
+    val original = StoredCredential(
+      id = byteArrayOf(0x01, 0x02),
+      rp = RelyingParty(id = "test.com"),
+      user = User(id = byteArrayOf(0x03)),
+      signCount = 0u,
+      alg = StoredCredential.ALG_ES256,
+      privateKey = byteArrayOf(0x00),
+      created = 0L,
+    )
+
+    val encoded = original.toCbor()
+    val decoded = StoredCredential.fromCbor(encoded)
+
+    assertEquals(original, decoded)
+  }
+}

@@ -1,0 +1,256 @@
+/*
+ * Copyright (C) 2014-2026 The Android Password Store Authors. All Rights Reserved.
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
+package app.passwordstore.passkeys.model
+
+import app.passwordstore.passkeys.cbor.Cbor
+import app.passwordstore.passkeys.cbor.CborMap
+import app.passwordstore.passkeys.cbor.CborValue
+import app.passwordstore.passkeys.cbor.toCborIntegerArray
+import java.math.BigInteger
+import kotlinx.datetime.Instant
+
+public data class StoredCredential(
+  val id: ByteArray,
+  val rp: RelyingParty,
+  val user: User,
+  val signCount: UInt,
+  val alg: Int,
+  val privateKey: ByteArray,
+  val publicKey: ByteArray? = null,
+  val created: Long,
+  val discoverable: Boolean = true,
+  val extensions: Extensions = Extensions(),
+) {
+  public fun toCbor(): ByteArray {
+    val map = mutableMapOf<String, CborValue>()
+    map["id"] = id.toCborIntegerArray()
+    map["rp"] = CborValue.Map(rp.toCborMap())
+    map["user"] = CborValue.Map(user.toCborMap())
+    map["sign_count"] = CborValue.UnsignedInteger(BigInteger.valueOf(signCount.toLong()))
+    map["alg"] = CborValue.NegativeInteger(BigInteger.valueOf(alg.toLong()))
+    map["private_key"] = privateKey.toCborIntegerArray()
+    map["created"] = CborValue.UnsignedInteger(BigInteger.valueOf(created))
+    map["discoverable"] = if (discoverable) CborValue.True else CborValue.False
+    map["extensions"] = CborValue.Map(extensions.toCborMap())
+    return Cbor.fromMap(CborMap.from(map)).toBytes()
+  }
+
+  public fun toPasskeyCredential(): PasskeyCredential {
+    return PasskeyCredential(
+      credentialId = id,
+      privateKey = privateKey,
+      publicKey = publicKey ?: ByteArray(65) { 0 },
+      rpId = rp.id,
+      user = FidoUser(
+        id = user.id,
+        name = user.name ?: "",
+        displayName = user.displayName ?: ""
+      ),
+      signCount = signCount.toULong(),
+      createdAt = Instant.fromEpochSeconds(created),
+      transports = listOf("internal"),
+      uvInitialized = true
+    )
+  }
+
+  public fun credentialIdHex(): String {
+    return id.joinToString("") { byte -> "%02x".format(byte) }
+  }
+
+  override fun equals(other: Any?): Boolean {
+    if (this === other) return true
+    if (other !is StoredCredential) return false
+    if (!id.contentEquals(other.id)) return false
+    if (rp != other.rp) return false
+    if (user != other.user) return false
+    if (signCount != other.signCount) return false
+    if (alg != other.alg) return false
+    if (!privateKey.contentEquals(other.privateKey)) return false
+    if (publicKey != null) {
+      if (other.publicKey == null) return false
+      if (!publicKey.contentEquals(other.publicKey)) return false
+    } else if (other.publicKey != null) return false
+    if (created != other.created) return false
+    if (discoverable != other.discoverable) return false
+    if (extensions != other.extensions) return false
+    return true
+  }
+
+  override fun hashCode(): Int {
+    var result = id.contentHashCode()
+    result = 31 * result + rp.hashCode()
+    result = 31 * result + user.hashCode()
+    result = 31 * result + signCount.hashCode()
+    result = 31 * result + alg
+    result = 31 * result + privateKey.contentHashCode()
+    result = 31 * result + (publicKey?.contentHashCode() ?: 0)
+    result = 31 * result + created.hashCode()
+    result = 31 * result + discoverable.hashCode()
+    result = 31 * result + extensions.hashCode()
+    return result
+  }
+
+  public companion object {
+    public const val ALG_ES256: Int = -7
+
+    public fun fromCbor(bytes: ByteArray): StoredCredential {
+      val map = Cbor.parse(bytes).asMap()
+
+      val id = map.getBytes("id") ?: throw IllegalArgumentException("Missing 'id' field")
+      val rpMap = map.getMap("rp") ?: throw IllegalArgumentException("Missing 'rp' field")
+      val userMap = map.getMap("user") ?: throw IllegalArgumentException("Missing 'user' field")
+      val signCount = map.getLong("sign_count")?.toUInt() ?: throw IllegalArgumentException("Missing 'sign_count' field")
+      val alg = map.getInt("alg") ?: throw IllegalArgumentException("Missing 'alg' field")
+      val privateKey = map.getBytes("private_key") ?: throw IllegalArgumentException("Missing 'private_key' field")
+      val created = map.getLong("created") ?: throw IllegalArgumentException("Missing 'created' field")
+      val discoverable = map.getBoolean("discoverable") ?: true
+      val extensionsMap = map.getMap("extensions")
+
+      return StoredCredential(
+        id = id,
+        rp = RelyingParty.fromCborMap(rpMap),
+        user = User.fromCborMap(userMap),
+        signCount = signCount,
+        alg = alg,
+        privateKey = privateKey,
+        created = created,
+        discoverable = discoverable,
+        extensions = extensionsMap?.let { Extensions.fromCborMap(it) } ?: Extensions(),
+      )
+    }
+
+    public fun fromPasskeyCredential(credential: PasskeyCredential): StoredCredential {
+      return StoredCredential(
+        id = credential.credentialId,
+        rp = RelyingParty(
+          id = credential.rpId,
+          name = null
+        ),
+        user = User(
+          id = credential.user.id,
+          name = credential.user.name,
+          displayName = credential.user.displayName
+        ),
+        signCount = credential.signCount.toUInt(),
+        alg = ALG_ES256,
+        privateKey = credential.privateKey,
+        publicKey = credential.publicKey,
+        created = credential.createdAt.epochSeconds,
+        discoverable = true,
+        extensions = Extensions()
+      )
+    }
+  }
+}
+
+public data class RelyingParty(
+  val id: String,
+  val name: String? = null,
+) {
+  public fun toCborMap(): CborMap {
+    val map = mutableMapOf<String, CborValue>()
+    map["id"] = CborValue.TextString(id)
+    name?.let { map["name"] = CborValue.TextString(it) }
+      ?: run { map["name"] = CborValue.Null }
+    return CborMap.from(map)
+  }
+
+  public companion object {
+    public fun fromCborMap(map: CborMap): RelyingParty {
+      return RelyingParty(
+        id = map.getString("id") ?: throw IllegalArgumentException("Missing 'rp.id' field"),
+        name = if (map.isNull("name")) null else map.getString("name"),
+      )
+    }
+  }
+}
+
+public data class User(
+  val id: ByteArray,
+  val name: String? = null,
+  val displayName: String? = null,
+) {
+  public fun toCborMap(): CborMap {
+    val map = mutableMapOf<String, CborValue>()
+    map["id"] = id.toCborIntegerArray()
+    name?.let { map["name"] = CborValue.TextString(it) }
+      ?: run { map["name"] = CborValue.Null }
+    displayName?.let { map["display_name"] = CborValue.TextString(it) }
+      ?: run { map["display_name"] = CborValue.Null }
+    return CborMap.from(map)
+  }
+
+  override fun equals(other: Any?): Boolean {
+    if (this === other) return true
+    if (other !is User) return false
+    if (!id.contentEquals(other.id)) return false
+    if (name != other.name) return false
+    if (displayName != other.displayName) return false
+    return true
+  }
+
+  override fun hashCode(): Int {
+    var result = id.contentHashCode()
+    result = 31 * result + (name?.hashCode() ?: 0)
+    result = 31 * result + (displayName?.hashCode() ?: 0)
+    return result
+  }
+
+  public companion object {
+    public fun fromCborMap(map: CborMap): User {
+      return User(
+        id = map.getBytes("id") ?: throw IllegalArgumentException("Missing 'user.id' field"),
+        name = if (map.isNull("name")) null else map.getString("name"),
+        displayName = if (map.isNull("display_name")) null else map.getString("display_name"),
+      )
+    }
+  }
+}
+
+public data class Extensions(
+  val credProtect: Int? = null,
+  val hmacSecret: Boolean? = null,
+  val credRandom: ByteArray? = null,
+) {
+  public fun toCborMap(): CborMap {
+    val map = mutableMapOf<String, CborValue>()
+    credProtect?.let { map["cred_protect"] = CborValue.UnsignedInteger(BigInteger.valueOf(it.toLong())) }
+      ?: run { map["cred_protect"] = CborValue.Null }
+    hmacSecret?.let { map["hmac_secret"] = if (it) CborValue.True else CborValue.False }
+      ?: run { map["hmac_secret"] = CborValue.Null }
+    credRandom?.let { map["cred_random"] = it.toCborIntegerArray() }
+    return CborMap.from(map)
+  }
+
+  override fun equals(other: Any?): Boolean {
+    if (this === other) return true
+    if (other !is Extensions) return false
+    if (credProtect != other.credProtect) return false
+    if (hmacSecret != other.hmacSecret) return false
+    if (credRandom != null) {
+      if (other.credRandom == null) return false
+      if (!credRandom.contentEquals(other.credRandom)) return false
+    } else if (other.credRandom != null) return false
+    return true
+  }
+
+  override fun hashCode(): Int {
+    var result = credProtect ?: 0
+    result = 31 * result + (hmacSecret?.hashCode() ?: 0)
+    result = 31 * result + (credRandom?.contentHashCode() ?: 0)
+    return result
+  }
+
+  public companion object {
+    public fun fromCborMap(map: CborMap): Extensions {
+      return Extensions(
+        credProtect = if (map.isNull("cred_protect")) null else map.getInt("cred_protect"),
+        hmacSecret = if (map.isNull("hmac_secret")) null else map.getBoolean("hmac_secret"),
+        credRandom = map.getBytes("cred_random"),
+      )
+    }
+  }
+}

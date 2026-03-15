@@ -168,3 +168,8 @@ app/outputs
 
 # K2 generated directory
 .kotlin/
+.envrc
+
+# Rust build artifacts
+rust/target/
+Cargo.lock

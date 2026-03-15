@@ -1,0 +1,267 @@
+/*
+ * Copyright (C) 2014-2026 The Android Password Store Authors. All Rights Reserved.
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
+package app.passwordstore.passkeys.provider
+
+import app.passwordstore.passkeys.crypto.AssertionResult
+import app.passwordstore.passkeys.crypto.ES256CryptoHandler
+import app.passwordstore.passkeys.model.PasskeyCredential
+import java.io.ByteArrayOutputStream
+import java.security.MessageDigest
+import java.util.Base64
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+
+/**
+ * Utility functions for WebAuthn/FIDO2 passkey operations.
+ */
+public object PasskeyProviderUtils {
+
+  /**
+   * Shared JSON serializer for WebAuthn protocol messages.
+   */
+  public val json: Json = Json {
+    ignoreUnknownKeys = true
+    encodeDefaults = true
+  }
+
+  /**
+   * Decodes a base64url-encoded string to bytes.
+   */
+  public fun decodeBase64Url(value: String): ByteArray {
+    return Base64.getUrlDecoder().decode(value)
+  }
+
+  /**
+   * Encodes bytes to a base64url string without padding.
+   */
+  public fun encodeBase64Url(value: ByteArray): String {
+    return Base64.getUrlEncoder().withoutPadding().encodeToString(value)
+  }
+
+  /**
+   * Filters credentials based on the allowCredentials list from a WebAuthn request.
+   *
+   * @param credentials All available credentials
+   * @param allowCredentials List of allowed credential IDs from the request
+   * @return Filtered list of credentials
+   */
+  internal fun selectCredentials(
+    credentials: List<PasskeyCredential>,
+    allowCredentials: List<PublicKeyCredentialDescriptor>,
+  ): List<PasskeyCredential> {
+    if (allowCredentials.isEmpty()) return credentials
+    val allowedIds = allowCredentials.mapTo(hashSetOf()) { it.id }
+    return credentials.filter { credential ->
+      encodeBase64Url(credential.credentialId) in allowedIds
+    }
+  }
+
+  /**
+   * Builds a WebAuthn assertion response JSON for authentication.
+   *
+   * @param assertion The assertion result from signing
+   * @param credential The credential that was used
+   * @param requestJson The original request JSON
+   * @return JSON-encoded assertion response
+   */
+  public fun buildAssertionResponse(
+    assertion: AssertionResult,
+    credential: PasskeyCredential,
+    requestJson: String,
+  ): String {
+    val request = json.decodeFromString<WebAuthnGetRequest>(requestJson)
+    return buildAssertionResponse(assertion, credential, request)
+  }
+
+  internal fun buildAssertionResponse(
+    assertion: AssertionResult,
+    credential: PasskeyCredential,
+    request: WebAuthnGetRequest,
+  ): String {
+    val response =
+      AssertionResponseJson(
+        id = encodeBase64Url(assertion.credentialId),
+        rawId = encodeBase64Url(assertion.credentialId),
+        type = "public-key",
+        response =
+          AssertionResponseData(
+            clientDataJSON = encodeBase64Url(assertion.clientDataJSON.toByteArray()),
+            authenticatorData = encodeBase64Url(assertion.authenticatorData),
+            signature = encodeBase64Url(assertion.signature),
+            userHandle = assertion.userHandle?.let(::encodeBase64Url),
+          ),
+      )
+    return json.encodeToString(response)
+  }
+
+  /**
+   * Builds a WebAuthn attestation response JSON for credential creation.
+   *
+   * @param credential The newly created credential
+   * @param requestJson The original request JSON
+   * @return JSON-encoded attestation response
+   */
+  public fun buildAttestationResponse(
+    credential: PasskeyCredential,
+    requestJson: String,
+  ): String {
+    val request = json.decodeFromString<WebAuthnCreateRequest>(requestJson)
+    return buildAttestationResponse(credential, request)
+  }
+
+  internal fun buildAttestationResponse(
+    credential: PasskeyCredential,
+    request: WebAuthnCreateRequest,
+  ): String {
+    val origin = "https://${credential.rpId}"
+    val clientDataJson = buildClientDataJson("webauthn.create", request.challenge, origin)
+    val coseKey = encodeCoseEcPublicKey(credential.publicKey)
+    val authData = buildAttestedAuthenticatorData(credential, coseKey)
+    val spkiPublicKey = buildSpkiPublicKey(credential.publicKey)
+    val response =
+      AttestationResponseJson(
+        id = encodeBase64Url(credential.credentialId),
+        rawId = encodeBase64Url(credential.credentialId),
+        type = "public-key",
+        response =
+          AttestationResponseData(
+            clientDataJSON = encodeBase64Url(clientDataJson.toByteArray()),
+            attestationObject = encodeBase64Url(buildAttestationObjectFromAuthData(authData)),
+            transports = listOf("internal"),
+            publicKeyAlgorithm = -7L,
+            authenticatorData = encodeBase64Url(authData),
+            publicKey = encodeBase64Url(spkiPublicKey),
+          ),
+      )
+    return json.encodeToString(response)
+  }
+
+  private fun buildSpkiPublicKey(rawPublicKey: ByteArray): ByteArray {
+    require(rawPublicKey.size == 65 && rawPublicKey.first() == 0x04.toByte()) {
+      "Expected uncompressed P-256 public key"
+    }
+    val x = rawPublicKey.copyOfRange(1, 33)
+    val y = rawPublicKey.copyOfRange(33, 65)
+    val spkiPrefix = byteArrayOf(
+      0x30, 0x59, 0x30, 0x13, 0x06, 0x07, 0x2A, 0x86.toByte(),
+      0x48, 0xCE.toByte(), 0x3D, 0x02, 0x01, 0x06, 0x08, 0x2A.toByte(),
+      0x86.toByte(), 0x48, 0xCE.toByte(), 0x3D, 0x03, 0x01, 0x07, 0x03, 0x42, 0x00, 0x04
+    )
+    return spkiPrefix + x + y
+  }
+
+  private fun buildAttestationObjectFromAuthData(authData: ByteArray): ByteArray {
+    val fields =
+      listOf(
+        cborText("fmt") to cborText("none"),
+        cborText("attStmt") to cborMap(emptyList()),
+        cborText("authData") to cborBytes(authData),
+      )
+    return cborMap(fields)
+  }
+
+  private fun buildClientDataJson(type: String, challenge: String, origin: String): String {
+    return json.encodeToString(ClientDataJson(type = type, challenge = challenge, origin = origin))
+  }
+
+  private fun buildAttestedAuthenticatorData(credential: PasskeyCredential, coseKey: ByteArray): ByteArray {
+    val rpIdHash = MessageDigest.getInstance("SHA-256").digest(credential.rpId.toByteArray())
+    val flags = (ES256CryptoHandler.FLAG_USER_PRESENT.toInt() or
+                 ES256CryptoHandler.FLAG_USER_VERIFIED.toInt() or
+                 ES256CryptoHandler.FLAG_ATTESTED_CREDENTIAL_DATA.toInt()).toByte()
+    val signCount = byteArrayOf(0, 0, 0, 0)
+    val aaguid = byteArrayOf(
+      0x41, 0x50, 0x53, 0x32, 0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    )
+    val credentialIdLength =
+      byteArrayOf(
+        ((credential.credentialId.size shr 8) and 0xFF).toByte(),
+        (credential.credentialId.size and 0xFF).toByte(),
+      )
+    return rpIdHash + byteArrayOf(flags) + signCount + aaguid + credentialIdLength + credential.credentialId + coseKey
+  }
+
+  private fun encodeCoseEcPublicKey(rawPublicKey: ByteArray): ByteArray {
+    require(rawPublicKey.size == 65 && rawPublicKey.first() == 0x04.toByte()) {
+      "Expected uncompressed P-256 public key"
+    }
+    val x = rawPublicKey.copyOfRange(1, 33)
+    val y = rawPublicKey.copyOfRange(33, 65)
+    val entries =
+      listOf(
+        cborInt(1) to cborInt(2),
+        cborInt(3) to cborNegativeInt(-7),
+        cborNegativeInt(-1) to cborInt(1),
+        cborNegativeInt(-2) to cborBytes(x),
+        cborNegativeInt(-3) to cborBytes(y),
+      )
+    return cborMap(entries)
+  }
+
+  private fun cborMap(entries: List<Pair<ByteArray, ByteArray>>): ByteArray {
+    val output = ByteArrayOutputStream()
+    output.write(encodeMajorType(5, entries.size.toLong()))
+    for ((key, value) in entries) {
+      output.write(key)
+      output.write(value)
+    }
+    return output.toByteArray()
+  }
+
+  private fun cborText(value: String): ByteArray {
+    val bytes = value.toByteArray()
+    return encodeMajorType(3, bytes.size.toLong()) + bytes
+  }
+
+  private fun cborBytes(value: ByteArray): ByteArray {
+    return encodeMajorType(2, value.size.toLong()) + value
+  }
+
+  private fun cborInt(value: Int): ByteArray {
+    require(value >= 0)
+    return encodeMajorType(0, value.toLong())
+  }
+
+  private fun cborNegativeInt(value: Int): ByteArray {
+    require(value < 0)
+    return encodeMajorType(1, (-1L - value))
+  }
+
+  private fun encodeMajorType(majorType: Int, value: Long): ByteArray {
+    require(value >= 0)
+    return when {
+      value <= 23 -> byteArrayOf(((majorType shl 5) or value.toInt()).toByte())
+      value <= 0xFF -> byteArrayOf(((majorType shl 5) or 24).toByte(), value.toByte())
+      value <= 0xFFFF ->
+        byteArrayOf(
+          ((majorType shl 5) or 25).toByte(),
+          ((value shr 8) and 0xFF).toByte(),
+          (value and 0xFF).toByte(),
+        )
+      value <= 0xFFFF_FFFFL ->
+        byteArrayOf(
+          ((majorType shl 5) or 26).toByte(),
+          ((value shr 24) and 0xFF).toByte(),
+          ((value shr 16) and 0xFF).toByte(),
+          ((value shr 8) and 0xFF).toByte(),
+          (value and 0xFF).toByte(),
+        )
+      else ->
+        byteArrayOf(
+          ((majorType shl 5) or 27).toByte(),
+          ((value shr 56) and 0xFF).toByte(),
+          ((value shr 48) and 0xFF).toByte(),
+          ((value shr 40) and 0xFF).toByte(),
+          ((value shr 32) and 0xFF).toByte(),
+          ((value shr 24) and 0xFF).toByte(),
+          ((value shr 16) and 0xFF).toByte(),
+          ((value shr 8) and 0xFF).toByte(),
+          (value and 0xFF).toByte(),
+        )
+    }
+  }
+}

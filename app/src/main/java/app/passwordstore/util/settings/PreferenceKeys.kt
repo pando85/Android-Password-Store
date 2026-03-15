@@ -112,4 +112,7 @@ object PreferenceKeys {
   const val CLEAR_PASSPHRASE_CACHE = "pgpainless_auto_clear_passphrase_cache_screen_off"
 
   const val CACHE_PASSPHRASE = "cache_passphrase_until_screen_off"
+
+  const val PASSKEY_CONSTANT_SIGNATURE_COUNTER = "passkey_constant_signature_counter"
+  const val PASSKEY_AUTO_GIT_SYNC = "passkey_auto_git_sync"
 }

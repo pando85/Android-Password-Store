@@ -133,6 +133,11 @@
   <string name="pref_category_autofill_title">Autofill</string>
   <string name="pref_autofill_enable_title">Enable Autofill</string>
   <string name="pref_category_misc_title">Misc</string>
+  <string name="pref_category_passkey_title">Passkeys</string>
+  <string name="pref_passkey_constant_signature_counter_title">Constant signature counter</string>
+  <string name="pref_passkey_constant_signature_counter_summary">Keep signCount at 0 to help detect cloned authenticators (passless compatible).</string>
+  <string name="pref_passkey_auto_git_sync_title">Auto Git sync</string>
+  <string name="pref_passkey_auto_git_sync_summary">Automatically sync passkeys with Git remote when repository is configured.</string>
   <string name="pref_clear_clipboard_title">Scramble clipboard history</string>
   <string name="pref_clear_clipboard_summary">Flood clipboard history (Samsung devices, Gboard) with random numbers, wiping out any passwords.</string>
   <string name="pref_git_delete_repo_summary">Deletes local (hidden) repository.</string>
@@ -261,6 +266,9 @@
   <string name="git_head_missing">Unable to locate HEAD</string>
   <string name="git_abort_and_push_title">Abort and push</string>
   <string name="biometric_prompt_default_description">Authenticate to continue</string>
+  <string name="passkey_auth_title">Use passkey</string>
+  <string name="passkey_create_auth_title">Create passkey</string>
+  <string name="passkey_auth_description">Authenticate to use this passkey</string>
   <string name="biometric_auth_error_reason">Authentication failure: %s</string>
   <string name="pref_biometric_auth_title">Enable authentication on app start</string>
   <string name="pref_biometric_auth_summary">Password Store asks you to verify your fingerprint or the device PIN upon startup.</string>

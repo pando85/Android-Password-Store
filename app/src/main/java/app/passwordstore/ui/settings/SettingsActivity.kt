@@ -30,6 +30,7 @@ class SettingsActivity : AppCompatActivity() {
   val repositorySettings = RepositorySettings(this)
   private val generalSettings = GeneralSettings(this)
   private val pgpSettings = PGPSettings(this)
+  private val passkeySettings = PasskeySettings(this)
 
   private val binding by viewBinding(ActivityPreferenceRecyclerviewBinding::inflate)
   private val preferencesAdapter: PreferencesAdapter
@@ -53,6 +54,12 @@ class SettingsActivity : AppCompatActivity() {
           titleRes = R.string.pref_category_autofill_title
           iconRes = R.drawable.ic_wysiwyg_24px
           autofillSettings.provideSettings(this)
+        }
+        subScreen {
+          collapseIcon = true
+          titleRes = R.string.pref_category_passkey_title
+          iconRes = R.drawable.ic_passkey_24px
+          passkeySettings.provideSettings(this)
         }
         subScreen {
           collapseIcon = true
