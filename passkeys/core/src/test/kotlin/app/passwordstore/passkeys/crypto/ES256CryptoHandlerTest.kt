@@ -6,9 +6,7 @@
 package app.passwordstore.passkeys.crypto
 
 import com.github.michaelbull.result.getOrElse
-import java.util.Base64
 import kotlin.test.Test
-import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
@@ -32,7 +30,7 @@ class ES256CryptoHandlerTest {
 
     assertTrue(
       !privateKey1.contentEquals(privateKey2) || !publicKey1.contentEquals(publicKey2),
-      "Key pairs should be different"
+      "Key pairs should be different",
     )
   }
 
@@ -63,21 +61,26 @@ class ES256CryptoHandlerTest {
 
     val wrongSignature = ByteArray(70) { 0 }
 
-    val verifyResult = cryptoHandler.verify(publicKey, wrongSignature, authenticatorData, clientDataHash)
+    val verifyResult =
+      cryptoHandler.verify(publicKey, wrongSignature, authenticatorData, clientDataHash)
 
     val isOkOrFalse = verifyResult.isOk && !verifyResult.getOrElse { true }
-    assertTrue(isOkOrFalse || verifyResult.isErr, "Verify should fail or return false for wrong signature")
+    assertTrue(
+      isOkOrFalse || verifyResult.isErr,
+      "Verify should fail or return false for wrong signature",
+    )
   }
 
   @Test
   fun `createCredential returns valid credential`() {
-    val result = cryptoHandler.createCredential(
-      rpId = "example.com",
-      userId = "user123".toByteArray(),
-      userName = "testuser",
-      userDisplayName = "Test User",
-      challenge = ByteArray(32) { it.toByte() }
-    )
+    val result =
+      cryptoHandler.createCredential(
+        rpId = "example.com",
+        userId = "user123".toByteArray(),
+        userName = "testuser",
+        userDisplayName = "Test User",
+        challenge = ByteArray(32) { it.toByte() },
+      )
 
     assertTrue(result.isOk, "Create credential should succeed")
 
@@ -93,22 +96,25 @@ class ES256CryptoHandlerTest {
 
   @Test
   fun `getAssertion returns valid assertion`() {
-    val credentialResult = cryptoHandler.createCredential(
-      rpId = "example.com",
-      userId = "user123".toByteArray(),
-      userName = "testuser",
-      userDisplayName = "Test User",
-      challenge = ByteArray(32) { it.toByte() }
-    )
+    val credentialResult =
+      cryptoHandler.createCredential(
+        rpId = "example.com",
+        userId = "user123".toByteArray(),
+        userName = "testuser",
+        userDisplayName = "Test User",
+        challenge = ByteArray(32) { it.toByte() },
+      )
 
-    val credential = credentialResult.getOrElse { throw AssertionError("Credential creation failed") }
+    val credential =
+      credentialResult.getOrElse { throw AssertionError("Credential creation failed") }
 
-    val assertionResult = cryptoHandler.getAssertion(
-      credential = credential,
-      rpId = "example.com",
-      challenge = ByteArray(32) { it.toByte() },
-      origin = "https://example.com"
-    )
+    val assertionResult =
+      cryptoHandler.getAssertion(
+        credential = credential,
+        rpId = "example.com",
+        challenge = ByteArray(32) { it.toByte() },
+        origin = "https://example.com",
+      )
 
     assertTrue(assertionResult.isOk, "Get assertion should succeed")
 
@@ -117,11 +123,24 @@ class ES256CryptoHandlerTest {
     assertNotNull(assertion.authenticatorData)
     assertNotNull(assertion.signature)
     assertNotNull(assertion.clientDataJSON)
-    assertTrue(assertion.clientDataJSON.contains("\"type\":\"webauthn.get\""), "Client data should have correct type")
-    assertTrue(assertion.clientDataJSON.contains("\"crossOrigin\":false"), "Client data should have crossOrigin")
+    assertTrue(
+      assertion.clientDataJSON.contains("\"type\":\"webauthn.get\""),
+      "Client data should have correct type",
+    )
+    assertTrue(
+      assertion.clientDataJSON.contains("\"crossOrigin\":false"),
+      "Client data should have crossOrigin",
+    )
     assertEquals(37, assertion.authenticatorData.size, "Authenticator data should be 37 bytes")
-    assertEquals(0x05, assertion.authenticatorData[32].toInt() and 0xFF, "Authenticator flags should set UP and UV only")
-    assertTrue(assertion.signature.size in 70..72, "Signature should be DER-encoded (typically 70-72 bytes)")
+    assertEquals(
+      0x05,
+      assertion.authenticatorData[32].toInt() and 0xFF,
+      "Authenticator flags should set UP and UV only",
+    )
+    assertTrue(
+      assertion.signature.size in 70..72,
+      "Signature should be DER-encoded (typically 70-72 bytes)",
+    )
   }
 
   @Test
@@ -134,6 +153,9 @@ class ES256CryptoHandlerTest {
 
     assertTrue(signResult.isOk, "Sign should succeed")
     val signature = signResult.getOrElse { throw AssertionError("Sign failed") }
-    assertTrue(signature.size in 70..72, "DER signature should typically be 70-72 bytes, got ${signature.size}")
+    assertTrue(
+      signature.size in 70..72,
+      "DER signature should typically be 70-72 bytes, got ${signature.size}",
+    )
   }
 }

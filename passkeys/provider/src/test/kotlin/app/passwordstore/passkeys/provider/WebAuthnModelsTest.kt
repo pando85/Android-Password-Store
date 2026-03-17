@@ -5,18 +5,18 @@
 
 package app.passwordstore.passkeys.provider
 
-import kotlinx.serialization.decodeFromString
-import kotlinx.serialization.encodeToString
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
 
 class WebAuthnModelsTest {
 
   @Test
   fun `WebAuthnGetRequest parses correctly`() {
-    val json = """
+    val json =
+      """
       {
         "rpId": "example.com",
         "challenge": "dGVzdC1jaGFsbGVuZ2U",
@@ -25,7 +25,8 @@ class WebAuthnModelsTest {
         ],
         "userVerification": "required"
       }
-    """.trimIndent()
+      """
+        .trimIndent()
 
     val request = PasskeyProviderUtils.json.decodeFromString<WebAuthnGetRequest>(json)
 
@@ -39,11 +40,13 @@ class WebAuthnModelsTest {
 
   @Test
   fun `WebAuthnGetRequest handles missing optional fields`() {
-    val json = """
+    val json =
+      """
       {
         "challenge": "dGVzdC1jaGFsbGVuZ2U"
       }
-    """.trimIndent()
+      """
+        .trimIndent()
 
     val request = PasskeyProviderUtils.json.decodeFromString<WebAuthnGetRequest>(json)
 
@@ -54,7 +57,8 @@ class WebAuthnModelsTest {
 
   @Test
   fun `WebAuthnCreateRequest parses correctly`() {
-    val json = """
+    val json =
+      """
       {
         "rp": {"id": "example.com", "name": "Example Site"},
         "user": {"id": "dXNlci1pZA", "name": "testuser", "displayName": "Test User"},
@@ -68,7 +72,8 @@ class WebAuthnModelsTest {
           "userVerification": "required"
         }
       }
-    """.trimIndent()
+      """
+        .trimIndent()
 
     val request = PasskeyProviderUtils.json.decodeFromString<WebAuthnCreateRequest>(json)
 
@@ -85,17 +90,19 @@ class WebAuthnModelsTest {
 
   @Test
   fun `AssertionResponseJson serializes correctly`() {
-    val response = AssertionResponseJson(
-      id = "credential-id",
-      rawId = "credential-id",
-      type = "public-key",
-      response = AssertionResponseData(
-        clientDataJSON = "client-data",
-        authenticatorData = "auth-data",
-        signature = "signature",
-        userHandle = "user-handle"
+    val response =
+      AssertionResponseJson(
+        id = "credential-id",
+        rawId = "credential-id",
+        type = "public-key",
+        response =
+          AssertionResponseData(
+            clientDataJSON = "client-data",
+            authenticatorData = "auth-data",
+            signature = "signature",
+            userHandle = "user-handle",
+          ),
       )
-    )
 
     val json = PasskeyProviderUtils.json.encodeToString(response)
 
@@ -108,17 +115,19 @@ class WebAuthnModelsTest {
 
   @Test
   fun `AttestationResponseJson serializes correctly`() {
-    val response = AttestationResponseJson(
-      id = "credential-id",
-      rawId = "credential-id",
-      type = "public-key",
-      response = AttestationResponseData(
-        clientDataJSON = "client-data",
-        attestationObject = "attestation-obj",
-        authenticatorData = "auth-data",
-        publicKey = "public-key"
+    val response =
+      AttestationResponseJson(
+        id = "credential-id",
+        rawId = "credential-id",
+        type = "public-key",
+        response =
+          AttestationResponseData(
+            clientDataJSON = "client-data",
+            attestationObject = "attestation-obj",
+            authenticatorData = "auth-data",
+            publicKey = "public-key",
+          ),
       )
-    )
 
     val json = PasskeyProviderUtils.json.encodeToString(response)
 
@@ -130,11 +139,12 @@ class WebAuthnModelsTest {
 
   @Test
   fun `ClientDataJson has correct structure`() {
-    val clientData = ClientDataJson(
-      type = "webauthn.get",
-      challenge = "test-challenge",
-      origin = "https://example.com"
-    )
+    val clientData =
+      ClientDataJson(
+        type = "webauthn.get",
+        challenge = "test-challenge",
+        origin = "https://example.com",
+      )
 
     val json = PasskeyProviderUtils.json.encodeToString(clientData)
 
@@ -145,13 +155,15 @@ class WebAuthnModelsTest {
 
   @Test
   fun `PublicKeyCredentialDescriptor handles optional fields`() {
-    val json = """
+    val json =
+      """
       {
         "type": "public-key",
         "id": "credential-id",
         "transports": ["internal", "hybrid"]
       }
-    """.trimIndent()
+      """
+        .trimIndent()
 
     val descriptor = PasskeyProviderUtils.json.decodeFromString<PublicKeyCredentialDescriptor>(json)
 
@@ -162,11 +174,13 @@ class WebAuthnModelsTest {
 
   @Test
   fun `RpEntity handles null name`() {
-    val json = """
+    val json =
+      """
       {
         "id": "example.com"
       }
-    """.trimIndent()
+      """
+        .trimIndent()
 
     val rp = PasskeyProviderUtils.json.decodeFromString<RpEntity>(json)
 
@@ -176,12 +190,14 @@ class WebAuthnModelsTest {
 
   @Test
   fun `UserEntity handles partial data`() {
-    val json = """
+    val json =
+      """
       {
         "id": "user-id",
         "name": "testuser"
       }
-    """.trimIndent()
+      """
+        .trimIndent()
 
     val user = PasskeyProviderUtils.json.decodeFromString<UserEntity>(json)
 
@@ -192,11 +208,13 @@ class WebAuthnModelsTest {
 
   @Test
   fun `AuthenticatorSelection handles all optional fields`() {
-    val json = """
+    val json =
+      """
       {
         "userVerification": "preferred"
       }
-    """.trimIndent()
+      """
+        .trimIndent()
 
     val selection = PasskeyProviderUtils.json.decodeFromString<AuthenticatorSelection>(json)
 
@@ -208,12 +226,14 @@ class WebAuthnModelsTest {
 
   @Test
   fun `PubKeyCredParam handles ES256 algorithm`() {
-    val json = """
+    val json =
+      """
       {
         "type": "public-key",
         "alg": -7
       }
-    """.trimIndent()
+      """
+        .trimIndent()
 
     val param = PasskeyProviderUtils.json.decodeFromString<PubKeyCredParam>(json)
 
@@ -223,7 +243,8 @@ class WebAuthnModelsTest {
 
   @Test
   fun `multiple allowCredentials parse correctly`() {
-    val json = """
+    val json =
+      """
       {
         "challenge": "test",
         "allowCredentials": [
@@ -232,7 +253,8 @@ class WebAuthnModelsTest {
           {"type": "public-key", "id": "cred3"}
         ]
       }
-    """.trimIndent()
+      """
+        .trimIndent()
 
     val request = PasskeyProviderUtils.json.decodeFromString<WebAuthnGetRequest>(json)
 

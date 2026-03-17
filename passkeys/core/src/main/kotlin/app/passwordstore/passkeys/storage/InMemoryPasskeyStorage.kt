@@ -5,20 +5,15 @@
 
 package app.passwordstore.passkeys.storage
 
-import app.passwordstore.crypto.CryptoHandler
-import app.passwordstore.crypto.CryptoOptions
 import app.passwordstore.passkeys.model.FidoUser
 import app.passwordstore.passkeys.model.PasskeyCredential
 import com.github.michaelbull.result.Err
 import com.github.michaelbull.result.Ok
 import com.github.michaelbull.result.Result
-import java.io.ByteArrayInputStream
-import java.io.ByteArrayOutputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.Clock
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 
 public class InMemoryPasskeyStorage : PasskeyStorage {
 
@@ -30,18 +25,19 @@ public class InMemoryPasskeyStorage : PasskeyStorage {
 
   override suspend fun listCredentials(rpId: String?): Result<List<PasskeyCredential>, Throwable> =
     withContext(Dispatchers.Default) {
-      val filtered = if (rpId != null) {
-        credentials.values.filter { it.rpId == rpId }
-      } else {
-        credentials.values.toList()
-      }
+      val filtered =
+        if (rpId != null) {
+          credentials.values.filter { it.rpId == rpId }
+        } else {
+          credentials.values.toList()
+        }
       Ok(filtered)
     }
 
-  override suspend fun getCredential(credentialId: ByteArray): Result<PasskeyCredential?, Throwable> =
-    withContext(Dispatchers.Default) {
-      Ok(credentials[credentialIdKey(credentialId)])
-    }
+  override suspend fun getCredential(
+    credentialId: ByteArray
+  ): Result<PasskeyCredential?, Throwable> =
+    withContext(Dispatchers.Default) { Ok(credentials[credentialIdKey(credentialId)]) }
 
   override suspend fun saveCredential(credential: PasskeyCredential): Result<Unit, Throwable> =
     withContext(Dispatchers.Default) {
@@ -57,7 +53,10 @@ public class InMemoryPasskeyStorage : PasskeyStorage {
       Ok(existed)
     }
 
-  override suspend fun updateSignCount(credentialId: ByteArray, newSignCount: ULong): Result<Unit, Throwable> =
+  override suspend fun updateSignCount(
+    credentialId: ByteArray,
+    newSignCount: ULong,
+  ): Result<Unit, Throwable> =
     withContext(Dispatchers.Default) {
       val key = credentialIdKey(credentialId)
       val existing = credentials[key]
@@ -92,11 +91,7 @@ public class InMemoryPasskeyStorage : PasskeyStorage {
         privateKey = ByteArray(32) { it.toByte() },
         publicKey = ByteArray(65) { if (it == 0) 0x04.toByte() else it.toByte() },
         rpId = rpId,
-        user = FidoUser(
-          id = "user-id".toByteArray(),
-          name = userName,
-          displayName = "Test User"
-        ),
+        user = FidoUser(id = "user-id".toByteArray(), name = userName, displayName = "Test User"),
         signCount = 0u,
         createdAt = Clock.System.now(),
         transports = listOf("internal"),

@@ -16,7 +16,6 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.Clock
 
@@ -67,9 +66,24 @@ class InMemoryPasskeyStorageTest {
 
   @Test
   fun `listCredentials filters by rpId`() = runBlocking {
-    val cred1 = createTestCredential(rpId = "example.com", userName = "user1", credentialId = "cred1".toByteArray())
-    val cred2 = createTestCredential(rpId = "example.com", userName = "user2", credentialId = "cred2".toByteArray())
-    val cred3 = createTestCredential(rpId = "other.com", userName = "user3", credentialId = "cred3".toByteArray())
+    val cred1 =
+      createTestCredential(
+        rpId = "example.com",
+        userName = "user1",
+        credentialId = "cred1".toByteArray(),
+      )
+    val cred2 =
+      createTestCredential(
+        rpId = "example.com",
+        userName = "user2",
+        credentialId = "cred2".toByteArray(),
+      )
+    val cred3 =
+      createTestCredential(
+        rpId = "other.com",
+        userName = "user3",
+        credentialId = "cred3".toByteArray(),
+      )
 
     storage.saveCredential(cred1)
     storage.saveCredential(cred2)
@@ -178,11 +192,7 @@ class InMemoryPasskeyStorageTest {
       privateKey = ByteArray(32) { it.toByte() },
       publicKey = ByteArray(65) { if (it == 0) 0x04.toByte() else it.toByte() },
       rpId = rpId,
-      user = FidoUser(
-        id = "user-id".toByteArray(),
-        name = userName,
-        displayName = "Test User"
-      ),
+      user = FidoUser(id = "user-id".toByteArray(), name = userName, displayName = "Test User"),
       signCount = 0u,
       createdAt = Clock.System.now(),
       transports = listOf("internal"),

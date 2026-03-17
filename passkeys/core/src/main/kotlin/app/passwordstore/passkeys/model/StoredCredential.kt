@@ -44,15 +44,11 @@ public data class StoredCredential(
       privateKey = privateKey,
       publicKey = publicKey ?: ByteArray(65) { 0 },
       rpId = rp.id,
-      user = FidoUser(
-        id = user.id,
-        name = user.name ?: "",
-        displayName = user.displayName ?: ""
-      ),
+      user = FidoUser(id = user.id, name = user.name ?: "", displayName = user.displayName ?: ""),
       signCount = signCount.toULong(),
       createdAt = Instant.fromEpochSeconds(created),
       transports = listOf("internal"),
-      uvInitialized = true
+      uvInitialized = true,
     )
   }
 
@@ -102,10 +98,14 @@ public data class StoredCredential(
       val id = map.getBytes("id") ?: throw IllegalArgumentException("Missing 'id' field")
       val rpMap = map.getMap("rp") ?: throw IllegalArgumentException("Missing 'rp' field")
       val userMap = map.getMap("user") ?: throw IllegalArgumentException("Missing 'user' field")
-      val signCount = map.getLong("sign_count")?.toUInt() ?: throw IllegalArgumentException("Missing 'sign_count' field")
+      val signCount =
+        map.getLong("sign_count")?.toUInt()
+          ?: throw IllegalArgumentException("Missing 'sign_count' field")
       val alg = map.getInt("alg") ?: throw IllegalArgumentException("Missing 'alg' field")
-      val privateKey = map.getBytes("private_key") ?: throw IllegalArgumentException("Missing 'private_key' field")
-      val created = map.getLong("created") ?: throw IllegalArgumentException("Missing 'created' field")
+      val privateKey =
+        map.getBytes("private_key") ?: throw IllegalArgumentException("Missing 'private_key' field")
+      val created =
+        map.getLong("created") ?: throw IllegalArgumentException("Missing 'created' field")
       val discoverable = map.getBoolean("discoverable") ?: true
       val extensionsMap = map.getMap("extensions")
 
@@ -125,36 +125,30 @@ public data class StoredCredential(
     public fun fromPasskeyCredential(credential: PasskeyCredential): StoredCredential {
       return StoredCredential(
         id = credential.credentialId,
-        rp = RelyingParty(
-          id = credential.rpId,
-          name = null
-        ),
-        user = User(
-          id = credential.user.id,
-          name = credential.user.name,
-          displayName = credential.user.displayName
-        ),
+        rp = RelyingParty(id = credential.rpId, name = null),
+        user =
+          User(
+            id = credential.user.id,
+            name = credential.user.name,
+            displayName = credential.user.displayName,
+          ),
         signCount = credential.signCount.toUInt(),
         alg = ALG_ES256,
         privateKey = credential.privateKey,
         publicKey = credential.publicKey,
         created = credential.createdAt.epochSeconds,
         discoverable = true,
-        extensions = Extensions()
+        extensions = Extensions(),
       )
     }
   }
 }
 
-public data class RelyingParty(
-  val id: String,
-  val name: String? = null,
-) {
+public data class RelyingParty(val id: String, val name: String? = null) {
   public fun toCborMap(): CborMap {
     val map = mutableMapOf<String, CborValue>()
     map["id"] = CborValue.TextString(id)
-    name?.let { map["name"] = CborValue.TextString(it) }
-      ?: run { map["name"] = CborValue.Null }
+    name?.let { map["name"] = CborValue.TextString(it) } ?: run { map["name"] = CborValue.Null }
     return CborMap.from(map)
   }
 
@@ -176,8 +170,7 @@ public data class User(
   public fun toCborMap(): CborMap {
     val map = mutableMapOf<String, CborValue>()
     map["id"] = id.toCborIntegerArray()
-    name?.let { map["name"] = CborValue.TextString(it) }
-      ?: run { map["name"] = CborValue.Null }
+    name?.let { map["name"] = CborValue.TextString(it) } ?: run { map["name"] = CborValue.Null }
     displayName?.let { map["display_name"] = CborValue.TextString(it) }
       ?: run { map["display_name"] = CborValue.Null }
     return CborMap.from(map)
@@ -217,8 +210,9 @@ public data class Extensions(
 ) {
   public fun toCborMap(): CborMap {
     val map = mutableMapOf<String, CborValue>()
-    credProtect?.let { map["cred_protect"] = CborValue.UnsignedInteger(BigInteger.valueOf(it.toLong())) }
-      ?: run { map["cred_protect"] = CborValue.Null }
+    credProtect?.let {
+      map["cred_protect"] = CborValue.UnsignedInteger(BigInteger.valueOf(it.toLong()))
+    } ?: run { map["cred_protect"] = CborValue.Null }
     hmacSecret?.let { map["hmac_secret"] = if (it) CborValue.True else CborValue.False }
       ?: run { map["hmac_secret"] = CborValue.Null }
     credRandom?.let { map["cred_random"] = it.toCborIntegerArray() }

@@ -34,15 +34,18 @@ public object PasskeyAutofillHelper {
     if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.O) return 0
     if (usernameAutofillId == null) return 0
 
-    val credentials = runBlocking(Dispatchers.IO) {
-      passkeyStorage.listCredentials(rpId).fold(
-        success = { it },
-        failure = {
-          logcat(LogPriority.WARN) { "Failed to load passkeys for $rpId: $it" }
-          emptyList()
-        }
-      )
-    }
+    val credentials =
+      runBlocking(Dispatchers.IO) {
+        passkeyStorage
+          .listCredentials(rpId)
+          .fold(
+            success = { it },
+            failure = {
+              logcat(LogPriority.WARN) { "Failed to load passkeys for $rpId: $it" }
+              emptyList()
+            },
+          )
+      }
 
     if (credentials.isEmpty()) return 0
 
@@ -77,15 +80,9 @@ public object PasskeyAutofillHelper {
     }
   }
 
-  public fun hasPasskeysForRp(
-    passkeyStorage: PasskeyStorage,
-    rpId: String,
-  ): Boolean {
+  public fun hasPasskeysForRp(passkeyStorage: PasskeyStorage, rpId: String): Boolean {
     return runBlocking(Dispatchers.IO) {
-      passkeyStorage.listCredentials(rpId).fold(
-        success = { it.isNotEmpty() },
-        failure = { false }
-      )
+      passkeyStorage.listCredentials(rpId).fold(success = { it.isNotEmpty() }, failure = { false })
     }
   }
 
@@ -112,7 +109,9 @@ public object PasskeyAutofillHelper {
       ?: possibleRpIds.find { rpId ->
         val normalizedTarget = targetRpId.lowercase().removePrefix("www.").removePrefix("m.")
         val normalizedRp = rpId.lowercase().removePrefix("www.").removePrefix("m.")
-        normalizedTarget == normalizedRp || normalizedTarget.endsWith(".$normalizedRp") || normalizedRp.endsWith(".$normalizedTarget")
+        normalizedTarget == normalizedRp ||
+          normalizedTarget.endsWith(".$normalizedRp") ||
+          normalizedRp.endsWith(".$normalizedTarget")
       }
   }
 }

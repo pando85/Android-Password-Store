@@ -16,7 +16,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import app.passwordstore.passkeys.model.PasskeyCredential
-import java.util.Base64
 
 public class PasskeyPickerActivity : AppCompatActivity() {
 
@@ -30,25 +29,27 @@ public class PasskeyPickerActivity : AppCompatActivity() {
     val displayNames = intent?.getStringArrayExtra(EXTRA_DISPLAY_NAMES) ?: emptyArray()
     val rpId = intent?.getStringExtra(EXTRA_RP_ID) ?: ""
 
-    credentials = credentialIds.mapIndexed { index, id ->
-      CredentialSummary(
-        credentialId = id,
-        userName = userNames.getOrNull(index) ?: "",
-        displayName = displayNames.getOrNull(index) ?: "",
-      )
-    }
-
-    val recyclerView = RecyclerView(this).apply {
-      layoutManager = LinearLayoutManager(this@PasskeyPickerActivity)
-      adapter = CredentialAdapter(credentials) { credential ->
-        val resultIntent = Intent().apply {
-          putExtra(EXTRA_SELECTED_CREDENTIAL_ID, credential.credentialId)
-        }
-        setResult(Activity.RESULT_OK, resultIntent)
-        finish()
+    credentials =
+      credentialIds.mapIndexed { index, id ->
+        CredentialSummary(
+          credentialId = id,
+          userName = userNames.getOrNull(index) ?: "",
+          displayName = displayNames.getOrNull(index) ?: "",
+        )
       }
-      setPadding(16, 16, 16, 16)
-    }
+
+    val recyclerView =
+      RecyclerView(this).apply {
+        layoutManager = LinearLayoutManager(this@PasskeyPickerActivity)
+        adapter =
+          CredentialAdapter(credentials) { credential ->
+            val resultIntent =
+              Intent().apply { putExtra(EXTRA_SELECTED_CREDENTIAL_ID, credential.credentialId) }
+            setResult(Activity.RESULT_OK, resultIntent)
+            finish()
+          }
+        setPadding(16, 16, 16, 16)
+      }
     setContentView(recyclerView)
 
     title = rpId
@@ -56,16 +57,20 @@ public class PasskeyPickerActivity : AppCompatActivity() {
 
   private class CredentialAdapter(
     private val credentials: List<CredentialSummary>,
-    private val onCredentialSelected: (CredentialSummary) -> Unit
+    private val onCredentialSelected: (CredentialSummary) -> Unit,
   ) : RecyclerView.Adapter<CredentialViewHolder>() {
 
-    override fun onCreateViewHolder(parent: android.view.ViewGroup, viewType: Int): CredentialViewHolder {
-      val view = TextView(parent.context).apply {
-        setPadding(48, 32, 48, 32)
-        textSize = 16f
-        gravity = Gravity.START or Gravity.CENTER_VERTICAL
-        setOnClickListener { tag?.let { onCredentialSelected(it as CredentialSummary) } }
-      }
+    override fun onCreateViewHolder(
+      parent: android.view.ViewGroup,
+      viewType: Int,
+    ): CredentialViewHolder {
+      val view =
+        TextView(parent.context).apply {
+          setPadding(48, 32, 48, 32)
+          textSize = 16f
+          gravity = Gravity.START or Gravity.CENTER_VERTICAL
+          setOnClickListener { tag?.let { onCredentialSelected(it as CredentialSummary) } }
+        }
       return CredentialViewHolder(view)
     }
 
@@ -76,9 +81,8 @@ public class PasskeyPickerActivity : AppCompatActivity() {
     override fun getItemCount(): Int = credentials.size
   }
 
-  private class CredentialViewHolder(
-    private val textView: TextView
-  ) : RecyclerView.ViewHolder(textView) {
+  private class CredentialViewHolder(private val textView: TextView) :
+    RecyclerView.ViewHolder(textView) {
 
     fun bind(credential: CredentialSummary) {
       val displayText = buildString {

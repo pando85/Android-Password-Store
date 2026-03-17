@@ -10,14 +10,12 @@ import com.github.michaelbull.result.Err
 import com.github.michaelbull.result.Ok
 import com.github.michaelbull.result.Result
 import com.github.michaelbull.result.fold
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import java.util.Base64
 import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
-public class IndexedPasskeyStorage(
-  private val delegate: PasskeyStorage
-) : PasskeyStorage {
+public class IndexedPasskeyStorage(private val delegate: PasskeyStorage) : PasskeyStorage {
 
   private val credentialIndex = ConcurrentHashMap<String, PasskeyCredential>()
   private val rpIdIndex = ConcurrentHashMap<String, MutableSet<String>>()
@@ -30,15 +28,15 @@ public class IndexedPasskeyStorage(
   private suspend fun ensureIndexLoaded() {
     if (indexLoaded) return
     withContext(Dispatchers.IO) {
-      delegate.listCredentials().fold(
-        success = { credentials ->
-          credentials.forEach { credential ->
-            indexCredential(credential)
-          }
-          indexLoaded = true
-        },
-        failure = { }
-      )
+      delegate
+        .listCredentials()
+        .fold(
+          success = { credentials ->
+            credentials.forEach { credential -> indexCredential(credential) }
+            indexLoaded = true
+          },
+          failure = {},
+        )
     }
   }
 
@@ -63,11 +61,12 @@ public class IndexedPasskeyStorage(
 
     return withContext(Dispatchers.Default) {
       try {
-        val credentials = if (rpId != null) {
-          rpIdIndex[rpId]?.mapNotNull { credentialIndex[it] } ?: emptyList()
-        } else {
-          credentialIndex.values.toList()
-        }
+        val credentials =
+          if (rpId != null) {
+            rpIdIndex[rpId]?.mapNotNull { credentialIndex[it] } ?: emptyList()
+          } else {
+            credentialIndex.values.toList()
+          }
         Ok(credentials)
       } catch (e: Exception) {
         Err(e)
@@ -75,7 +74,9 @@ public class IndexedPasskeyStorage(
     }
   }
 
-  override suspend fun getCredential(credentialId: ByteArray): Result<PasskeyCredential?, Throwable> {
+  override suspend fun getCredential(
+    credentialId: ByteArray
+  ): Result<PasskeyCredential?, Throwable> {
     ensureIndexLoaded()
 
     return withContext(Dispatchers.Default) {
@@ -100,18 +101,23 @@ public class IndexedPasskeyStorage(
     val key = credentialKey(credentialId)
     val credential = credentialIndex[key]
 
-    return delegate.deleteCredential(credentialId).fold(
-      success = { deleted ->
-        if (deleted && credential != null) {
-          removeFromIndex(credential)
-        }
-        Ok(deleted)
-      },
-      failure = { Err(it) }
-    )
+    return delegate
+      .deleteCredential(credentialId)
+      .fold(
+        success = { deleted ->
+          if (deleted && credential != null) {
+            removeFromIndex(credential)
+          }
+          Ok(deleted)
+        },
+        failure = { Err(it) },
+      )
   }
 
-  override suspend fun updateSignCount(credentialId: ByteArray, newSignCount: ULong): Result<Unit, Throwable> {
+  override suspend fun updateSignCount(
+    credentialId: ByteArray,
+    newSignCount: ULong,
+  ): Result<Unit, Throwable> {
     val key = credentialKey(credentialId)
     val existing = credentialIndex[key]
 

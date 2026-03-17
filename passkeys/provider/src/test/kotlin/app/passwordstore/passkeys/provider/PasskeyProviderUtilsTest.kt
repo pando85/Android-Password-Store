@@ -10,7 +10,6 @@ import app.passwordstore.passkeys.crypto.ES256CryptoHandler
 import app.passwordstore.passkeys.model.FidoUser
 import app.passwordstore.passkeys.model.PasskeyCredential
 import kotlin.test.Test
-import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlinx.datetime.Clock
@@ -58,7 +57,8 @@ class PasskeyProviderUtilsTest {
         authenticatorData = ByteArray(37) { it.toByte() },
         signature = ByteArray(64) { (it + 1).toByte() },
         userHandle = credential.user.id,
-        clientDataJSON = """{"type":"webauthn.get","challenge":"Y2hhbGxlbmdl","origin":"https://example.com","crossOrigin":false}""",
+        clientDataJSON =
+          """{"type":"webauthn.get","challenge":"Y2hhbGxlbmdl","origin":"https://example.com","crossOrigin":false}""",
       )
 
     val responseJson =
@@ -71,7 +71,8 @@ class PasskeyProviderUtilsTest {
           "origin": "https://example.com",
           "allowCredentials": []
         }
-        """.trimIndent(),
+        """
+          .trimIndent(),
       )
 
     val response = json.decodeFromString(AssertionResponseJson.serializer(), responseJson)
@@ -79,9 +80,18 @@ class PasskeyProviderUtilsTest {
       PasskeyProviderUtils.decodeBase64Url(response.response.clientDataJSON).decodeToString()
 
     assertEquals(PasskeyProviderUtils.encodeBase64Url(assertion.credentialId), response.id)
-    assertEquals(PasskeyProviderUtils.encodeBase64Url(assertion.authenticatorData), response.response.authenticatorData)
-    assertEquals(PasskeyProviderUtils.encodeBase64Url(assertion.signature), response.response.signature)
-    assertEquals(PasskeyProviderUtils.encodeBase64Url(assertion.userHandle!!), response.response.userHandle)
+    assertEquals(
+      PasskeyProviderUtils.encodeBase64Url(assertion.authenticatorData),
+      response.response.authenticatorData,
+    )
+    assertEquals(
+      PasskeyProviderUtils.encodeBase64Url(assertion.signature),
+      response.response.signature,
+    )
+    assertEquals(
+      PasskeyProviderUtils.encodeBase64Url(assertion.userHandle!!),
+      response.response.userHandle,
+    )
     assertTrue(clientDataJson.contains("\"type\":\"webauthn.get\""))
     assertTrue(clientDataJson.contains("\"challenge\":\"Y2hhbGxlbmdl\""))
     assertTrue(clientDataJson.contains("\"origin\":\"https://example.com\""))
@@ -100,13 +110,15 @@ class PasskeyProviderUtilsTest {
           "user": { "id": "dXNlcg", "name": "alice", "displayName": "Alice" },
           "challenge": "Y2hhbGxlbmdl"
         }
-        """.trimIndent(),
+        """
+          .trimIndent(),
       )
 
     val response = json.decodeFromString(AttestationResponseJson.serializer(), responseJson)
     val clientDataJson =
       PasskeyProviderUtils.decodeBase64Url(response.response.clientDataJSON).decodeToString()
-    val attestationObject = PasskeyProviderUtils.decodeBase64Url(response.response.attestationObject)
+    val attestationObject =
+      PasskeyProviderUtils.decodeBase64Url(response.response.attestationObject)
 
     assertEquals(PasskeyProviderUtils.encodeBase64Url(credential.credentialId), response.id)
     assertTrue(clientDataJson.contains("\"type\":\"webauthn.create\""))

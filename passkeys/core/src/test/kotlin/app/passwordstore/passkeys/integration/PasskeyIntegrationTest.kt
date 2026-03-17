@@ -6,14 +6,10 @@
 package app.passwordstore.passkeys.integration
 
 import app.passwordstore.passkeys.crypto.ES256CryptoHandler
-import app.passwordstore.passkeys.model.FidoUser
 import app.passwordstore.passkeys.model.PasskeyCredential
 import app.passwordstore.passkeys.storage.InMemoryPasskeyStorage
 import app.passwordstore.passkeys.storage.IndexedPasskeyStorage
 import com.github.michaelbull.result.getOrElse
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
-import kotlinx.datetime.Clock
 import kotlin.system.measureTimeMillis
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -21,6 +17,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlinx.coroutines.runBlocking
 
 class PasskeyIntegrationTest {
 
@@ -40,13 +37,16 @@ class PasskeyIntegrationTest {
 
   @Test
   fun `full credential lifecycle`() = runBlocking {
-    val credential = cryptoHandler.createCredential(
-      rpId = "example.com",
-      userId = "user-123".toByteArray(),
-      userName = "testuser",
-      userDisplayName = "Test User",
-      challenge = ByteArray(32) { it.toByte() }
-    ).getOrElse { throw AssertionError("Create failed") }
+    val credential =
+      cryptoHandler
+        .createCredential(
+          rpId = "example.com",
+          userId = "user-123".toByteArray(),
+          userName = "testuser",
+          userDisplayName = "Test User",
+          challenge = ByteArray(32) { it.toByte() },
+        )
+        .getOrElse { throw AssertionError("Create failed") }
 
     val saveResult = storage.saveCredential(credential)
     assertTrue(saveResult.isOk, "Save should succeed")
@@ -110,13 +110,11 @@ class PasskeyIntegrationTest {
     assertEquals(0u, credential.signCount)
 
     storage.updateSignCount(credential.credentialId, 1u)
-    val afterOne = storage.getCredential(credential.credentialId)
-      .getOrElse { null }!!
+    val afterOne = storage.getCredential(credential.credentialId).getOrElse { null }!!
     assertEquals(1u, afterOne.signCount)
 
     storage.updateSignCount(credential.credentialId, 42u)
-    val afterFortyTwo = storage.getCredential(credential.credentialId)
-      .getOrElse { null }!!
+    val afterFortyTwo = storage.getCredential(credential.credentialId).getOrElse { null }!!
     assertEquals(42u, afterFortyTwo.signCount)
   }
 
@@ -125,15 +123,24 @@ class PasskeyIntegrationTest {
     val credential = createAndSaveCredential("example.com", "testuser")
     val challenge = ByteArray(32) { it.toByte() }
 
-    val assertion = cryptoHandler.getAssertion(
-      credential = credential,
-      rpId = "example.com",
-      challenge = challenge,
-      origin = "https://example.com"
-    ).getOrElse { throw AssertionError("Assertion failed") }
+    val assertion =
+      cryptoHandler
+        .getAssertion(
+          credential = credential,
+          rpId = "example.com",
+          challenge = challenge,
+          origin = "https://example.com",
+        )
+        .getOrElse { throw AssertionError("Assertion failed") }
 
-    assertEquals(credential.credentialIdBase64(), java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(assertion.credentialId))
-    assertTrue(assertion.signature.size in 70..72, "Signature should be DER-encoded (typically 70-72 bytes)")
+    assertEquals(
+      credential.credentialIdBase64(),
+      java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(assertion.credentialId),
+    )
+    assertTrue(
+      assertion.signature.size in 70..72,
+      "Signature should be DER-encoded (typically 70-72 bytes)",
+    )
     assertEquals(37, assertion.authenticatorData.size, "Auth data should be 37 bytes")
   }
 
@@ -143,13 +150,12 @@ class PasskeyIntegrationTest {
       createAndSaveCredential("example.com", "user$i")
     }
 
-    val duration = measureTimeMillis {
-      repeat(1000) {
-        storage.listCredentials("example.com")
-      }
-    }
+    val duration = measureTimeMillis { repeat(1000) { storage.listCredentials("example.com") } }
 
-    assertTrue(duration < 1000, "1000 lookups should complete in under 1 second, took ${duration}ms")
+    assertTrue(
+      duration < 1000,
+      "1000 lookups should complete in under 1 second, took ${duration}ms",
+    )
   }
 
   @Test
@@ -185,9 +191,7 @@ class PasskeyIntegrationTest {
 
   @Test
   fun `concurrent access safety`() = runBlocking {
-    repeat(10) { i ->
-      createAndSaveCredential("example.com", "user$i")
-    }
+    repeat(10) { i -> createAndSaveCredential("example.com", "user$i") }
 
     val listResult = storage.listCredentials("example.com")
     assertTrue(listResult.isOk)
@@ -195,13 +199,16 @@ class PasskeyIntegrationTest {
   }
 
   private suspend fun createAndSaveCredential(rpId: String, userName: String): PasskeyCredential {
-    val credential = cryptoHandler.createCredential(
-      rpId = rpId,
-      userId = "$userName-id".toByteArray(),
-      userName = userName,
-      userDisplayName = userName,
-      challenge = ByteArray(32) { it.toByte() }
-    ).getOrElse { throw AssertionError("Create failed") }
+    val credential =
+      cryptoHandler
+        .createCredential(
+          rpId = rpId,
+          userId = "$userName-id".toByteArray(),
+          userName = userName,
+          userDisplayName = userName,
+          challenge = ByteArray(32) { it.toByte() },
+        )
+        .getOrElse { throw AssertionError("Create failed") }
 
     storage.saveCredential(credential)
     return credential

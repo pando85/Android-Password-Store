@@ -14,29 +14,21 @@ import java.util.Base64
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
-/**
- * Utility functions for WebAuthn/FIDO2 passkey operations.
- */
+/** Utility functions for WebAuthn/FIDO2 passkey operations. */
 public object PasskeyProviderUtils {
 
-  /**
-   * Shared JSON serializer for WebAuthn protocol messages.
-   */
+  /** Shared JSON serializer for WebAuthn protocol messages. */
   public val json: Json = Json {
     ignoreUnknownKeys = true
     encodeDefaults = true
   }
 
-  /**
-   * Decodes a base64url-encoded string to bytes.
-   */
+  /** Decodes a base64url-encoded string to bytes. */
   public fun decodeBase64Url(value: String): ByteArray {
     return Base64.getUrlDecoder().decode(value)
   }
 
-  /**
-   * Encodes bytes to a base64url string without padding.
-   */
+  /** Encodes bytes to a base64url string without padding. */
   public fun encodeBase64Url(value: ByteArray): String {
     return Base64.getUrlEncoder().withoutPadding().encodeToString(value)
   }
@@ -104,10 +96,7 @@ public object PasskeyProviderUtils {
    * @param requestJson The original request JSON
    * @return JSON-encoded attestation response
    */
-  public fun buildAttestationResponse(
-    credential: PasskeyCredential,
-    requestJson: String,
-  ): String {
+  public fun buildAttestationResponse(credential: PasskeyCredential, requestJson: String): String {
     val request = json.decodeFromString<WebAuthnCreateRequest>(requestJson)
     return buildAttestationResponse(credential, request)
   }
@@ -145,11 +134,36 @@ public object PasskeyProviderUtils {
     }
     val x = rawPublicKey.copyOfRange(1, 33)
     val y = rawPublicKey.copyOfRange(33, 65)
-    val spkiPrefix = byteArrayOf(
-      0x30, 0x59, 0x30, 0x13, 0x06, 0x07, 0x2A, 0x86.toByte(),
-      0x48, 0xCE.toByte(), 0x3D, 0x02, 0x01, 0x06, 0x08, 0x2A.toByte(),
-      0x86.toByte(), 0x48, 0xCE.toByte(), 0x3D, 0x03, 0x01, 0x07, 0x03, 0x42, 0x00, 0x04
-    )
+    val spkiPrefix =
+      byteArrayOf(
+        0x30,
+        0x59,
+        0x30,
+        0x13,
+        0x06,
+        0x07,
+        0x2A,
+        0x86.toByte(),
+        0x48,
+        0xCE.toByte(),
+        0x3D,
+        0x02,
+        0x01,
+        0x06,
+        0x08,
+        0x2A.toByte(),
+        0x86.toByte(),
+        0x48,
+        0xCE.toByte(),
+        0x3D,
+        0x03,
+        0x01,
+        0x07,
+        0x03,
+        0x42,
+        0x00,
+        0x04,
+      )
     return spkiPrefix + x + y
   }
 
@@ -167,22 +181,48 @@ public object PasskeyProviderUtils {
     return json.encodeToString(ClientDataJson(type = type, challenge = challenge, origin = origin))
   }
 
-  private fun buildAttestedAuthenticatorData(credential: PasskeyCredential, coseKey: ByteArray): ByteArray {
+  private fun buildAttestedAuthenticatorData(
+    credential: PasskeyCredential,
+    coseKey: ByteArray,
+  ): ByteArray {
     val rpIdHash = MessageDigest.getInstance("SHA-256").digest(credential.rpId.toByteArray())
-    val flags = (ES256CryptoHandler.FLAG_USER_PRESENT.toInt() or
-                 ES256CryptoHandler.FLAG_USER_VERIFIED.toInt() or
-                 ES256CryptoHandler.FLAG_ATTESTED_CREDENTIAL_DATA.toInt()).toByte()
+    val flags =
+      (ES256CryptoHandler.FLAG_USER_PRESENT.toInt() or
+          ES256CryptoHandler.FLAG_USER_VERIFIED.toInt() or
+          ES256CryptoHandler.FLAG_ATTESTED_CREDENTIAL_DATA.toInt())
+        .toByte()
     val signCount = byteArrayOf(0, 0, 0, 0)
-    val aaguid = byteArrayOf(
-      0x41, 0x50, 0x53, 0x32, 0x00, 0x00, 0x00, 0x00,
-      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    )
+    val aaguid =
+      byteArrayOf(
+        0x41,
+        0x50,
+        0x53,
+        0x32,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+      )
     val credentialIdLength =
       byteArrayOf(
         ((credential.credentialId.size shr 8) and 0xFF).toByte(),
         (credential.credentialId.size and 0xFF).toByte(),
       )
-    return rpIdHash + byteArrayOf(flags) + signCount + aaguid + credentialIdLength + credential.credentialId + coseKey
+    return rpIdHash +
+      byteArrayOf(flags) +
+      signCount +
+      aaguid +
+      credentialIdLength +
+      credential.credentialId +
+      coseKey
   }
 
   private fun encodeCoseEcPublicKey(rawPublicKey: ByteArray): ByteArray {

@@ -12,7 +12,8 @@ import kotlinx.serialization.Serializable
 public data class WebAuthnGetRequest(
   @SerialName("rpId") val rpId: String? = null,
   @SerialName("challenge") val challenge: String,
-  @SerialName("allowCredentials") val allowCredentials: List<PublicKeyCredentialDescriptor> = emptyList(),
+  @SerialName("allowCredentials")
+  val allowCredentials: List<PublicKeyCredentialDescriptor> = emptyList(),
   @SerialName("userVerification") val userVerification: String? = null,
   @SerialName("timeout") val timeout: Long? = null,
   @SerialName("origin") val origin: String? = null,
@@ -71,7 +72,8 @@ public data class AssertionResponseJson(
   @SerialName("type") val type: String,
   @SerialName("response") val response: AssertionResponseData,
   @SerialName("authenticatorAttachment") val authenticatorAttachment: String = "platform",
-  @SerialName("clientExtensionResults") val clientExtensionResults: ClientExtensionResults = ClientExtensionResults(),
+  @SerialName("clientExtensionResults")
+  val clientExtensionResults: ClientExtensionResults = ClientExtensionResults(),
 )
 
 @Serializable
@@ -89,18 +91,16 @@ public data class AttestationResponseJson(
   @SerialName("type") val type: String,
   @SerialName("response") val response: AttestationResponseData,
   @SerialName("authenticatorAttachment") val authenticatorAttachment: String = "platform",
-  @SerialName("clientExtensionResults") val clientExtensionResults: ClientExtensionResults = ClientExtensionResults(),
+  @SerialName("clientExtensionResults")
+  val clientExtensionResults: ClientExtensionResults = ClientExtensionResults(),
 )
 
 @Serializable
 public data class ClientExtensionResults(
-  @SerialName("credProps") val credProps: CredProps = CredProps(),
+  @SerialName("credProps") val credProps: CredProps = CredProps()
 )
 
-@Serializable
-public data class CredProps(
-  @SerialName("rk") val rk: Boolean = true,
-)
+@Serializable public data class CredProps(@SerialName("rk") val rk: Boolean = true)
 
 @Serializable
 public data class AttestationResponseData(

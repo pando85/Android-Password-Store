@@ -20,25 +20,28 @@ class ES256CryptoHandlerEdgeCasesTest {
   fun `sign rejects empty inputs`() {
     val (privateKey, _) = cryptoHandler.generateKeyPair()
 
-    val emptyKeyResult = cryptoHandler.sign(
-      privateKey = ByteArray(0),
-      authenticatorData = ByteArray(37) { it.toByte() },
-      clientDataHash = ByteArray(32) { it.toByte() }
-    )
+    val emptyKeyResult =
+      cryptoHandler.sign(
+        privateKey = ByteArray(0),
+        authenticatorData = ByteArray(37) { it.toByte() },
+        clientDataHash = ByteArray(32) { it.toByte() },
+      )
     assertTrue(emptyKeyResult.isErr, "Should reject empty private key")
 
-    val emptyAuthDataResult = cryptoHandler.sign(
-      privateKey = privateKey,
-      authenticatorData = ByteArray(0),
-      clientDataHash = ByteArray(32) { it.toByte() }
-    )
+    val emptyAuthDataResult =
+      cryptoHandler.sign(
+        privateKey = privateKey,
+        authenticatorData = ByteArray(0),
+        clientDataHash = ByteArray(32) { it.toByte() },
+      )
     assertTrue(emptyAuthDataResult.isErr, "Should reject empty authenticator data")
 
-    val emptyHashResult = cryptoHandler.sign(
-      privateKey = privateKey,
-      authenticatorData = ByteArray(37) { it.toByte() },
-      clientDataHash = ByteArray(0)
-    )
+    val emptyHashResult =
+      cryptoHandler.sign(
+        privateKey = privateKey,
+        authenticatorData = ByteArray(37) { it.toByte() },
+        clientDataHash = ByteArray(0),
+      )
     assertTrue(emptyHashResult.isErr, "Should reject empty client data hash")
   }
 
@@ -59,61 +62,67 @@ class ES256CryptoHandlerEdgeCasesTest {
     val (_, publicKey) = cryptoHandler.generateKeyPair()
     val signature = ByteArray(70) { it.toByte() }
 
-    val emptyKeyResult = cryptoHandler.verify(
-      publicKey = ByteArray(0),
-      signature = signature,
-      authenticatorData = ByteArray(37) { it.toByte() },
-      clientDataHash = ByteArray(32) { it.toByte() }
-    )
+    val emptyKeyResult =
+      cryptoHandler.verify(
+        publicKey = ByteArray(0),
+        signature = signature,
+        authenticatorData = ByteArray(37) { it.toByte() },
+        clientDataHash = ByteArray(32) { it.toByte() },
+      )
     assertTrue(emptyKeyResult.isErr, "Should reject empty public key")
 
-    val emptyAuthDataResult = cryptoHandler.verify(
-      publicKey = publicKey,
-      signature = signature,
-      authenticatorData = ByteArray(0),
-      clientDataHash = ByteArray(32) { it.toByte() }
-    )
+    val emptyAuthDataResult =
+      cryptoHandler.verify(
+        publicKey = publicKey,
+        signature = signature,
+        authenticatorData = ByteArray(0),
+        clientDataHash = ByteArray(32) { it.toByte() },
+      )
     assertTrue(emptyAuthDataResult.isErr, "Should reject empty authenticator data")
 
-    val emptyHashResult = cryptoHandler.verify(
-      publicKey = publicKey,
-      signature = signature,
-      authenticatorData = ByteArray(37) { it.toByte() },
-      clientDataHash = ByteArray(0)
-    )
+    val emptyHashResult =
+      cryptoHandler.verify(
+        publicKey = publicKey,
+        signature = signature,
+        authenticatorData = ByteArray(37) { it.toByte() },
+        clientDataHash = ByteArray(0),
+      )
     assertTrue(emptyHashResult.isErr, "Should reject empty client data hash")
   }
 
   @Test
   fun `createCredential rejects blank rpId`() {
-    val result = cryptoHandler.createCredential(
-      rpId = "",
-      userId = "user".toByteArray(),
-      userName = "test",
-      userDisplayName = "Test",
-      challenge = ByteArray(32) { it.toByte() }
-    )
+    val result =
+      cryptoHandler.createCredential(
+        rpId = "",
+        userId = "user".toByteArray(),
+        userName = "test",
+        userDisplayName = "Test",
+        challenge = ByteArray(32) { it.toByte() },
+      )
     assertTrue(result.isErr, "Should reject blank RP ID")
 
-    val whitespaceResult = cryptoHandler.createCredential(
-      rpId = "   ",
-      userId = "user".toByteArray(),
-      userName = "test",
-      userDisplayName = "Test",
-      challenge = ByteArray(32) { it.toByte() }
-    )
+    val whitespaceResult =
+      cryptoHandler.createCredential(
+        rpId = "   ",
+        userId = "user".toByteArray(),
+        userName = "test",
+        userDisplayName = "Test",
+        challenge = ByteArray(32) { it.toByte() },
+      )
     assertTrue(whitespaceResult.isErr, "Should reject whitespace RP ID")
   }
 
   @Test
   fun `createCredential rejects empty userId`() {
-    val result = cryptoHandler.createCredential(
-      rpId = "example.com",
-      userId = ByteArray(0),
-      userName = "test",
-      userDisplayName = "Test",
-      challenge = ByteArray(32) { it.toByte() }
-    )
+    val result =
+      cryptoHandler.createCredential(
+        rpId = "example.com",
+        userId = ByteArray(0),
+        userName = "test",
+        userDisplayName = "Test",
+        challenge = ByteArray(32) { it.toByte() },
+      )
     assertTrue(result.isErr, "Should reject empty user ID")
   }
 
@@ -121,12 +130,13 @@ class ES256CryptoHandlerEdgeCasesTest {
   fun `getAssertion rejects blank rpId`() {
     val credential = createValidCredential()
 
-    val result = cryptoHandler.getAssertion(
-      credential = credential,
-      rpId = "",
-      challenge = ByteArray(32) { it.toByte() },
-      origin = "https://example.com"
-    )
+    val result =
+      cryptoHandler.getAssertion(
+        credential = credential,
+        rpId = "",
+        challenge = ByteArray(32) { it.toByte() },
+        origin = "https://example.com",
+      )
     assertTrue(result.isErr, "Should reject blank RP ID")
   }
 
@@ -134,12 +144,13 @@ class ES256CryptoHandlerEdgeCasesTest {
   fun `getAssertion rejects empty challenge`() {
     val credential = createValidCredential()
 
-    val result = cryptoHandler.getAssertion(
-      credential = credential,
-      rpId = credential.rpId,
-      challenge = ByteArray(0),
-      origin = "https://example.com"
-    )
+    val result =
+      cryptoHandler.getAssertion(
+        credential = credential,
+        rpId = credential.rpId,
+        challenge = ByteArray(0),
+        origin = "https://example.com",
+      )
     assertTrue(result.isErr, "Should reject empty challenge")
   }
 
@@ -147,12 +158,13 @@ class ES256CryptoHandlerEdgeCasesTest {
   fun `getAssertion rejects blank origin`() {
     val credential = createValidCredential()
 
-    val result = cryptoHandler.getAssertion(
-      credential = credential,
-      rpId = credential.rpId,
-      challenge = ByteArray(32) { it.toByte() },
-      origin = ""
-    )
+    val result =
+      cryptoHandler.getAssertion(
+        credential = credential,
+        rpId = credential.rpId,
+        challenge = ByteArray(32) { it.toByte() },
+        origin = "",
+      )
     assertTrue(result.isErr, "Should reject blank origin")
   }
 
@@ -162,8 +174,10 @@ class ES256CryptoHandlerEdgeCasesTest {
     val authData = ByteArray(37) { it.toByte() }
     val clientDataHash = ByteArray(32) { it.toByte() }
 
-    val signature = cryptoHandler.sign(privateKey, authData, clientDataHash)
-      .getOrElse { throw AssertionError("Sign failed") }
+    val signature =
+      cryptoHandler.sign(privateKey, authData, clientDataHash).getOrElse {
+        throw AssertionError("Sign failed")
+      }
 
     val differentAuthData = ByteArray(37) { (it + 1).toByte() }
     val result = cryptoHandler.verify(publicKey, signature, differentAuthData, clientDataHash)
@@ -179,8 +193,10 @@ class ES256CryptoHandlerEdgeCasesTest {
     val authData = ByteArray(37) { it.toByte() }
     val clientDataHash = ByteArray(32) { it.toByte() }
 
-    val signature = cryptoHandler.sign(privateKey1, authData, clientDataHash)
-      .getOrElse { throw AssertionError("Sign failed") }
+    val signature =
+      cryptoHandler.sign(privateKey1, authData, clientDataHash).getOrElse {
+        throw AssertionError("Sign failed")
+      }
 
     val result = cryptoHandler.verify(publicKey2, signature, authData, clientDataHash)
 
@@ -192,12 +208,13 @@ class ES256CryptoHandlerEdgeCasesTest {
   fun `handles maximum sign count value`() {
     val credential = createValidCredential().copy(signCount = ULong.MAX_VALUE - 1u)
 
-    val result = cryptoHandler.getAssertion(
-      credential = credential,
-      rpId = credential.rpId,
-      challenge = ByteArray(32) { it.toByte() },
-      origin = "https://example.com"
-    )
+    val result =
+      cryptoHandler.getAssertion(
+        credential = credential,
+        rpId = credential.rpId,
+        challenge = ByteArray(32) { it.toByte() },
+        origin = "https://example.com",
+      )
 
     assertTrue(result.isOk, "Should handle large sign count")
   }
@@ -206,25 +223,27 @@ class ES256CryptoHandlerEdgeCasesTest {
   fun `handles large challenge`() {
     val credential = createValidCredential()
 
-    val result = cryptoHandler.getAssertion(
-      credential = credential,
-      rpId = credential.rpId,
-      challenge = ByteArray(1000) { it.toByte() },
-      origin = "https://example.com"
-    )
+    val result =
+      cryptoHandler.getAssertion(
+        credential = credential,
+        rpId = credential.rpId,
+        challenge = ByteArray(1000) { it.toByte() },
+        origin = "https://example.com",
+      )
 
     assertTrue(result.isOk, "Should handle large challenge")
   }
 
   @Test
   fun `handles unicode in user names`() {
-    val result = cryptoHandler.createCredential(
-      rpId = "example.com",
-      userId = "user".toByteArray(),
-      userName = "用户名",
-      userDisplayName = "显示名称 🎉",
-      challenge = ByteArray(32) { it.toByte() }
-    )
+    val result =
+      cryptoHandler.createCredential(
+        rpId = "example.com",
+        userId = "user".toByteArray(),
+        userName = "用户名",
+        userDisplayName = "显示名称 🎉",
+        challenge = ByteArray(32) { it.toByte() },
+      )
 
     assertTrue(result.isOk, "Should handle unicode in names")
     val credential = result.getOrElse { throw AssertionError("Failed") }
@@ -236,13 +255,14 @@ class ES256CryptoHandlerEdgeCasesTest {
   fun `handles long rpId`() {
     val longRpId = "a".repeat(253) + ".com"
 
-    val result = cryptoHandler.createCredential(
-      rpId = longRpId,
-      userId = "user".toByteArray(),
-      userName = "test",
-      userDisplayName = "Test",
-      challenge = ByteArray(32) { it.toByte() }
-    )
+    val result =
+      cryptoHandler.createCredential(
+        rpId = longRpId,
+        userId = "user".toByteArray(),
+        userName = "test",
+        userDisplayName = "Test",
+        challenge = ByteArray(32) { it.toByte() },
+      )
 
     assertTrue(result.isOk, "Should handle long RP ID")
   }
@@ -254,11 +274,12 @@ class ES256CryptoHandlerEdgeCasesTest {
       privateKey = privateKey,
       publicKey = publicKey,
       rpId = "example.com",
-      user = app.passwordstore.passkeys.model.FidoUser(
-        id = "user-id".toByteArray(),
-        name = "testuser",
-        displayName = "Test User"
-      ),
+      user =
+        app.passwordstore.passkeys.model.FidoUser(
+          id = "user-id".toByteArray(),
+          name = "testuser",
+          displayName = "Test User",
+        ),
       signCount = 0u,
       createdAt = kotlinx.datetime.Clock.System.now(),
       transports = listOf("internal"),

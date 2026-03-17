@@ -13,35 +13,45 @@ import java.math.BigInteger
 
 public class Cbor private constructor(private val data: CborValue) {
 
-  public fun asMap(): CborMap = (data as? CborValue.Map)?.value ?: throw CborException("Expected map, got ${data::class.simpleName}")
+  public fun asMap(): CborMap =
+    (data as? CborValue.Map)?.value
+      ?: throw CborException("Expected map, got ${data::class.simpleName}")
 
-  public fun asArray(): CborArray = (data as? CborValue.Array)?.value ?: throw CborException("Expected array, got ${data::class.simpleName}")
+  public fun asArray(): CborArray =
+    (data as? CborValue.Array)?.value
+      ?: throw CborException("Expected array, got ${data::class.simpleName}")
 
-  public fun asString(): String = (data as? CborValue.TextString)?.value ?: throw CborException("Expected text string, got ${data::class.simpleName}")
+  public fun asString(): String =
+    (data as? CborValue.TextString)?.value
+      ?: throw CborException("Expected text string, got ${data::class.simpleName}")
 
-  public fun asBytes(): ByteArray = when (data) {
-    is CborValue.ByteString -> data.value
-    is CborValue.Array -> data.value.toByteArray()
-    else -> throw CborException("Expected byte string or array, got ${data::class.simpleName}")
-  }
+  public fun asBytes(): ByteArray =
+    when (data) {
+      is CborValue.ByteString -> data.value
+      is CborValue.Array -> data.value.toByteArray()
+      else -> throw CborException("Expected byte string or array, got ${data::class.simpleName}")
+    }
 
-  public fun asInt(): Int = when (data) {
-    is CborValue.UnsignedInteger -> data.value.toInt()
-    is CborValue.NegativeInteger -> data.value.toInt()
-    else -> throw CborException("Expected integer, got ${data::class.simpleName}")
-  }
+  public fun asInt(): Int =
+    when (data) {
+      is CborValue.UnsignedInteger -> data.value.toInt()
+      is CborValue.NegativeInteger -> data.value.toInt()
+      else -> throw CborException("Expected integer, got ${data::class.simpleName}")
+    }
 
-  public fun asLong(): Long = when (data) {
-    is CborValue.UnsignedInteger -> data.value.toLong()
-    is CborValue.NegativeInteger -> data.value.toLong()
-    else -> throw CborException("Expected integer, got ${data::class.simpleName}")
-  }
+  public fun asLong(): Long =
+    when (data) {
+      is CborValue.UnsignedInteger -> data.value.toLong()
+      is CborValue.NegativeInteger -> data.value.toLong()
+      else -> throw CborException("Expected integer, got ${data::class.simpleName}")
+    }
 
-  public fun asBoolean(): Boolean = when (data) {
-    is CborValue.True -> true
-    is CborValue.False -> false
-    else -> throw CborException("Expected boolean, got ${data::class.simpleName}")
-  }
+  public fun asBoolean(): Boolean =
+    when (data) {
+      is CborValue.True -> true
+      is CborValue.False -> false
+      else -> throw CborException("Expected boolean, got ${data::class.simpleName}")
+    }
 
   public fun isNull(): Boolean = data is CborValue.Null
 
@@ -60,50 +70,65 @@ public class Cbor private constructor(private val data: CborValue) {
 
 public sealed class CborValue {
   public data class UnsignedInteger(val value: BigInteger) : CborValue()
+
   public data class NegativeInteger(val value: BigInteger) : CborValue()
+
   public data class ByteString(val value: ByteArray) : CborValue() {
-    override fun equals(other: Any?): Boolean = other is ByteString && value.contentEquals(other.value)
+    override fun equals(other: Any?): Boolean =
+      other is ByteString && value.contentEquals(other.value)
+
     override fun hashCode(): Int = value.contentHashCode()
   }
+
   public data class TextString(val value: String) : CborValue()
+
   public data class Array(val value: CborArray) : CborValue()
+
   public data class Map(val value: CborMap) : CborValue()
+
   public data object True : CborValue()
+
   public data object False : CborValue()
+
   public data object Null : CborValue()
 }
 
 public class CborMap private constructor(private val entries: MutableMap<String, CborValue>) {
 
-  public val keys: Set<String> get() = entries.keys
+  public val keys: Set<String>
+    get() = entries.keys
 
   public operator fun get(key: String): Cbor? = entries[key]?.let { Cbor.fromValue(it) }
 
   public fun getString(key: String): String? = (entries[key] as? CborValue.TextString)?.value
 
-  public fun getBytes(key: String): ByteArray? = when (val value = entries[key]) {
-    is CborValue.ByteString -> value.value
-    is CborValue.Array -> value.value.toByteArray()
-    else -> null
-  }
+  public fun getBytes(key: String): ByteArray? =
+    when (val value = entries[key]) {
+      is CborValue.ByteString -> value.value
+      is CborValue.Array -> value.value.toByteArray()
+      else -> null
+    }
 
-  public fun getInt(key: String): Int? = when (val value = entries[key]) {
-    is CborValue.UnsignedInteger -> value.value.toInt()
-    is CborValue.NegativeInteger -> value.value.toInt()
-    else -> null
-  }
+  public fun getInt(key: String): Int? =
+    when (val value = entries[key]) {
+      is CborValue.UnsignedInteger -> value.value.toInt()
+      is CborValue.NegativeInteger -> value.value.toInt()
+      else -> null
+    }
 
-  public fun getLong(key: String): Long? = when (val value = entries[key]) {
-    is CborValue.UnsignedInteger -> value.value.toLong()
-    is CborValue.NegativeInteger -> value.value.toLong()
-    else -> null
-  }
+  public fun getLong(key: String): Long? =
+    when (val value = entries[key]) {
+      is CborValue.UnsignedInteger -> value.value.toLong()
+      is CborValue.NegativeInteger -> value.value.toLong()
+      else -> null
+    }
 
-  public fun getBoolean(key: String): Boolean? = when (entries[key]) {
-    is CborValue.True -> true
-    is CborValue.False -> false
-    else -> null
-  }
+  public fun getBoolean(key: String): Boolean? =
+    when (entries[key]) {
+      is CborValue.True -> true
+      is CborValue.False -> false
+      else -> null
+    }
 
   public fun getMap(key: String): CborMap? = (entries[key] as? CborValue.Map)?.value
 
@@ -124,7 +149,8 @@ public class CborMap private constructor(private val entries: MutableMap<String,
 
 public class CborArray private constructor(private val elements: MutableList<CborValue>) {
 
-  public val size: Int get() = elements.size
+  public val size: Int
+    get() = elements.size
 
   public operator fun get(index: Int): Cbor? = elements.getOrNull(index)?.let { Cbor.fromValue(it) }
 
@@ -172,12 +198,18 @@ private object CborReader {
 
     return when (majorType) {
       MAJOR_UNSIGNED -> CborValue.UnsignedInteger(readUnsignedInteger(input, additionalInfo))
-      MAJOR_NEGATIVE -> CborValue.NegativeInteger(BigInteger.valueOf(-1) - readUnsignedInteger(input, additionalInfo))
+      MAJOR_NEGATIVE ->
+        CborValue.NegativeInteger(
+          BigInteger.valueOf(-1) - readUnsignedInteger(input, additionalInfo)
+        )
       MAJOR_BYTES -> CborValue.ByteString(readByteString(input, additionalInfo))
       MAJOR_TEXT -> CborValue.TextString(readTextString(input, additionalInfo))
       MAJOR_ARRAY -> CborValue.Array(readArray(input, additionalInfo))
       MAJOR_MAP -> CborValue.Map(readMap(input, additionalInfo))
-      MAJOR_TAG -> { readUnsignedInteger(input, additionalInfo); readValue(input) }
+      MAJOR_TAG -> {
+        readUnsignedInteger(input, additionalInfo)
+        readValue(input)
+      }
       MAJOR_SIMPLE -> readSimple(additionalInfo)
       else -> throw CborException("Unknown major type: $majorType")
     }
@@ -207,9 +239,7 @@ private object CborReader {
   private fun readArray(input: DataInputStream, additionalInfo: Int): CborArray {
     val length = readLength(input, additionalInfo)
     val elements = mutableListOf<CborValue>()
-    repeat(length.toInt()) {
-      elements.add(readValue(input))
-    }
+    repeat(length.toInt()) { elements.add(readValue(input)) }
     return CborArray.from(elements)
   }
 
@@ -217,12 +247,16 @@ private object CborReader {
     val length = readLength(input, additionalInfo)
     val map = mutableMapOf<String, CborValue>()
     repeat(length.toInt()) {
-      val key = when (val keyValue = readValue(input)) {
-        is CborValue.TextString -> keyValue.value
-        is CborValue.UnsignedInteger -> keyValue.value.toString()
-        is CborValue.NegativeInteger -> keyValue.value.toString()
-        else -> throw CborException("Map key must be text or integer, got ${keyValue::class.simpleName}")
-      }
+      val key =
+        when (val keyValue = readValue(input)) {
+          is CborValue.TextString -> keyValue.value
+          is CborValue.UnsignedInteger -> keyValue.value.toString()
+          is CborValue.NegativeInteger -> keyValue.value.toString()
+          else ->
+            throw CborException(
+              "Map key must be text or integer, got ${keyValue::class.simpleName}"
+            )
+        }
       val value = readValue(input)
       map[key] = value
     }
@@ -379,6 +413,9 @@ private object CborWriter {
 }
 
 public fun ByteArray.toCborIntegerArray(): CborValue.Array {
-  val elements = this.map { byte -> CborValue.UnsignedInteger(BigInteger.valueOf((byte.toInt() and 0xFF).toLong())) }
+  val elements =
+    this.map { byte ->
+      CborValue.UnsignedInteger(BigInteger.valueOf((byte.toInt() and 0xFF).toLong()))
+    }
   return CborValue.Array(CborArray.from(elements))
 }

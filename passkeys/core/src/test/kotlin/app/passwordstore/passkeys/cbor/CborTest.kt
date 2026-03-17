@@ -5,23 +5,40 @@
 
 package app.passwordstore.passkeys.cbor
 
+import java.math.BigInteger
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.math.BigInteger
 
 class CborTest {
 
   @Test
   fun `parse fixture credential 1`() {
-    val bytes = javaClass.getResourceAsStream("/fixtures/07b36924d8924098bb427039d7d0f43b86b4cb52a9dec9aab04bf47472e02d7b.bin")!!.readBytes()
+    val bytes =
+      javaClass
+        .getResourceAsStream(
+          "/fixtures/07b36924d8924098bb427039d7d0f43b86b4cb52a9dec9aab04bf47472e02d7b.bin"
+        )!!
+        .readBytes()
     val cbor = Cbor.parse(bytes)
     val map = cbor.asMap()
 
-    assertEquals(setOf("id", "rp", "user", "sign_count", "alg", "private_key", "created", "discoverable", "extensions"), map.keys)
+    assertEquals(
+      setOf(
+        "id",
+        "rp",
+        "user",
+        "sign_count",
+        "alg",
+        "private_key",
+        "created",
+        "discoverable",
+        "extensions",
+      ),
+      map.keys,
+    )
 
     val id = map.getBytes("id")
     assertNotNull(id)
@@ -60,7 +77,12 @@ class CborTest {
 
   @Test
   fun `parse fixture credential 2`() {
-    val bytes = javaClass.getResourceAsStream("/fixtures/1381816530c267f00fb7d8a844b65f765cbbc059d8d7c695a40b7a1dea48f139.bin")!!.readBytes()
+    val bytes =
+      javaClass
+        .getResourceAsStream(
+          "/fixtures/1381816530c267f00fb7d8a844b65f765cbbc059d8d7c695a40b7a1dea48f139.bin"
+        )!!
+        .readBytes()
     val cbor = Cbor.parse(bytes)
     val map = cbor.asMap()
 
@@ -72,7 +94,12 @@ class CborTest {
 
   @Test
   fun `roundtrip credential`() {
-    val originalBytes = javaClass.getResourceAsStream("/fixtures/07b36924d8924098bb427039d7d0f43b86b4cb52a9dec9aab04bf47472e02d7b.bin")!!.readBytes()
+    val originalBytes =
+      javaClass
+        .getResourceAsStream(
+          "/fixtures/07b36924d8924098bb427039d7d0f43b86b4cb52a9dec9aab04bf47472e02d7b.bin"
+        )!!
+        .readBytes()
     val parsed = Cbor.parse(originalBytes)
     val reencoded = parsed.toBytes()
 
@@ -104,13 +131,14 @@ class CborTest {
 
   @Test
   fun `write and parse simple map`() {
-    val map = CborMap.create().apply {
-      toMutableMap()["hello"] = CborValue.TextString("world")
-      toMutableMap()["count"] = CborValue.UnsignedInteger(BigInteger.valueOf(42))
-      toMutableMap()["negative"] = CborValue.NegativeInteger(BigInteger.valueOf(-7))
-      toMutableMap()["flag"] = CborValue.True
-      toMutableMap()["bytes"] = byteArrayOf(0x01, 0x02, 0x03).toCborIntegerArray()
-    }
+    val map =
+      CborMap.create().apply {
+        toMutableMap()["hello"] = CborValue.TextString("world")
+        toMutableMap()["count"] = CborValue.UnsignedInteger(BigInteger.valueOf(42))
+        toMutableMap()["negative"] = CborValue.NegativeInteger(BigInteger.valueOf(-7))
+        toMutableMap()["flag"] = CborValue.True
+        toMutableMap()["bytes"] = byteArrayOf(0x01, 0x02, 0x03).toCborIntegerArray()
+      }
 
     val cbor = Cbor.fromMap(map)
     val bytes = cbor.toBytes()

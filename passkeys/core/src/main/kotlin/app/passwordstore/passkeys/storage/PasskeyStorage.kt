@@ -11,8 +11,8 @@ import com.github.michaelbull.result.Result
 /**
  * Interface for storing and retrieving passkey credentials.
  *
- * Implementations should handle encryption of sensitive data (private keys)
- * and provide thread-safe access to stored credentials.
+ * Implementations should handle encryption of sensitive data (private keys) and provide thread-safe
+ * access to stored credentials.
  */
 public interface PasskeyStorage {
 
@@ -22,7 +22,9 @@ public interface PasskeyStorage {
    * @param rpId Optional RP ID to filter credentials. If null, returns all credentials.
    * @return A list of credentials or an error
    */
-  public suspend fun listCredentials(rpId: String? = null): Result<List<PasskeyCredential>, Throwable>
+  public suspend fun listCredentials(
+    rpId: String? = null
+  ): Result<List<PasskeyCredential>, Throwable>
 
   /**
    * Retrieves a specific credential by its ID.
@@ -51,14 +53,17 @@ public interface PasskeyStorage {
   /**
    * Updates the sign count for a credential.
    *
-   * The sign count should be incremented after each successful authentication
-   * to help detect cloned authenticators.
+   * The sign count should be incremented after each successful authentication to help detect cloned
+   * authenticators.
    *
    * @param credentialId The unique identifier for the credential
    * @param newSignCount The new sign count value
    * @return Success or an error
    */
-  public suspend fun updateSignCount(credentialId: ByteArray, newSignCount: ULong): Result<Unit, Throwable>
+  public suspend fun updateSignCount(
+    credentialId: ByteArray,
+    newSignCount: ULong,
+  ): Result<Unit, Throwable>
 }
 
 /**

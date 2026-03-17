@@ -28,7 +28,8 @@ public class ES256CryptoHandler : PasskeyCryptoHandler {
     keyPairGenerator.initialize(ECGenParameterSpec("secp256r1"), secureRandom)
     val keyPair = keyPairGenerator.generateKeyPair()
 
-    val publicKeyBytes = SubjectPublicKeyInfo.getInstance(keyPair.public.encoded).publicKeyData.bytes
+    val publicKeyBytes =
+      SubjectPublicKeyInfo.getInstance(keyPair.public.encoded).publicKeyData.bytes
     val privateKeyBytes = keyPair.private.encoded
 
     return Pair(privateKeyBytes, publicKeyBytes)
@@ -40,8 +41,10 @@ public class ES256CryptoHandler : PasskeyCryptoHandler {
     clientDataHash: ByteArray,
   ): Result<ByteArray, Throwable> {
     if (privateKey.isEmpty()) return Err(IllegalArgumentException("Private key cannot be empty"))
-    if (authenticatorData.isEmpty()) return Err(IllegalArgumentException("Authenticator data cannot be empty"))
-    if (clientDataHash.isEmpty()) return Err(IllegalArgumentException("Client data hash cannot be empty"))
+    if (authenticatorData.isEmpty())
+      return Err(IllegalArgumentException("Authenticator data cannot be empty"))
+    if (clientDataHash.isEmpty())
+      return Err(IllegalArgumentException("Client data hash cannot be empty"))
 
     return try {
       val keyFactory = java.security.KeyFactory.getInstance("EC")
@@ -69,8 +72,10 @@ public class ES256CryptoHandler : PasskeyCryptoHandler {
   ): Result<Boolean, Throwable> {
     if (publicKey.isEmpty()) return Err(IllegalArgumentException("Public key cannot be empty"))
     if (signature.isEmpty()) return Err(IllegalArgumentException("Signature cannot be empty"))
-    if (authenticatorData.isEmpty()) return Err(IllegalArgumentException("Authenticator data cannot be empty"))
-    if (clientDataHash.isEmpty()) return Err(IllegalArgumentException("Client data hash cannot be empty"))
+    if (authenticatorData.isEmpty())
+      return Err(IllegalArgumentException("Authenticator data cannot be empty"))
+    if (clientDataHash.isEmpty())
+      return Err(IllegalArgumentException("Client data hash cannot be empty"))
 
     return try {
       val keyFactory = java.security.KeyFactory.getInstance("EC")
@@ -129,26 +134,28 @@ public class ES256CryptoHandler : PasskeyCryptoHandler {
     if (rpId.isBlank()) return Err(IllegalArgumentException("RP ID cannot be blank"))
     if (challenge.isEmpty()) return Err(IllegalArgumentException("Challenge cannot be empty"))
     if (origin.isBlank()) return Err(IllegalArgumentException("Origin cannot be blank"))
-    if (credential.privateKey.isEmpty()) return Err(IllegalArgumentException("Credential has no private key"))
+    if (credential.privateKey.isEmpty())
+      return Err(IllegalArgumentException("Credential has no private key"))
 
     return try {
       val authenticatorData = buildAuthenticatorData(rpId, credential.signCount)
       val (clientDataJson, clientDataHash) = buildClientData(challenge, origin, "webauthn.get")
 
-      sign(credential.privateKey, authenticatorData, clientDataHash).fold(
-        success = { signature ->
-          Ok(
-            AssertionResult(
-              credentialId = credential.credentialId,
-              authenticatorData = authenticatorData,
-              signature = signature,
-              userHandle = credential.user.id,
-              clientDataJSON = clientDataJson,
+      sign(credential.privateKey, authenticatorData, clientDataHash)
+        .fold(
+          success = { signature ->
+            Ok(
+              AssertionResult(
+                credentialId = credential.credentialId,
+                authenticatorData = authenticatorData,
+                signature = signature,
+                userHandle = credential.user.id,
+                clientDataJSON = clientDataJson,
+              )
             )
-          )
-        },
-        failure = { Err(it) }
-      )
+          },
+          failure = { Err(it) },
+        )
     } catch (e: Exception) {
       Err(e)
     }
@@ -180,7 +187,10 @@ public class ES256CryptoHandler : PasskeyCryptoHandler {
   ): Pair<String, ByteArray> {
     val clientDataJson =
       """{"type":"$type","challenge":"${java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(challenge)}","origin":"$origin","crossOrigin":false}"""
-    return Pair(clientDataJson, MessageDigest.getInstance("SHA-256").digest(clientDataJson.toByteArray()))
+    return Pair(
+      clientDataJson,
+      MessageDigest.getInstance("SHA-256").digest(clientDataJson.toByteArray()),
+    )
   }
 
   private fun unwrapRawPublicKey(rawPublicKey: ByteArray): ByteArray {
@@ -208,26 +218,29 @@ public class ES256CryptoHandler : PasskeyCryptoHandler {
   private fun convertRawToDer(rawSignature: ByteArray): ByteArray {
     require(rawSignature.size == 64) { "Raw signature must be 64 bytes" }
 
-    val r = rawSignature.sliceArray(0..31).let { bytes ->
-      var i = 0
-      while (i < bytes.size && bytes[i] == 0.toByte()) i++
-      if (i < bytes.size && bytes[i] < 0) byteArrayOf(0) + bytes.sliceArray(i..31)
-      else bytes.sliceArray(i..31)
-    }
-
-    val s = rawSignature.sliceArray(32..63).let { bytes ->
-      var i = 0
-      while (i < bytes.size && bytes[i] == 0.toByte()) i++
-      if (i < bytes.size && bytes[i] < 0) byteArrayOf(0) + bytes.sliceArray(i..31)
-      else bytes.sliceArray(i..31)
-    }
-
-    val sequence = org.bouncycastle.asn1.DERSequence(
-      org.bouncycastle.asn1.ASN1EncodableVector().apply {
-        add(org.bouncycastle.asn1.ASN1Integer(java.math.BigInteger(1, r)))
-        add(org.bouncycastle.asn1.ASN1Integer(java.math.BigInteger(1, s)))
+    val r =
+      rawSignature.sliceArray(0..31).let { bytes ->
+        var i = 0
+        while (i < bytes.size && bytes[i] == 0.toByte()) i++
+        if (i < bytes.size && bytes[i] < 0) byteArrayOf(0) + bytes.sliceArray(i..31)
+        else bytes.sliceArray(i..31)
       }
-    )
+
+    val s =
+      rawSignature.sliceArray(32..63).let { bytes ->
+        var i = 0
+        while (i < bytes.size && bytes[i] == 0.toByte()) i++
+        if (i < bytes.size && bytes[i] < 0) byteArrayOf(0) + bytes.sliceArray(i..31)
+        else bytes.sliceArray(i..31)
+      }
+
+    val sequence =
+      org.bouncycastle.asn1.DERSequence(
+        org.bouncycastle.asn1.ASN1EncodableVector().apply {
+          add(org.bouncycastle.asn1.ASN1Integer(java.math.BigInteger(1, r)))
+          add(org.bouncycastle.asn1.ASN1Integer(java.math.BigInteger(1, s)))
+        }
+      )
     return sequence.encoded
   }
 
@@ -236,11 +249,34 @@ public class ES256CryptoHandler : PasskeyCryptoHandler {
     public const val FLAG_USER_VERIFIED: Byte = 0x04
     public const val FLAG_ATTESTED_CREDENTIAL_DATA: Byte = 0x40
 
-    private val P256_EC_OID_PREFIX = byteArrayOf(
-      0x30, 0x59, 0x30, 0x13, 0x06, 0x07, 0x2A.toByte(), 0x86.toByte(),
-      0x48, 0xCE.toByte(), 0x3D, 0x02, 0x01, 0x06, 0x08, 0x2A.toByte(),
-      0x86.toByte(), 0x48, 0xCE.toByte(), 0x3D, 0x03, 0x01, 0x07, 0x03, 0x42,
-      0x00
-    )
+    private val P256_EC_OID_PREFIX =
+      byteArrayOf(
+        0x30,
+        0x59,
+        0x30,
+        0x13,
+        0x06,
+        0x07,
+        0x2A.toByte(),
+        0x86.toByte(),
+        0x48,
+        0xCE.toByte(),
+        0x3D,
+        0x02,
+        0x01,
+        0x06,
+        0x08,
+        0x2A.toByte(),
+        0x86.toByte(),
+        0x48,
+        0xCE.toByte(),
+        0x3D,
+        0x03,
+        0x01,
+        0x07,
+        0x03,
+        0x42,
+        0x00,
+      )
   }
 }

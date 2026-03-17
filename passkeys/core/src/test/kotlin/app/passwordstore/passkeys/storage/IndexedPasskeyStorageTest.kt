@@ -135,11 +135,7 @@ class IndexedPasskeyStorageTest {
       privateKey = ByteArray(32) { it.toByte() },
       publicKey = ByteArray(65) { if (it == 0) 0x04.toByte() else it.toByte() },
       rpId = rpId,
-      user = FidoUser(
-        id = "user-id".toByteArray(),
-        name = userName,
-        displayName = "Test User"
-      ),
+      user = FidoUser(id = "user-id".toByteArray(), name = userName, displayName = "Test User"),
       signCount = 0u,
       createdAt = Clock.System.now(),
       transports = listOf("internal"),

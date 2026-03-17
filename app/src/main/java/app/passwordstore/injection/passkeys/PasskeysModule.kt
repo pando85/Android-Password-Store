@@ -6,8 +6,8 @@
 package app.passwordstore.injection.passkeys
 
 import android.content.Context
-import app.passwordstore.crypto.PGPainlessCryptoHandler
 import app.passwordstore.crypto.PGPKeyManager
+import app.passwordstore.crypto.PGPainlessCryptoHandler
 import app.passwordstore.passkeys.BiometricPasskeyAuthenticator
 import app.passwordstore.passkeys.crypto.ES256CryptoHandler
 import app.passwordstore.passkeys.crypto.PasskeyCryptoHandler
@@ -45,20 +45,18 @@ object PasskeysModule {
     keyManager: PGPKeyManager,
   ): PasskeyStorage {
     val repositoryRoot = File(context.filesDir, "store")
-    val passkeyConfig = PasskeyStorageConfig(
-      passkeyDirectory = "fido2",
-      fileExtension = ".gpg"
-    )
-    val fileStorage = FilePasskeyStorage(
-      repositoryRoot = repositoryRoot,
-      cryptoHandler = cryptoHandler,
-      decryptionKeys = { keyManager.getAllKeys().get() ?: emptyList() },
-      decryptionPassphrase = { null },
-      encryptionKeys = { keyManager.getAllKeys().get() ?: emptyList() },
-      decryptionOptions = app.passwordstore.crypto.PGPDecryptOptions.Builder().build(),
-      encryptionOptions = app.passwordstore.crypto.PGPEncryptOptions.Builder().build(),
-      config = passkeyConfig,
-    )
+    val passkeyConfig = PasskeyStorageConfig(passkeyDirectory = "fido2", fileExtension = ".gpg")
+    val fileStorage =
+      FilePasskeyStorage(
+        repositoryRoot = repositoryRoot,
+        cryptoHandler = cryptoHandler,
+        decryptionKeys = { keyManager.getAllKeys().get() ?: emptyList() },
+        decryptionPassphrase = { null },
+        encryptionKeys = { keyManager.getAllKeys().get() ?: emptyList() },
+        decryptionOptions = app.passwordstore.crypto.PGPDecryptOptions.Builder().build(),
+        encryptionOptions = app.passwordstore.crypto.PGPEncryptOptions.Builder().build(),
+        config = passkeyConfig,
+      )
     return IndexedPasskeyStorage(fileStorage)
   }
 }

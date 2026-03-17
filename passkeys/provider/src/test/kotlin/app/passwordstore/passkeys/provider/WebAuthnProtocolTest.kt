@@ -9,10 +9,10 @@ import app.passwordstore.passkeys.crypto.ES256CryptoHandler
 import app.passwordstore.passkeys.model.FidoUser
 import app.passwordstore.passkeys.model.PasskeyCredential
 import com.github.michaelbull.result.getOrElse
-import kotlinx.datetime.Clock
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlinx.datetime.Clock
 
 class WebAuthnProtocolTest {
 
@@ -21,12 +21,15 @@ class WebAuthnProtocolTest {
   @Test
   fun `authenticator data has correct structure for assertion`() {
     val credential = createTestCredential()
-    val assertion = cryptoHandler.getAssertion(
-      credential = credential,
-      rpId = credential.rpId,
-      challenge = ByteArray(32) { it.toByte() },
-      origin = "https://${credential.rpId}"
-    ).getOrElse { throw AssertionError("Assertion failed") }
+    val assertion =
+      cryptoHandler
+        .getAssertion(
+          credential = credential,
+          rpId = credential.rpId,
+          challenge = ByteArray(32) { it.toByte() },
+          origin = "https://${credential.rpId}",
+        )
+        .getOrElse { throw AssertionError("Assertion failed") }
 
     val authData = assertion.authenticatorData
 
@@ -47,21 +50,25 @@ class WebAuthnProtocolTest {
   @Test
   fun `attestation object has correct CBOR structure`() {
     val credential = createTestCredential()
-    val requestJson = """
+    val requestJson =
+      """
       {
         "rp": {"id": "${credential.rpId}", "name": "Test"},
         "user": {"id": "dXNlcg", "name": "test", "displayName": "Test User"},
         "challenge": "Y2hhbGxlbmdl"
       }
-    """.trimIndent()
+    """
+        .trimIndent()
 
     val responseJson = PasskeyProviderUtils.buildAttestationResponse(credential, requestJson)
-    val response = PasskeyProviderUtils.json.decodeFromString(AttestationResponseJson.serializer(), responseJson)
+    val response =
+      PasskeyProviderUtils.json.decodeFromString(AttestationResponseJson.serializer(), responseJson)
 
     assertEquals("public-key", response.type)
     assertEquals(response.id, response.rawId)
 
-    val attestationObject = PasskeyProviderUtils.decodeBase64Url(response.response.attestationObject)
+    val attestationObject =
+      PasskeyProviderUtils.decodeBase64Url(response.response.attestationObject)
 
     assertTrue(attestationObject.size > 37, "Attestation object should contain auth data")
 
@@ -77,18 +84,22 @@ class WebAuthnProtocolTest {
   @Test
   fun `attested credential data is included in attestation`() {
     val credential = createTestCredential()
-    val requestJson = """
+    val requestJson =
+      """
       {
         "rp": {"id": "${credential.rpId}", "name": "Test"},
         "user": {"id": "dXNlcg", "name": "test", "displayName": "Test User"},
         "challenge": "Y2hhbGxlbmdl"
       }
-    """.trimIndent()
+    """
+        .trimIndent()
 
     val responseJson = PasskeyProviderUtils.buildAttestationResponse(credential, requestJson)
-    val response = PasskeyProviderUtils.json.decodeFromString(AttestationResponseJson.serializer(), responseJson)
+    val response =
+      PasskeyProviderUtils.json.decodeFromString(AttestationResponseJson.serializer(), responseJson)
 
-    val attestationObject = PasskeyProviderUtils.decodeBase64Url(response.response.attestationObject)
+    val attestationObject =
+      PasskeyProviderUtils.decodeBase64Url(response.response.attestationObject)
 
     val authDataStart = findAuthDataInCbor(attestationObject)
     assertTrue(authDataStart >= 0, "Should find authData in attestation object")
@@ -100,56 +111,84 @@ class WebAuthnProtocolTest {
   @Test
   fun `client data JSON has correct format`() {
     val credential = createTestCredential()
-    val requestJson = """
+    val requestJson =
+      """
       {
         "rp": {"id": "${credential.rpId}", "name": "Test"},
         "user": {"id": "dXNlcg", "name": "test", "displayName": "Test User"},
         "challenge": "test-challenge-base64"
       }
-    """.trimIndent()
+    """
+        .trimIndent()
 
     val responseJson = PasskeyProviderUtils.buildAttestationResponse(credential, requestJson)
-    val response = PasskeyProviderUtils.json.decodeFromString(AttestationResponseJson.serializer(), responseJson)
+    val response =
+      PasskeyProviderUtils.json.decodeFromString(AttestationResponseJson.serializer(), responseJson)
 
-    val clientDataJson = PasskeyProviderUtils.decodeBase64Url(response.response.clientDataJSON).decodeToString()
+    val clientDataJson =
+      PasskeyProviderUtils.decodeBase64Url(response.response.clientDataJSON).decodeToString()
 
     assertTrue(clientDataJson.contains("\"type\":\"webauthn.create\""), "Should have correct type")
-    assertTrue(clientDataJson.contains("\"challenge\":\"test-challenge-base64\""), "Should preserve challenge")
-    assertTrue(clientDataJson.contains("\"origin\":\"https://${credential.rpId}\""), "Should have correct origin")
+    assertTrue(
+      clientDataJson.contains("\"challenge\":\"test-challenge-base64\""),
+      "Should preserve challenge",
+    )
+    assertTrue(
+      clientDataJson.contains("\"origin\":\"https://${credential.rpId}\""),
+      "Should have correct origin",
+    )
     assertTrue(clientDataJson.contains("\"crossOrigin\":false"), "Should have crossOrigin field")
   }
 
   @Test
   fun `assertion response has correct format`() {
     val credential = createTestCredential()
-    val requestJson = """
+    val requestJson =
+      """
       {
         "challenge": "test-challenge",
         "origin": "https://${credential.rpId}",
         "allowCredentials": []
       }
-    """.trimIndent()
+    """
+        .trimIndent()
 
-    val assertion = cryptoHandler.getAssertion(
-      credential = credential,
-      rpId = credential.rpId,
-      challenge = ByteArray(32) { it.toByte() },
-      origin = "https://${credential.rpId}"
-    ).getOrElse { throw AssertionError("Assertion failed") }
+    val assertion =
+      cryptoHandler
+        .getAssertion(
+          credential = credential,
+          rpId = credential.rpId,
+          challenge = ByteArray(32) { it.toByte() },
+          origin = "https://${credential.rpId}",
+        )
+        .getOrElse { throw AssertionError("Assertion failed") }
 
-    val responseJson = PasskeyProviderUtils.buildAssertionResponse(assertion, credential, requestJson)
-    val response = PasskeyProviderUtils.json.decodeFromString(AssertionResponseJson.serializer(), responseJson)
+    val responseJson =
+      PasskeyProviderUtils.buildAssertionResponse(assertion, credential, requestJson)
+    val response =
+      PasskeyProviderUtils.json.decodeFromString(AssertionResponseJson.serializer(), responseJson)
 
     assertEquals("public-key", response.type)
     assertEquals(response.id, response.rawId)
 
-    val clientDataJson = PasskeyProviderUtils.decodeBase64Url(response.response.clientDataJSON).decodeToString()
-    assertTrue(clientDataJson.contains("\"type\":\"webauthn.get\""), "Should have correct type for assertion")
+    val clientDataJson =
+      PasskeyProviderUtils.decodeBase64Url(response.response.clientDataJSON).decodeToString()
+    assertTrue(
+      clientDataJson.contains("\"type\":\"webauthn.get\""),
+      "Should have correct type for assertion",
+    )
     assertTrue(clientDataJson.contains("\"crossOrigin\":false"), "Should have crossOrigin field")
 
     val signatureBytes = PasskeyProviderUtils.decodeBase64Url(response.response.signature)
-    assertTrue(signatureBytes.size in 70..72, "Signature should be DER-encoded (typically 70-72 bytes)")
-    assertEquals(37, PasskeyProviderUtils.decodeBase64Url(response.response.authenticatorData).size, "Auth data should be 37 bytes")
+    assertTrue(
+      signatureBytes.size in 70..72,
+      "Signature should be DER-encoded (typically 70-72 bytes)",
+    )
+    assertEquals(
+      37,
+      PasskeyProviderUtils.decodeBase64Url(response.response.authenticatorData).size,
+      "Auth data should be 37 bytes",
+    )
   }
 
   @Test
@@ -167,27 +206,33 @@ class WebAuthnProtocolTest {
 
   @Test
   fun `credential ID is 32 bytes from SecureRandom`() {
-    val cred1 = cryptoHandler.createCredential(
-      rpId = "example.com",
-      userId = "user1".toByteArray(),
-      userName = "user1",
-      userDisplayName = "User One",
-      challenge = ByteArray(32) { it.toByte() }
-    ).getOrElse { throw AssertionError("Failed") }
+    val cred1 =
+      cryptoHandler
+        .createCredential(
+          rpId = "example.com",
+          userId = "user1".toByteArray(),
+          userName = "user1",
+          userDisplayName = "User One",
+          challenge = ByteArray(32) { it.toByte() },
+        )
+        .getOrElse { throw AssertionError("Failed") }
 
     assertEquals(32, cred1.credentialId.size, "Credential ID should be 32 bytes")
 
-    val cred2 = cryptoHandler.createCredential(
-      rpId = "example.com",
-      userId = "user2".toByteArray(),
-      userName = "user2",
-      userDisplayName = "User Two",
-      challenge = ByteArray(32) { it.toByte() }
-    ).getOrElse { throw AssertionError("Failed") }
+    val cred2 =
+      cryptoHandler
+        .createCredential(
+          rpId = "example.com",
+          userId = "user2".toByteArray(),
+          userName = "user2",
+          userDisplayName = "User Two",
+          challenge = ByteArray(32) { it.toByte() },
+        )
+        .getOrElse { throw AssertionError("Failed") }
 
     assertTrue(
       !cred1.credentialId.contentEquals(cred2.credentialId),
-      "Each credential should have unique ID"
+      "Each credential should have unique ID",
     )
   }
 
@@ -197,12 +242,15 @@ class WebAuthnProtocolTest {
     val expectedHash = java.security.MessageDigest.getInstance("SHA-256").digest(rpId.toByteArray())
 
     val credential = createTestCredential(rpId = rpId)
-    val assertion = cryptoHandler.getAssertion(
-      credential = credential,
-      rpId = rpId,
-      challenge = ByteArray(32) { it.toByte() },
-      origin = "https://$rpId"
-    ).getOrElse { throw AssertionError("Assertion failed") }
+    val assertion =
+      cryptoHandler
+        .getAssertion(
+          credential = credential,
+          rpId = rpId,
+          challenge = ByteArray(32) { it.toByte() },
+          origin = "https://$rpId",
+        )
+        .getOrElse { throw AssertionError("Assertion failed") }
 
     val actualHash = assertion.authenticatorData.sliceArray(0..31)
     assertTrue(expectedHash.contentEquals(actualHash), "RP ID hash should match SHA-256 of RP ID")
@@ -210,7 +258,7 @@ class WebAuthnProtocolTest {
 
   private fun createTestCredential(
     rpId: String = "example.com",
-    userName: String = "testuser"
+    userName: String = "testuser",
   ): PasskeyCredential {
     val (privateKey, publicKey) = cryptoHandler.generateKeyPair()
     return PasskeyCredential(
@@ -218,11 +266,7 @@ class WebAuthnProtocolTest {
       privateKey = privateKey,
       publicKey = publicKey,
       rpId = rpId,
-      user = FidoUser(
-        id = "user-id".toByteArray(),
-        name = userName,
-        displayName = "Test User"
-      ),
+      user = FidoUser(id = "user-id".toByteArray(), name = userName, displayName = "Test User"),
       signCount = 0u,
       createdAt = Clock.System.now(),
       transports = listOf("internal"),

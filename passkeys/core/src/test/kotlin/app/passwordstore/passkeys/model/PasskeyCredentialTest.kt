@@ -16,35 +16,38 @@ class PasskeyCredentialTest {
   @Test
   fun `PasskeyCredential equals works correctly`() {
     val now = Clock.System.now()
-    val credential1 = PasskeyCredential(
-      credentialId = "cred123".toByteArray(),
-      privateKey = "private".toByteArray(),
-      publicKey = "public".toByteArray(),
-      rpId = "example.com",
-      user = FidoUser("user123".toByteArray(), "testuser", "Test User"),
-      signCount = 0u,
-      createdAt = now
-    )
+    val credential1 =
+      PasskeyCredential(
+        credentialId = "cred123".toByteArray(),
+        privateKey = "private".toByteArray(),
+        publicKey = "public".toByteArray(),
+        rpId = "example.com",
+        user = FidoUser("user123".toByteArray(), "testuser", "Test User"),
+        signCount = 0u,
+        createdAt = now,
+      )
 
-    val credential2 = PasskeyCredential(
-      credentialId = "cred123".toByteArray(),
-      privateKey = "private".toByteArray(),
-      publicKey = "public".toByteArray(),
-      rpId = "example.com",
-      user = FidoUser("user123".toByteArray(), "testuser", "Test User"),
-      signCount = 0u,
-      createdAt = now
-    )
+    val credential2 =
+      PasskeyCredential(
+        credentialId = "cred123".toByteArray(),
+        privateKey = "private".toByteArray(),
+        publicKey = "public".toByteArray(),
+        rpId = "example.com",
+        user = FidoUser("user123".toByteArray(), "testuser", "Test User"),
+        signCount = 0u,
+        createdAt = now,
+      )
 
-    val credential3 = PasskeyCredential(
-      credentialId = "cred456".toByteArray(),
-      privateKey = "private".toByteArray(),
-      publicKey = "public".toByteArray(),
-      rpId = "example.com",
-      user = FidoUser("user123".toByteArray(), "testuser", "Test User"),
-      signCount = 0u,
-      createdAt = now
-    )
+    val credential3 =
+      PasskeyCredential(
+        credentialId = "cred456".toByteArray(),
+        privateKey = "private".toByteArray(),
+        publicKey = "public".toByteArray(),
+        rpId = "example.com",
+        user = FidoUser("user123".toByteArray(), "testuser", "Test User"),
+        signCount = 0u,
+        createdAt = now,
+      )
 
     assertEquals(credential1, credential2, "Credentials with same values should be equal")
     assertNotEquals(credential1, credential3, "Credentials with different IDs should not be equal")
@@ -52,15 +55,16 @@ class PasskeyCredentialTest {
 
   @Test
   fun `incrementSignCount increases sign count by 1`() {
-    val credential = PasskeyCredential(
-      credentialId = "cred123".toByteArray(),
-      privateKey = "private".toByteArray(),
-      publicKey = "public".toByteArray(),
-      rpId = "example.com",
-      user = FidoUser("user123".toByteArray(), "testuser", "Test User"),
-      signCount = 5u,
-      createdAt = Clock.System.now()
-    )
+    val credential =
+      PasskeyCredential(
+        credentialId = "cred123".toByteArray(),
+        privateKey = "private".toByteArray(),
+        publicKey = "public".toByteArray(),
+        rpId = "example.com",
+        user = FidoUser("user123".toByteArray(), "testuser", "Test User"),
+        signCount = 5u,
+        createdAt = Clock.System.now(),
+      )
 
     val incremented = credential.incrementSignCount()
 
@@ -70,14 +74,15 @@ class PasskeyCredentialTest {
 
   @Test
   fun `PasskeyCredential default values are correct`() {
-    val credential = PasskeyCredential(
-      credentialId = "cred123".toByteArray(),
-      privateKey = "private".toByteArray(),
-      publicKey = "public".toByteArray(),
-      rpId = "example.com",
-      user = FidoUser("user123".toByteArray(), "testuser", "Test User"),
-      createdAt = Clock.System.now()
-    )
+    val credential =
+      PasskeyCredential(
+        credentialId = "cred123".toByteArray(),
+        privateKey = "private".toByteArray(),
+        publicKey = "public".toByteArray(),
+        rpId = "example.com",
+        user = FidoUser("user123".toByteArray(), "testuser", "Test User"),
+        createdAt = Clock.System.now(),
+      )
 
     assertEquals(0u, credential.signCount, "Default sign count should be 0")
     assertEquals(listOf("internal"), credential.transports, "Default transports should be internal")

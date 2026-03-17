@@ -55,7 +55,8 @@ public class FilePasskeyStorage<
         }
 
         val credentials = mutableListOf<PasskeyCredential>()
-        targetDir.walkTopDown()
+        targetDir
+          .walkTopDown()
           .filter { it.isFile && it.extension == config.fileExtension.removePrefix(".") }
           .forEach { file ->
             decryptCredential(file)?.let { credentials.add(it.toPasskeyCredential()) }
@@ -70,136 +71,145 @@ public class FilePasskeyStorage<
 
   override suspend fun getCredential(
     credentialId: ByteArray
-  ): Result<PasskeyCredential?, Throwable> = withContext(Dispatchers.IO) {
-    try {
-      val hexId = credentialId.joinToString("") { byte -> "%02x".format(byte) }
-      
-      dir.walkTopDown()
-        .filter { it.isFile && it.nameWithoutExtension == hexId }
-        .forEach { file ->
-          val credential = decryptCredential(file)
-          if (credential != null) {
-            return@withContext Ok(credential.toPasskeyCredential())
+  ): Result<PasskeyCredential?, Throwable> =
+    withContext(Dispatchers.IO) {
+      try {
+        val hexId = credentialId.joinToString("") { byte -> "%02x".format(byte) }
+
+        dir
+          .walkTopDown()
+          .filter { it.isFile && it.nameWithoutExtension == hexId }
+          .forEach { file ->
+            val credential = decryptCredential(file)
+            if (credential != null) {
+              return@withContext Ok(credential.toPasskeyCredential())
+            }
+          }
+
+        Ok(null)
+      } catch (e: Exception) {
+        logcat(LogPriority.ERROR) { "Failed to get credential: ${e.message}" }
+        Err(e)
+      }
+    }
+
+  override suspend fun saveCredential(credential: PasskeyCredential): Result<Unit, Throwable> =
+    withContext(Dispatchers.IO) {
+      try {
+        val dir = passkeyDir
+        if (!dir.exists()) {
+          if (!dir.mkdirs()) {
+            return@withContext Err(IllegalStateException("Failed to create passkey directory"))
           }
         }
 
-      Ok(null)
-    } catch (e: Exception) {
-      logcat(LogPriority.ERROR) { "Failed to get credential: ${e.message}" }
-      Err(e)
-    }
-  }
-
-  override suspend fun saveCredential(
-    credential: PasskeyCredential
-  ): Result<Unit, Throwable> = withContext(Dispatchers.IO) {
-    try {
-      val dir = passkeyDir
-      if (!dir.exists()) {
-        if (!dir.mkdirs()) {
-          return@withContext Err(IllegalStateException("Failed to create passkey directory"))
-        }
-      }
-
-      val storedCred = StoredCredential.fromPasskeyCredential(credential)
-      val rpDir = File(dir, sanitizeRpId(credential.rpId))
-      if (!rpDir.exists()) {
-        if (!rpDir.mkdirs()) {
-          return@withContext Err(IllegalStateException("Failed to create RP directory"))
-        }
-      }
-
-      val fileName = storedCred.credentialIdHex() + config.fileExtension
-      val file = File(rpDir, fileName)
-
-      val plaintext = storedCred.toCbor()
-      val plaintextStream = ByteArrayInputStream(plaintext)
-      val outputStream = ByteArrayOutputStream()
-
-      cryptoHandler.encrypt(
-        keys = encryptionKeys(),
-        passphrase = null,
-        plaintextStream = plaintextStream,
-        outputStream = outputStream,
-        options = encryptionOptions,
-      ).fold(
-        success = {
-          file.writeBytes(outputStream.toByteArray())
-          logcat { "Saved passkey for ${credential.rpId}/${storedCred.credentialIdHex()}" }
-          Ok(Unit)
-        },
-        failure = { Err(it) }
-      )
-    } catch (e: Exception) {
-      logcat(LogPriority.ERROR) { "Failed to save credential: ${e.message}" }
-      Err(e)
-    }
-  }
-
-  override suspend fun deleteCredential(
-    credentialId: ByteArray
-  ): Result<Boolean, Throwable> = withContext(Dispatchers.IO) {
-    try {
-      val hexId = credentialId.joinToString("") { byte -> "%02x".format(byte) }
-      
-      dir.walkTopDown()
-        .filter { it.isFile && it.nameWithoutExtension == hexId }
-        .forEach { file ->
-          val deleted = file.delete()
-          if (deleted) {
-            logcat { "Deleted passkey ${hexId}" }
-            cleanupEmptyDirectories(file.parentFile)
+        val storedCred = StoredCredential.fromPasskeyCredential(credential)
+        val rpDir = File(dir, sanitizeRpId(credential.rpId))
+        if (!rpDir.exists()) {
+          if (!rpDir.mkdirs()) {
+            return@withContext Err(IllegalStateException("Failed to create RP directory"))
           }
-          return@withContext Ok(deleted)
         }
 
-      Ok(false)
-    } catch (e: Exception) {
-      logcat(LogPriority.ERROR) { "Failed to delete credential: ${e.message}" }
-      Err(e)
+        val fileName = storedCred.credentialIdHex() + config.fileExtension
+        val file = File(rpDir, fileName)
+
+        val plaintext = storedCred.toCbor()
+        val plaintextStream = ByteArrayInputStream(plaintext)
+        val outputStream = ByteArrayOutputStream()
+
+        cryptoHandler
+          .encrypt(
+            keys = encryptionKeys(),
+            passphrase = null,
+            plaintextStream = plaintextStream,
+            outputStream = outputStream,
+            options = encryptionOptions,
+          )
+          .fold(
+            success = {
+              file.writeBytes(outputStream.toByteArray())
+              logcat { "Saved passkey for ${credential.rpId}/${storedCred.credentialIdHex()}" }
+              Ok(Unit)
+            },
+            failure = { Err(it) },
+          )
+      } catch (e: Exception) {
+        logcat(LogPriority.ERROR) { "Failed to save credential: ${e.message}" }
+        Err(e)
+      }
     }
-  }
+
+  override suspend fun deleteCredential(credentialId: ByteArray): Result<Boolean, Throwable> =
+    withContext(Dispatchers.IO) {
+      try {
+        val hexId = credentialId.joinToString("") { byte -> "%02x".format(byte) }
+
+        dir
+          .walkTopDown()
+          .filter { it.isFile && it.nameWithoutExtension == hexId }
+          .forEach { file ->
+            val deleted = file.delete()
+            if (deleted) {
+              logcat { "Deleted passkey ${hexId}" }
+              cleanupEmptyDirectories(file.parentFile)
+            }
+            return@withContext Ok(deleted)
+          }
+
+        Ok(false)
+      } catch (e: Exception) {
+        logcat(LogPriority.ERROR) { "Failed to delete credential: ${e.message}" }
+        Err(e)
+      }
+    }
 
   override suspend fun updateSignCount(
     credentialId: ByteArray,
     newSignCount: ULong,
-  ): Result<Unit, Throwable> = withContext(Dispatchers.IO) {
-    try {
-      val hexId = credentialId.joinToString("") { byte -> "%02x".format(byte) }
-      
-      dir.walkTopDown()
-        .filter { it.isFile && it.nameWithoutExtension == hexId }
-        .forEach { file ->
-          val credential = decryptCredential(file)
-          if (credential != null) {
-            val updated = credential.copy(signCount = newSignCount.toUInt())
-            val plaintext = updated.toCbor()
-            val plaintextStream = ByteArrayInputStream(plaintext)
-            val outputStream = ByteArrayOutputStream()
+  ): Result<Unit, Throwable> =
+    withContext(Dispatchers.IO) {
+      try {
+        val hexId = credentialId.joinToString("") { byte -> "%02x".format(byte) }
 
-            cryptoHandler.encrypt(
-              keys = encryptionKeys(),
-              passphrase = null,
-              plaintextStream = plaintextStream,
-              outputStream = outputStream,
-              options = encryptionOptions,
-            ).fold(
-              success = {
-                file.writeBytes(outputStream.toByteArray())
-                logcat { "Updated sign count for ${hexId}" }
-              },
-              failure = { return@withContext Err(it) }
-            )
-            return@withContext Ok(Unit)
+        dir
+          .walkTopDown()
+          .filter { it.isFile && it.nameWithoutExtension == hexId }
+          .forEach { file ->
+            val credential = decryptCredential(file)
+            if (credential != null) {
+              val updated = credential.copy(signCount = newSignCount.toUInt())
+              val plaintext = updated.toCbor()
+              val plaintextStream = ByteArrayInputStream(plaintext)
+              val outputStream = ByteArrayOutputStream()
+
+              cryptoHandler
+                .encrypt(
+                  keys = encryptionKeys(),
+                  passphrase = null,
+                  plaintextStream = plaintextStream,
+                  outputStream = outputStream,
+                  options = encryptionOptions,
+                )
+                .fold(
+                  success = {
+                    file.writeBytes(outputStream.toByteArray())
+                    logcat { "Updated sign count for ${hexId}" }
+                  },
+                  failure = {
+                    return@withContext Err(it)
+                  },
+                )
+              return@withContext Ok(Unit)
+            }
           }
-        }
 
-      Err(IllegalArgumentException("Credential not found"))
-    } catch (e: Exception) {
-      logcat(LogPriority.ERROR) { "Failed to update sign count: ${e.message}" }
-      Err(e)
+        Err(IllegalArgumentException("Credential not found"))
+      } catch (e: Exception) {
+        logcat(LogPriority.ERROR) { "Failed to update sign count: ${e.message}" }
+        Err(e)
+      }
     }
-  }
 
   private val dir: File
     get() = passkeyDir
@@ -216,21 +226,21 @@ public class FilePasskeyStorage<
         return null
       }
 
-      cryptoHandler.decrypt(
-        key = key,
-        passphrase = decryptionPassphrase(),
-        ciphertextStream = ciphertextStream,
-        outputStream = outputStream,
-        options = decryptionOptions,
-      ).fold(
-        success = {
-          StoredCredential.fromCbor(outputStream.toByteArray())
-        },
-        failure = {
-          logcat(LogPriority.WARN) { "Failed to decrypt ${file.name}: ${it.message}" }
-          null
-        }
-      )
+      cryptoHandler
+        .decrypt(
+          key = key,
+          passphrase = decryptionPassphrase(),
+          ciphertextStream = ciphertextStream,
+          outputStream = outputStream,
+          options = decryptionOptions,
+        )
+        .fold(
+          success = { StoredCredential.fromCbor(outputStream.toByteArray()) },
+          failure = {
+            logcat(LogPriority.WARN) { "Failed to decrypt ${file.name}: ${it.message}" }
+            null
+          },
+        )
     } catch (e: Exception) {
       logcat(LogPriority.WARN) { "Error decrypting ${file.name}: ${e.message}" }
       null

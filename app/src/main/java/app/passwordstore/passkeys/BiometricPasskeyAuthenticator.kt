@@ -11,8 +11,8 @@ import app.passwordstore.passkeys.provider.PasskeyAuthenticator
 import app.passwordstore.util.auth.BiometricAuthenticator
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
+import kotlinx.coroutines.suspendCancellableCoroutine
 
 @Singleton
 class BiometricPasskeyAuthenticator @Inject constructor() : PasskeyAuthenticator {
@@ -56,9 +56,12 @@ class BiometricPasskeyAuthenticator @Inject constructor() : PasskeyAuthenticator
   private fun convertResult(result: BiometricAuthenticator.Result): PasskeyAuthenticator.Result {
     return when (result) {
       is BiometricAuthenticator.Result.Success -> PasskeyAuthenticator.Result.Success
-      is BiometricAuthenticator.Result.Failure -> PasskeyAuthenticator.Result.Failure(result.message.toString())
-      is BiometricAuthenticator.Result.Retry -> PasskeyAuthenticator.Result.Failure("Authentication retry required")
-      is BiometricAuthenticator.Result.HardwareUnavailableOrDisabled -> PasskeyAuthenticator.Result.NotAvailable
+      is BiometricAuthenticator.Result.Failure ->
+        PasskeyAuthenticator.Result.Failure(result.message.toString())
+      is BiometricAuthenticator.Result.Retry ->
+        PasskeyAuthenticator.Result.Failure("Authentication retry required")
+      is BiometricAuthenticator.Result.HardwareUnavailableOrDisabled ->
+        PasskeyAuthenticator.Result.NotAvailable
       is BiometricAuthenticator.Result.CanceledByUser -> PasskeyAuthenticator.Result.Canceled
       is BiometricAuthenticator.Result.CanceledBySystem -> PasskeyAuthenticator.Result.Canceled
     }

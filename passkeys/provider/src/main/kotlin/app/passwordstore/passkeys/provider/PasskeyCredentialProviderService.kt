@@ -54,7 +54,8 @@ public abstract class PasskeyCredentialProviderService : CredentialProviderServi
     callback: OutcomeReceiver<BeginGetCredentialResponse, GetCredentialException>,
   ) {
     try {
-      val options = request.beginGetCredentialOptions.filterIsInstance<BeginGetPublicKeyCredentialOption>()
+      val options =
+        request.beginGetCredentialOptions.filterIsInstance<BeginGetPublicKeyCredentialOption>()
       if (options.isEmpty()) {
         callback.onError(GetCredentialUnknownException("No passkey options available"))
         return
@@ -63,8 +64,10 @@ public abstract class PasskeyCredentialProviderService : CredentialProviderServi
       val entries =
         mutableListOf<PublicKeyCredentialEntry>().apply {
           for (option in options) {
-            val parsedRequest = PasskeyProviderUtils.json.decodeFromString<WebAuthnGetRequest>(option.requestJson)
-            val rpId = parsedRequest.rpId ?: parsedRequest.allowCredentials.firstNotNullOfOrNull { it.rpId }
+            val parsedRequest =
+              PasskeyProviderUtils.json.decodeFromString<WebAuthnGetRequest>(option.requestJson)
+            val rpId =
+              parsedRequest.rpId ?: parsedRequest.allowCredentials.firstNotNullOfOrNull { it.rpId }
             if (rpId == null) {
               logcat(LogPriority.WARN) { "Skipping passkey option without RP ID" }
               continue
@@ -72,13 +75,17 @@ public abstract class PasskeyCredentialProviderService : CredentialProviderServi
 
             val credentials =
               runBlocking(Dispatchers.IO) {
-                passkeyStorage.listCredentials(rpId).fold(
-                  success = { PasskeyProviderUtils.selectCredentials(it, parsedRequest.allowCredentials) },
-                  failure = {
-                    logcat(LogPriority.ERROR) { "Failed loading passkeys for $rpId: $it" }
-                    emptyList()
-                  },
-                )
+                passkeyStorage
+                  .listCredentials(rpId)
+                  .fold(
+                    success = {
+                      PasskeyProviderUtils.selectCredentials(it, parsedRequest.allowCredentials)
+                    },
+                    failure = {
+                      logcat(LogPriority.ERROR) { "Failed loading passkeys for $rpId: $it" }
+                      emptyList()
+                    },
+                  )
               }
 
             addAll(credentials.map { credential -> buildCredentialEntry(option, credential) })
@@ -116,10 +123,12 @@ public abstract class PasskeyCredentialProviderService : CredentialProviderServi
         return
       }
 
-      val parsedRequest = PasskeyProviderUtils.json.decodeFromString<WebAuthnCreateRequest>(createRequest.requestJson)
+      val parsedRequest =
+        PasskeyProviderUtils.json.decodeFromString<WebAuthnCreateRequest>(createRequest.requestJson)
       val pendingIntent = buildCreatePendingIntent()
       val description = parsedRequest.rp.name ?: parsedRequest.rp.id
-      val accountName = parsedRequest.user.displayName ?: parsedRequest.user.name ?: parsedRequest.rp.id
+      val accountName =
+        parsedRequest.user.displayName ?: parsedRequest.user.name ?: parsedRequest.rp.id
       val entry =
         CreateEntry(
           accountName,
@@ -133,7 +142,9 @@ public abstract class PasskeyCredentialProviderService : CredentialProviderServi
           true,
         )
 
-      callback.onResult(BeginCreateCredentialResponse(createEntries = listOf(entry), remoteEntry = null))
+      callback.onResult(
+        BeginCreateCredentialResponse(createEntries = listOf(entry), remoteEntry = null)
+      )
     } catch (e: Exception) {
       logcat(LogPriority.ERROR) { "Unable to build create-credential response: $e" }
       callback.onError(CreateCredentialUnknownException(e.message ?: "Unknown passkey error"))
@@ -168,7 +179,10 @@ public abstract class PasskeyCredentialProviderService : CredentialProviderServi
     val intent =
       Intent(this, providerActivity)
         .putExtra(EXTRA_OPERATION, OPERATION_GET)
-        .putExtra(EXTRA_CREDENTIAL_ID, PasskeyProviderUtils.encodeBase64Url(credential.credentialId))
+        .putExtra(
+          EXTRA_CREDENTIAL_ID,
+          PasskeyProviderUtils.encodeBase64Url(credential.credentialId),
+        )
     return PendingIntent.getActivity(
       this,
       credential.credentialId.contentHashCode(),

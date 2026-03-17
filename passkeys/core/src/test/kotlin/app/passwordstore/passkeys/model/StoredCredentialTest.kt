@@ -7,7 +7,6 @@ package app.passwordstore.passkeys.model
 
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -16,7 +15,12 @@ class StoredCredentialTest {
 
   @Test
   fun `parse fixture credential 1`() {
-    val bytes = javaClass.getResourceAsStream("/fixtures/07b36924d8924098bb427039d7d0f43b86b4cb52a9dec9aab04bf47472e02d7b.bin")!!.readBytes()
+    val bytes =
+      javaClass
+        .getResourceAsStream(
+          "/fixtures/07b36924d8924098bb427039d7d0f43b86b4cb52a9dec9aab04bf47472e02d7b.bin"
+        )!!
+        .readBytes()
     val credential = StoredCredential.fromCbor(bytes)
 
     assertEquals(32, credential.id.size)
@@ -40,7 +44,12 @@ class StoredCredentialTest {
 
   @Test
   fun `parse fixture credential 2`() {
-    val bytes = javaClass.getResourceAsStream("/fixtures/1381816530c267f00fb7d8a844b65f765cbbc059d8d7c695a40b7a1dea48f139.bin")!!.readBytes()
+    val bytes =
+      javaClass
+        .getResourceAsStream(
+          "/fixtures/1381816530c267f00fb7d8a844b65f765cbbc059d8d7c695a40b7a1dea48f139.bin"
+        )!!
+        .readBytes()
     val credential = StoredCredential.fromCbor(bytes)
 
     assertEquals("webauthn.io", credential.rp.id)
@@ -51,21 +60,19 @@ class StoredCredentialTest {
 
   @Test
   fun `roundtrip credential`() {
-    val original = StoredCredential(
-      id = byteArrayOf(0x01, 0x02, 0x03, 0x04),
-      rp = RelyingParty(id = "example.com", name = "Example Site"),
-      user = User(
-        id = byteArrayOf(0x05, 0x06, 0x07),
-        name = "testuser",
-        displayName = "Test User"
-      ),
-      signCount = 42u,
-      alg = StoredCredential.ALG_ES256,
-      privateKey = byteArrayOf(0x10, 0x20, 0x30, 0x40),
-      created = 1234567890L,
-      discoverable = true,
-      extensions = Extensions(credProtect = 2, hmacSecret = true)
-    )
+    val original =
+      StoredCredential(
+        id = byteArrayOf(0x01, 0x02, 0x03, 0x04),
+        rp = RelyingParty(id = "example.com", name = "Example Site"),
+        user =
+          User(id = byteArrayOf(0x05, 0x06, 0x07), name = "testuser", displayName = "Test User"),
+        signCount = 42u,
+        alg = StoredCredential.ALG_ES256,
+        privateKey = byteArrayOf(0x10, 0x20, 0x30, 0x40),
+        created = 1234567890L,
+        discoverable = true,
+        extensions = Extensions(credProtect = 2, hmacSecret = true),
+      )
 
     val encoded = original.toCbor()
     val decoded = StoredCredential.fromCbor(encoded)
@@ -83,30 +90,32 @@ class StoredCredentialTest {
 
   @Test
   fun `credential id hex`() {
-    val credential = StoredCredential(
-      id = byteArrayOf(0x01, 0x02, 0x0a, 0x0f, 0xff.toByte()),
-      rp = RelyingParty(id = "test.com"),
-      user = User(id = byteArrayOf(0x01)),
-      signCount = 0u,
-      alg = StoredCredential.ALG_ES256,
-      privateKey = byteArrayOf(0x00),
-      created = 0L,
-    )
+    val credential =
+      StoredCredential(
+        id = byteArrayOf(0x01, 0x02, 0x0a, 0x0f, 0xff.toByte()),
+        rp = RelyingParty(id = "test.com"),
+        user = User(id = byteArrayOf(0x01)),
+        signCount = 0u,
+        alg = StoredCredential.ALG_ES256,
+        privateKey = byteArrayOf(0x00),
+        created = 0L,
+      )
 
     assertEquals("01020a0fff", credential.credentialIdHex())
   }
 
   @Test
   fun `minimal credential`() {
-    val original = StoredCredential(
-      id = byteArrayOf(0x01, 0x02),
-      rp = RelyingParty(id = "test.com"),
-      user = User(id = byteArrayOf(0x03)),
-      signCount = 0u,
-      alg = StoredCredential.ALG_ES256,
-      privateKey = byteArrayOf(0x00),
-      created = 0L,
-    )
+    val original =
+      StoredCredential(
+        id = byteArrayOf(0x01, 0x02),
+        rp = RelyingParty(id = "test.com"),
+        user = User(id = byteArrayOf(0x03)),
+        signCount = 0u,
+        alg = StoredCredential.ALG_ES256,
+        privateKey = byteArrayOf(0x00),
+        created = 0L,
+      )
 
     val encoded = original.toCbor()
     val decoded = StoredCredential.fromCbor(encoded)
