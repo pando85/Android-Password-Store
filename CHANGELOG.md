@@ -4,7 +4,9 @@ All notable changes to this project will be documented in this file
 
 ## [Unreleased]
 
-### Fixed                                                                                   - Keystore-provided SSH keys are available again
+### Fixed
+
+- Keystore-provided SSH keys are usable again
 
 ## [1.16.2] - 2026-03-01
 
