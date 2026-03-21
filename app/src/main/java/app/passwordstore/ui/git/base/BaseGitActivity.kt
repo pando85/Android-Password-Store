@@ -106,15 +106,21 @@ abstract class BaseGitActivity : AppCompatActivity() {
     if (!isExplicitlyUserInitiatedError(error)) {
       gitSecrets.edit { remove(PreferenceKeys.HTTPS_PASSWORD) }
       logcat { error.asLog() }
-      withContext(dispatcherProvider.main()) {
-        MaterialAlertDialogBuilder(this@BaseGitActivity).run {
-          setTitle(resources.getString(R.string.jgit_error_dialog_title))
-          setMessage(ErrorMessages[error])
-          setPositiveButton(resources.getString(R.string.dialog_ok)) { _, _ -> }
-          setOnDismissListener { onPromptDone() }
-          show()
+      val hostKeyFile = this@BaseGitActivity.filesDir.resolve(".host_key")
+      if (
+        hostKeyFile.exists() ||
+          !(error is SSHException &&
+            error.getDisconnectReason() == DisconnectReason.HOST_KEY_NOT_VERIFIABLE)
+      )
+        withContext(dispatcherProvider.main()) {
+          MaterialAlertDialogBuilder(this@BaseGitActivity).run {
+            setTitle(resources.getString(R.string.jgit_error_dialog_title))
+            setMessage(ErrorMessages[error])
+            setPositiveButton(resources.getString(R.string.dialog_ok)) { _, _ -> }
+            setOnDismissListener { onPromptDone() }
+            show()
+          }
         }
-      }
     } else {
       onPromptDone()
     }
