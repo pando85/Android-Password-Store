@@ -24,6 +24,8 @@ import app.passwordstore.passkeys.provider.PasskeyCredentialProviderService
 import app.passwordstore.passkeys.provider.PasskeyProviderUtils
 import app.passwordstore.passkeys.storage.PasskeyStorage
 import app.passwordstore.util.coroutines.DispatcherProvider
+import app.passwordstore.util.extensions.sharedPrefs
+import app.passwordstore.util.settings.PreferenceKeys
 import com.github.michaelbull.result.fold
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -118,7 +120,9 @@ class AppPasskeyProviderActivity : AppCompatActivity() {
       }
     }
 
-    val newSignCount = credential.signCount + 1u
+    val constantSignatureCounter =
+      sharedPrefs.getBoolean(PreferenceKeys.PASSKEY_CONSTANT_SIGNATURE_COUNTER, true)
+    val newSignCount = if (constantSignatureCounter) 0u else credential.signCount + 1u
     passkeyStorage
       .updateSignCount(credential.credentialId, newSignCount)
       .fold(
