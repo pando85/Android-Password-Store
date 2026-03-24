@@ -200,50 +200,6 @@ public class ES256CryptoHandler : PasskeyCryptoHandler {
     return P256_EC_OID_PREFIX + rawPublicKey
   }
 
-  private fun convertDerToRaw(derSignature: ByteArray): ByteArray {
-    val asn1InputStream = org.bouncycastle.asn1.ASN1InputStream(derSignature)
-    val sequence = asn1InputStream.readObject() as org.bouncycastle.asn1.ASN1Sequence
-    val r = (sequence.getObjectAt(0) as org.bouncycastle.asn1.ASN1Integer).value
-    val s = (sequence.getObjectAt(1) as org.bouncycastle.asn1.ASN1Integer).value
-
-    val rBytes = r.toByteArray().let { if (it.size > 32) it.sliceArray(1..32) else it }
-    val sBytes = s.toByteArray().let { if (it.size > 32) it.sliceArray(1..32) else it }
-
-    val rawR = ByteArray(32) { if (it < 32 - rBytes.size) 0 else rBytes[it - (32 - rBytes.size)] }
-    val rawS = ByteArray(32) { if (it < 32 - sBytes.size) 0 else sBytes[it - (32 - sBytes.size)] }
-
-    return rawR + rawS
-  }
-
-  private fun convertRawToDer(rawSignature: ByteArray): ByteArray {
-    require(rawSignature.size == 64) { "Raw signature must be 64 bytes" }
-
-    val r =
-      rawSignature.sliceArray(0..31).let { bytes ->
-        var i = 0
-        while (i < bytes.size && bytes[i] == 0.toByte()) i++
-        if (i < bytes.size && bytes[i] < 0) byteArrayOf(0) + bytes.sliceArray(i..31)
-        else bytes.sliceArray(i..31)
-      }
-
-    val s =
-      rawSignature.sliceArray(32..63).let { bytes ->
-        var i = 0
-        while (i < bytes.size && bytes[i] == 0.toByte()) i++
-        if (i < bytes.size && bytes[i] < 0) byteArrayOf(0) + bytes.sliceArray(i..31)
-        else bytes.sliceArray(i..31)
-      }
-
-    val sequence =
-      org.bouncycastle.asn1.DERSequence(
-        org.bouncycastle.asn1.ASN1EncodableVector().apply {
-          add(org.bouncycastle.asn1.ASN1Integer(java.math.BigInteger(1, r)))
-          add(org.bouncycastle.asn1.ASN1Integer(java.math.BigInteger(1, s)))
-        }
-      )
-    return sequence.encoded
-  }
-
   public companion object {
     public const val FLAG_USER_PRESENT: Byte = 0x01
     public const val FLAG_USER_VERIFIED: Byte = 0x04

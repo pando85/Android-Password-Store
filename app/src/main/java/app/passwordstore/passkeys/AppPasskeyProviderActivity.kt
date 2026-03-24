@@ -159,13 +159,6 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
       return
     }
 
-    passkeyStorage
-      .updateSignCount(credential.credentialId, newSignCount)
-      .fold(
-        success = {},
-        failure = { logcat(LogPriority.WARN) { "Failed to update sign count: $it" } },
-      )
-
     val responseJson =
       PasskeyProviderUtils.buildAssertionResponse(assertion, credential, requestJson)
     val resultIntent = Intent()
