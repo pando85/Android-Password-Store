@@ -8,7 +8,6 @@ package app.passwordstore.passkeys
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
-import androidx.appcompat.app.AppCompatActivity
 import androidx.credentials.CreatePublicKeyCredentialRequest
 import androidx.credentials.CreatePublicKeyCredentialResponse
 import androidx.credentials.GetCredentialResponse
@@ -23,24 +22,33 @@ import app.passwordstore.passkeys.provider.PasskeyAuthenticator
 import app.passwordstore.passkeys.provider.PasskeyCredentialProviderService
 import app.passwordstore.passkeys.provider.PasskeyProviderUtils
 import app.passwordstore.passkeys.storage.PasskeyStorage
-import app.passwordstore.util.coroutines.DispatcherProvider
+import app.passwordstore.ui.git.base.BaseGitActivity
+import app.passwordstore.ui.git.base.BaseGitActivity.GitOp
 import app.passwordstore.util.extensions.sharedPrefs
 import app.passwordstore.util.settings.PreferenceKeys
 import com.github.michaelbull.result.fold
-import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import logcat.LogPriority
 import logcat.logcat
 
-@AndroidEntryPoint
-class AppPasskeyProviderActivity : AppCompatActivity() {
+class AppPasskeyProviderActivity : BaseGitActivity() {
 
   @Inject lateinit var passkeyStorage: PasskeyStorage
   @Inject lateinit var cryptoHandler: PasskeyCryptoHandler
   @Inject lateinit var authenticator: PasskeyAuthenticator
-  @Inject lateinit var dispatcherProvider: DispatcherProvider
+
+  private fun maybeSyncToGit() {
+    if (!sharedPrefs.getBoolean(PreferenceKeys.PASSKEY_AUTO_GIT_SYNC, true)) return
+    if (gitSettings.url == null) return
+    CoroutineScope(dispatcherProvider.io()).launch {
+      launchGitOperation(GitOp.SYNC).fold(
+        success = { logcat { "Passkey auto-sync completed" } },
+        failure = { logcat(LogPriority.WARN) { "Passkey auto-sync failed: $it" } },
+      )
+    }
+  }
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
@@ -166,6 +174,7 @@ class AppPasskeyProviderActivity : AppCompatActivity() {
       GetCredentialResponse(PublicKeyCredential(responseJson)),
     )
     setResult(Activity.RESULT_OK, resultIntent)
+    maybeSyncToGit()
     finish()
   }
 
@@ -243,6 +252,7 @@ class AppPasskeyProviderActivity : AppCompatActivity() {
       CreatePublicKeyCredentialResponse(responseJson),
     )
     setResult(Activity.RESULT_OK, resultIntent)
+    maybeSyncToGit()
     finish()
   }
 
