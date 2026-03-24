@@ -34,15 +34,39 @@ public class Cbor private constructor(private val data: CborValue) {
 
   public fun asInt(): Int =
     when (data) {
-      is CborValue.UnsignedInteger -> data.value.toInt()
-      is CborValue.NegativeInteger -> data.value.toInt()
+      is CborValue.UnsignedInteger -> {
+        val value = data.value
+        if (value > BigInteger.valueOf(Int.MAX_VALUE.toLong())) {
+          throw CborException("Integer value too large for Int: $value")
+        }
+        value.toInt()
+      }
+      is CborValue.NegativeInteger -> {
+        val value = data.value
+        if (value < BigInteger.valueOf(Int.MIN_VALUE.toLong())) {
+          throw CborException("Integer value too small for Int: $value")
+        }
+        value.toInt()
+      }
       else -> throw CborException("Expected integer, got ${data::class.simpleName}")
     }
 
   public fun asLong(): Long =
     when (data) {
-      is CborValue.UnsignedInteger -> data.value.toLong()
-      is CborValue.NegativeInteger -> data.value.toLong()
+      is CborValue.UnsignedInteger -> {
+        val value = data.value
+        if (value > BigInteger.valueOf(Long.MAX_VALUE)) {
+          throw CborException("Integer value too large for Long: $value")
+        }
+        value.toLong()
+      }
+      is CborValue.NegativeInteger -> {
+        val value = data.value
+        if (value < BigInteger.valueOf(Long.MIN_VALUE)) {
+          throw CborException("Integer value too small for Long: $value")
+        }
+        value.toLong()
+      }
       else -> throw CborException("Expected integer, got ${data::class.simpleName}")
     }
 
@@ -111,15 +135,35 @@ public class CborMap private constructor(private val entries: MutableMap<String,
 
   public fun getInt(key: String): Int? =
     when (val value = entries[key]) {
-      is CborValue.UnsignedInteger -> value.value.toInt()
-      is CborValue.NegativeInteger -> value.value.toInt()
+      is CborValue.UnsignedInteger -> {
+        if (value.value > BigInteger.valueOf(Int.MAX_VALUE.toLong())) {
+          throw CborException("Integer value too large for Int at key '$key': ${value.value}")
+        }
+        value.value.toInt()
+      }
+      is CborValue.NegativeInteger -> {
+        if (value.value < BigInteger.valueOf(Int.MIN_VALUE.toLong())) {
+          throw CborException("Integer value too small for Int at key '$key': ${value.value}")
+        }
+        value.value.toInt()
+      }
       else -> null
     }
 
   public fun getLong(key: String): Long? =
     when (val value = entries[key]) {
-      is CborValue.UnsignedInteger -> value.value.toLong()
-      is CborValue.NegativeInteger -> value.value.toLong()
+      is CborValue.UnsignedInteger -> {
+        if (value.value > BigInteger.valueOf(Long.MAX_VALUE)) {
+          throw CborException("Integer value too large for Long at key '$key': ${value.value}")
+        }
+        value.value.toLong()
+      }
+      is CborValue.NegativeInteger -> {
+        if (value.value < BigInteger.valueOf(Long.MIN_VALUE)) {
+          throw CborException("Integer value too small for Long at key '$key': ${value.value}")
+        }
+        value.value.toLong()
+      }
       else -> null
     }
 
@@ -159,7 +203,13 @@ public class CborArray private constructor(private val elements: MutableList<Cbo
   public fun toByteArray(): ByteArray {
     return elements
       .filterIsInstance<CborValue.UnsignedInteger>()
-      .map { it.value.toInt().toByte() }
+      .map {
+        val intValue = it.value.toInt()
+        if (intValue < 0 || intValue > 255) {
+          throw CborException("Byte value out of range: $intValue")
+        }
+        intValue.toByte()
+      }
       .toByteArray()
   }
 
@@ -186,12 +236,18 @@ private object CborReader {
   private const val SIMPLE_TRUE = 21
   private const val SIMPLE_NULL = 22
 
+  private const val MAX_COLLECTION_SIZE = 100000
+  private const val MAX_DEPTH = 100
+
   fun read(bytes: ByteArray): CborValue {
     val input = DataInputStream(ByteArrayInputStream(bytes))
-    return readValue(input)
+    return readValue(input, 0)
   }
 
-  private fun readValue(input: DataInputStream): CborValue {
+  private fun readValue(input: DataInputStream, depth: Int): CborValue {
+    if (depth > MAX_DEPTH) {
+      throw CborException("Maximum nesting depth ($MAX_DEPTH) exceeded")
+    }
     val firstByte = input.readUnsignedByte()
     val majorType = firstByte shr 5
     val additionalInfo = firstByte and 0x1F
@@ -204,11 +260,11 @@ private object CborReader {
         )
       MAJOR_BYTES -> CborValue.ByteString(readByteString(input, additionalInfo))
       MAJOR_TEXT -> CborValue.TextString(readTextString(input, additionalInfo))
-      MAJOR_ARRAY -> CborValue.Array(readArray(input, additionalInfo))
-      MAJOR_MAP -> CborValue.Map(readMap(input, additionalInfo))
+      MAJOR_ARRAY -> CborValue.Array(readArray(input, additionalInfo, depth))
+      MAJOR_MAP -> CborValue.Map(readMap(input, additionalInfo, depth))
       MAJOR_TAG -> {
         readUnsignedInteger(input, additionalInfo)
-        readValue(input)
+        readValue(input, depth + 1)
       }
       MAJOR_SIMPLE -> readSimple(additionalInfo)
       else -> throw CborException("Unknown major type: $majorType")
@@ -228,27 +284,39 @@ private object CborReader {
 
   private fun readByteString(input: DataInputStream, additionalInfo: Int): ByteArray {
     val length = readLength(input, additionalInfo)
+    if (length > Int.MAX_VALUE) {
+      throw CborException("Byte string length too large: $length")
+    }
     return input.readNBytes(length.toInt())
   }
 
   private fun readTextString(input: DataInputStream, additionalInfo: Int): String {
     val length = readLength(input, additionalInfo)
+    if (length > Int.MAX_VALUE) {
+      throw CborException("Text string length too large: $length")
+    }
     return String(input.readNBytes(length.toInt()), Charsets.UTF_8)
   }
 
-  private fun readArray(input: DataInputStream, additionalInfo: Int): CborArray {
+  private fun readArray(input: DataInputStream, additionalInfo: Int, depth: Int): CborArray {
     val length = readLength(input, additionalInfo)
+    if (length > MAX_COLLECTION_SIZE) {
+      throw CborException("Array size too large: $length (max $MAX_COLLECTION_SIZE)")
+    }
     val elements = mutableListOf<CborValue>()
-    repeat(length.toInt()) { elements.add(readValue(input)) }
+    repeat(length.toInt()) { elements.add(readValue(input, depth + 1)) }
     return CborArray.from(elements)
   }
 
-  private fun readMap(input: DataInputStream, additionalInfo: Int): CborMap {
+  private fun readMap(input: DataInputStream, additionalInfo: Int, depth: Int): CborMap {
     val length = readLength(input, additionalInfo)
+    if (length > MAX_COLLECTION_SIZE) {
+      throw CborException("Map size too large: $length (max $MAX_COLLECTION_SIZE)")
+    }
     val map = mutableMapOf<String, CborValue>()
     repeat(length.toInt()) {
       val key =
-        when (val keyValue = readValue(input)) {
+        when (val keyValue = readValue(input, depth + 1)) {
           is CborValue.TextString -> keyValue.value
           is CborValue.UnsignedInteger -> keyValue.value.toString()
           is CborValue.NegativeInteger -> keyValue.value.toString()
@@ -257,7 +325,7 @@ private object CborReader {
               "Map key must be text or integer, got ${keyValue::class.simpleName}"
             )
         }
-      val value = readValue(input)
+      val value = readValue(input, depth + 1)
       map[key] = value
     }
     return CborMap.from(map)

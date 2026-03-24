@@ -185,13 +185,24 @@ public object PasskeyProviderUtils {
     credential: PasskeyCredential,
     coseKey: ByteArray,
   ): ByteArray {
+    require(credential.credentialId.size <= 1023) {
+      "Credential ID too large: ${credential.credentialId.size} bytes (max 1023)"
+    }
+    require(credential.credentialId.size <= 65535) {
+      "Credential ID exceeds 16-bit length encoding: ${credential.credentialId.size}"
+    }
     val rpIdHash = MessageDigest.getInstance("SHA-256").digest(credential.rpId.toByteArray())
     val flags =
       (ES256CryptoHandler.FLAG_USER_PRESENT.toInt() or
           ES256CryptoHandler.FLAG_USER_VERIFIED.toInt() or
           ES256CryptoHandler.FLAG_ATTESTED_CREDENTIAL_DATA.toInt())
         .toByte()
-    val signCount = byteArrayOf(0, 0, 0, 0)
+    val signCountBytes = byteArrayOf(
+      ((credential.signCount shr 24) and 0xFFu).toByte(),
+      ((credential.signCount shr 16) and 0xFFu).toByte(),
+      ((credential.signCount shr 8) and 0xFFu).toByte(),
+      (credential.signCount and 0xFFu).toByte(),
+    )
     val aaguid =
       byteArrayOf(
         0x41,
@@ -218,7 +229,7 @@ public object PasskeyProviderUtils {
       )
     return rpIdHash +
       byteArrayOf(flags) +
-      signCount +
+      signCountBytes +
       aaguid +
       credentialIdLength +
       credential.credentialId +
@@ -262,17 +273,18 @@ public object PasskeyProviderUtils {
   }
 
   private fun cborInt(value: Int): ByteArray {
-    require(value >= 0)
+    require(value >= 0) { "CBOR unsigned integer must be non-negative, got $value" }
     return encodeMajorType(0, value.toLong())
   }
 
   private fun cborNegativeInt(value: Int): ByteArray {
-    require(value < 0)
+    require(value < 0) { "CBOR negative integer must be negative, got $value" }
     return encodeMajorType(1, (-1L - value))
   }
 
   private fun encodeMajorType(majorType: Int, value: Long): ByteArray {
-    require(value >= 0)
+    require(value >= 0) { "Value must be non-negative, got $value" }
+    require(majorType in 0..7) { "Major type must be 0-7, got $majorType" }
     return when {
       value <= 23 -> byteArrayOf(((majorType shl 5) or value.toInt()).toByte())
       value <= 0xFF -> byteArrayOf(((majorType shl 5) or 24).toByte(), value.toByte())

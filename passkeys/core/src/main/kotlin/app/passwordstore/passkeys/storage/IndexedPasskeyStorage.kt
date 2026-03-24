@@ -13,13 +13,18 @@ import com.github.michaelbull.result.fold
 import java.util.Base64
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import logcat.LogPriority
+import logcat.logcat
 
 public class IndexedPasskeyStorage(private val delegate: PasskeyStorage) : PasskeyStorage {
 
   private val credentialIndex = ConcurrentHashMap<String, PasskeyCredential>()
   private val rpIdIndex = ConcurrentHashMap<String, MutableSet<String>>()
-  private var indexLoaded = false
+  @Volatile private var indexLoaded = false
+  private val indexLoadMutex = Mutex()
 
   private fun credentialKey(id: ByteArray): String {
     return Base64.getUrlEncoder().withoutPadding().encodeToString(id)
@@ -27,16 +32,21 @@ public class IndexedPasskeyStorage(private val delegate: PasskeyStorage) : Passk
 
   private suspend fun ensureIndexLoaded() {
     if (indexLoaded) return
-    withContext(Dispatchers.IO) {
-      delegate
-        .listCredentials()
-        .fold(
-          success = { credentials ->
-            credentials.forEach { credential -> indexCredential(credential) }
-            indexLoaded = true
-          },
-          failure = {},
-        )
+    indexLoadMutex.withLock {
+      if (indexLoaded) return
+      withContext(Dispatchers.IO) {
+        delegate
+          .listCredentials()
+          .fold(
+            success = { credentials ->
+              credentials.forEach { credential -> indexCredential(credential) }
+              indexLoaded = true
+            },
+            failure = { error ->
+              logcat(LogPriority.ERROR) { "Failed to load passkey index: $error" }
+            },
+          )
+      }
     }
   }
 

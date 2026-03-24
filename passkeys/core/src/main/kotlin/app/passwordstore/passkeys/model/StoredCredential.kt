@@ -32,6 +32,8 @@ public data class StoredCredential(
     map["sign_count"] = CborValue.UnsignedInteger(BigInteger.valueOf(signCount.toLong()))
     map["alg"] = CborValue.NegativeInteger(BigInteger.valueOf(alg.toLong()))
     map["private_key"] = privateKey.toCborIntegerArray()
+    publicKey?.let { map["public_key"] = it.toCborIntegerArray() }
+      ?: run { map["public_key"] = CborValue.Null }
     map["created"] = CborValue.UnsignedInteger(BigInteger.valueOf(created))
     map["discoverable"] = if (discoverable) CborValue.True else CborValue.False
     map["extensions"] = CborValue.Map(extensions.toCborMap())
@@ -104,6 +106,7 @@ public data class StoredCredential(
       val alg = map.getInt("alg") ?: throw IllegalArgumentException("Missing 'alg' field")
       val privateKey =
         map.getBytes("private_key") ?: throw IllegalArgumentException("Missing 'private_key' field")
+      val publicKey = if (map.isNull("public_key")) null else map.getBytes("public_key")
       val created =
         map.getLong("created") ?: throw IllegalArgumentException("Missing 'created' field")
       val discoverable = map.getBoolean("discoverable") ?: true
@@ -116,6 +119,7 @@ public data class StoredCredential(
         signCount = signCount,
         alg = alg,
         privateKey = privateKey,
+        publicKey = publicKey,
         created = created,
         discoverable = discoverable,
         extensions = extensionsMap?.let { Extensions.fromCborMap(it) } ?: Extensions(),
