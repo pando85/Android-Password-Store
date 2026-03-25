@@ -11,6 +11,7 @@ import android.content.Intent
 import android.graphics.drawable.Icon
 import android.os.CancellationSignal
 import android.os.OutcomeReceiver
+import androidx.annotation.RequiresApi
 import androidx.credentials.exceptions.ClearCredentialException
 import androidx.credentials.exceptions.CreateCredentialException
 import androidx.credentials.exceptions.CreateCredentialNoCreateOptionException
@@ -37,6 +38,7 @@ import kotlinx.coroutines.runBlocking
 import logcat.LogPriority
 import logcat.logcat
 
+@RequiresApi(34)
 public abstract class PasskeyCredentialProviderService : CredentialProviderService() {
 
   protected abstract val passkeyStorage: PasskeyStorage
@@ -73,6 +75,7 @@ public abstract class PasskeyCredentialProviderService : CredentialProviderServi
               continue
             }
 
+            @Suppress("RawDispatchersUse")
             val credentials =
               runBlocking(Dispatchers.IO) {
                 passkeyStorage

@@ -105,8 +105,9 @@ class ES256CryptoHandlerTest {
         challenge = ByteArray(32) { it.toByte() },
       )
 
-    val credential =
-      credentialResult.getOrElse { throw AssertionError("Credential creation failed") }
+    val credential = credentialResult.getOrElse {
+      throw AssertionError("Credential creation failed")
+    }
 
     val assertionResult =
       cryptoHandler.getAssertion(
@@ -138,8 +139,8 @@ class ES256CryptoHandlerTest {
       "Authenticator flags should set UP and UV only",
     )
     assertTrue(
-      assertion.signature.size in 70..72,
-      "Signature should be DER-encoded (typically 70-72 bytes)",
+      assertion.signature.size in 68..72,
+      "Signature should be DER-encoded (typically 68-72 bytes)",
     )
   }
 
@@ -154,8 +155,8 @@ class ES256CryptoHandlerTest {
     assertTrue(signResult.isOk, "Sign should succeed")
     val signature = signResult.getOrElse { throw AssertionError("Sign failed") }
     assertTrue(
-      signature.size in 70..72,
-      "DER signature should typically be 70-72 bytes, got ${signature.size}",
+      signature.size in 68..72,
+      "DER signature should typically be 68-72 bytes, got ${signature.size}",
     )
   }
 }

@@ -8,6 +8,7 @@ package app.passwordstore.passkeys
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
+import androidx.annotation.RequiresApi
 import androidx.credentials.CreatePublicKeyCredentialRequest
 import androidx.credentials.CreatePublicKeyCredentialResponse
 import androidx.credentials.GetCredentialResponse
@@ -43,18 +44,21 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
     if (!sharedPrefs.getBoolean(PreferenceKeys.PASSKEY_AUTO_GIT_SYNC, true)) return
     if (gitSettings.url == null) return
     CoroutineScope(dispatcherProvider.io()).launch {
-      launchGitOperation(GitOp.SYNC).fold(
-        success = { logcat { "Passkey auto-sync completed" } },
-        failure = { logcat(LogPriority.WARN) { "Passkey auto-sync failed: $it" } },
-      )
+      launchGitOperation(GitOp.SYNC)
+        .fold(
+          success = { logcat { "Passkey auto-sync completed" } },
+          failure = { logcat(LogPriority.WARN) { "Passkey auto-sync failed: $it" } },
+        )
     }
   }
 
+  @RequiresApi(34)
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     CoroutineScope(dispatcherProvider.mainImmediate()).launch { handleProviderRequest() }
   }
 
+  @RequiresApi(34)
   private suspend fun handleProviderRequest() {
     PendingIntentHandler.retrieveProviderGetCredentialRequest(intent)?.let {
       handleGetCredential(it)
@@ -69,9 +73,11 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
     finishWithGetError(GetCredentialUnknownException("Missing provider request"))
   }
 
+  @RequiresApi(34)
   private suspend fun handleGetCredential(
     request: androidx.credentials.provider.ProviderGetCredentialRequest
   ) {
+    @Suppress("InlinedApi")
     val selectedCredentialId =
       intent.getStringExtra(PasskeyCredentialProviderService.EXTRA_CREDENTIAL_ID)
     if (selectedCredentialId == null) {
@@ -171,6 +177,7 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
     finish()
   }
 
+  @RequiresApi(34)
   private suspend fun handleCreateCredential(
     request: androidx.credentials.provider.ProviderCreateCredentialRequest
   ) {

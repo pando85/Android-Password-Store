@@ -11,7 +11,6 @@ import app.passwordstore.passkeys.model.PasskeyCredential
 import java.io.ByteArrayOutputStream
 import java.security.MessageDigest
 import java.util.Base64
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 /** Utility functions for WebAuthn/FIDO2 passkey operations. */
@@ -197,12 +196,13 @@ public object PasskeyProviderUtils {
           ES256CryptoHandler.FLAG_USER_VERIFIED.toInt() or
           ES256CryptoHandler.FLAG_ATTESTED_CREDENTIAL_DATA.toInt())
         .toByte()
-    val signCountBytes = byteArrayOf(
-      ((credential.signCount shr 24) and 0xFFu).toByte(),
-      ((credential.signCount shr 16) and 0xFFu).toByte(),
-      ((credential.signCount shr 8) and 0xFFu).toByte(),
-      (credential.signCount and 0xFFu).toByte(),
-    )
+    val signCountBytes =
+      byteArrayOf(
+        ((credential.signCount shr 24) and 0xFFu).toByte(),
+        ((credential.signCount shr 16) and 0xFFu).toByte(),
+        ((credential.signCount shr 8) and 0xFFu).toByte(),
+        (credential.signCount and 0xFFu).toByte(),
+      )
     val aaguid =
       byteArrayOf(
         0x41,

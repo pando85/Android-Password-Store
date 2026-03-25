@@ -11,7 +11,6 @@ import android.service.autofill.FillResponse
 import android.view.autofill.AutofillId
 import android.view.autofill.AutofillValue
 import android.widget.RemoteViews
-import androidx.annotation.RequiresApi
 import app.passwordstore.passkeys.model.PasskeyCredential
 import app.passwordstore.passkeys.storage.PasskeyStorage
 import com.github.michaelbull.result.fold
@@ -22,7 +21,7 @@ import logcat.logcat
 
 public object PasskeyAutofillHelper {
 
-  @RequiresApi(android.os.Build.VERSION_CODES.O)
+  @Suppress("RawDispatchersUse")
   public fun addPasskeyDatasets(
     builder: FillResponse.Builder,
     context: Context,
@@ -31,7 +30,6 @@ public object PasskeyAutofillHelper {
     passkeyStorage: PasskeyStorage,
     maxDatasets: Int = 3,
   ): Int {
-    if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.O) return 0
     if (usernameAutofillId == null) return 0
 
     val credentials =
@@ -61,7 +59,7 @@ public object PasskeyAutofillHelper {
     return datasetCount
   }
 
-  @RequiresApi(android.os.Build.VERSION_CODES.O)
+  @Suppress("DEPRECATION")
   private fun makePasskeyDataset(
     context: Context,
     usernameAutofillId: AutofillId,
@@ -72,7 +70,6 @@ public object PasskeyAutofillHelper {
     return builder.build()
   }
 
-  @RequiresApi(android.os.Build.VERSION_CODES.O)
   private fun createRemoteViews(context: Context, displayText: String): RemoteViews {
     val packageName = context.packageName
     return RemoteViews(packageName, android.R.layout.simple_list_item_1).apply {
@@ -80,6 +77,7 @@ public object PasskeyAutofillHelper {
     }
   }
 
+  @Suppress("RawDispatchersUse")
   public fun hasPasskeysForRp(passkeyStorage: PasskeyStorage, rpId: String): Boolean {
     return runBlocking(Dispatchers.IO) {
       passkeyStorage.listCredentials(rpId).fold(success = { it.isNotEmpty() }, failure = { false })

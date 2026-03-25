@@ -29,14 +29,13 @@ public class PasskeyPickerActivity : AppCompatActivity() {
     val displayNames = intent?.getStringArrayExtra(EXTRA_DISPLAY_NAMES) ?: emptyArray()
     val rpId = intent?.getStringExtra(EXTRA_RP_ID) ?: ""
 
-    credentials =
-      credentialIds.mapIndexed { index, id ->
-        CredentialSummary(
-          credentialId = id,
-          userName = userNames.getOrNull(index) ?: "",
-          displayName = displayNames.getOrNull(index) ?: "",
-        )
-      }
+    credentials = credentialIds.mapIndexed { index, id ->
+      CredentialSummary(
+        credentialId = id,
+        userName = userNames.getOrNull(index) ?: "",
+        displayName = displayNames.getOrNull(index) ?: "",
+      )
+    }
 
     val recyclerView =
       RecyclerView(this).apply {

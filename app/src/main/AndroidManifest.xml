@@ -128,7 +128,8 @@
       android:name=".passkeys.AppPasskeyCredentialProviderService"
       android:enabled="@bool/isAtLeastU"
       android:exported="true"
-      android:permission="android.permission.BIND_CREDENTIAL_PROVIDER_SERVICE">
+      android:permission="android.permission.BIND_CREDENTIAL_PROVIDER_SERVICE"
+      tools:targetApi="34">
       <intent-filter>
         <action android:name="android.service.credentials.CredentialProviderService" />
       </intent-filter>

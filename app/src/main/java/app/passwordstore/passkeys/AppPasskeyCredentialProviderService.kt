@@ -5,6 +5,7 @@
 
 package app.passwordstore.passkeys
 
+import androidx.annotation.RequiresApi
 import app.passwordstore.passkeys.crypto.PasskeyCryptoHandler
 import app.passwordstore.passkeys.provider.PasskeyCredentialProviderService
 import app.passwordstore.passkeys.storage.PasskeyStorage
@@ -13,6 +14,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
 
+@RequiresApi(34)
 class AppPasskeyCredentialProviderService : PasskeyCredentialProviderService() {
 
   private val entryPoint: PasskeysEntryPoint
