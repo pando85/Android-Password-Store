@@ -44,7 +44,7 @@ public data class StoredCredential(
     return PasskeyCredential(
       credentialId = id,
       privateKey = privateKey,
-      publicKey = publicKey ?: ByteArray(65) { 0 },
+      publicKey = publicKey ?: ByteArray(65),
       rpId = rp.id,
       user = FidoUser(id = user.id, name = user.name ?: "", displayName = user.displayName ?: ""),
       signCount = signCount.toULong(),
