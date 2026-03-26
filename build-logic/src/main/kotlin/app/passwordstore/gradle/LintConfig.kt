@@ -39,6 +39,8 @@ object LintConfig {
     disable += "TrulyRandom"
     // I can't do anything about this
     disable += "ObsoleteLintCustomCheck"
+    // Third-party libraries may reference packages not in Android
+    disable += "InvalidPackage"
     if (!isJVM) {
       // Enable compose-lint-checks' Material 2 detector
       enable += "ComposeM2Api"
@@ -49,6 +51,8 @@ object LintConfig {
       disable += "FragmentFieldInjection"
       // Too pedantic
       disable += "ArgInFormattedQuantityStringRes"
+      // Third-party dispatchers check not applicable
+      disable += "RawDispatchersUse"
     }
     baseline = project.file("lint-baseline.xml")
   }
