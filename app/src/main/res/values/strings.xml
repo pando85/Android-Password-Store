@@ -50,7 +50,7 @@
   <string name="clipboard_copied_text">Copied to clipboard.</string>
   <string name="file_toast_text">Please provide a file name.</string>
   <string name="path_toast_text">Please provide a file path.</string>
-  <string name="empty_toast_text">You cannot use an empty password or empty extra content.</string>
+  <string name="empty_toast_text">You need to fill in at least a password or some extra content.</string>
 
   <!-- Git Async Task -->
   <string name="jgit_error_dialog_title">An error occurred during a Git operation</string>

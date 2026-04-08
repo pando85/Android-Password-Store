@@ -49,7 +49,7 @@
   <string name="clipboard_copied_text">In die Zwischenablage kopiert.</string>
   <string name="file_toast_text">Bitte setzen Sie einen Dateinamen.</string>
   <string name="path_toast_text">Bitte setzen Sie einen Pfad.</string>
-  <string name="empty_toast_text">Sie können kein leeres Passwort oder leere Extra-Angaben setzen.</string>
+  <string name="empty_toast_text">Sie müssen mindestens ein Passwort oder Zusatzangaben eintragen.</string>
 
   <!-- Git Async Task -->
   <string name="jgit_error_dialog_title">Es ist ein Fehler während der Git-Operation aufgetreten</string>
