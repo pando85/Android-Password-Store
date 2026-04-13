@@ -161,7 +161,8 @@ class PasswordFragment : Fragment(R.layout.password_recycler_view) {
           // In order to not interfere with drag selection, we disable the
           // SwipeRefreshLayout
           // once an item is selected.
-          binding.swipeRefresher.isEnabled = selection.isEmpty
+          binding.swipeRefresher.isEnabled =
+            selection.isEmpty && !prefs.getBoolean(PreferenceKeys.DISABLE_SYNC_ACTION, false)
 
           if (actionMode == null)
             actionMode =
