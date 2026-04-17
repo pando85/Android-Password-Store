@@ -137,8 +137,11 @@
   <string name="pref_git_delete_repo_summary">Lösche das lokale (versteckte) Repository.</string>
   <string name="prefs_export_passwords_title">Passwörter exportieren</string>
   <string name="prefs_export_passwords_summary">Exportiert das Password-Repository in ein externes Verzeichnis.</string>
+  <string name="prefs_export_passwords_dialog_title">Passwörter werden exportiert</string>
+  <string name="prefs_export_passwords_dialog_message">Bitte warten…</string>
   <string name="prefs_import_passwords_title">Passwörter importieren</string>
   <string name="prefs_import_passwords_summary">Importiert ein Password-Repository aus einem externen Verzeichnis.</string>
+  <string name="prefs_import_passwords_dialog_title">Passwörter werden importiert</string>
   <string name="prefs_repo_not_empty_dialog_title">Lokales Repository ist nicht leer</string>
   <string name="prefs_repo_not_empty_dialog_summary">Vor dem Importieren muss das lokale Repository zunächst gelöscht werden.</string>
   <string name="prefs_repo_invalid_source_dialog_title">Unbrauchbares Quellverzeichnis</string>
@@ -232,7 +235,7 @@
   <string name="oreo_autofill_save_passwords_dont_match">Die Passwörter stimmen nicht überein.</string>
   <string name="oreo_autofill_generate_password">Passwort erstellen…</string>
   <string name="oreo_autofill_max_matches_reached">Maximale Anzahl an Übereinstimmungen (%1$d) erreicht; lösche Übereinstimmungen, bevor neue hinzugefügt werden.</string>
-  <string name="oreo_autofill_warning_publisher_header">Der Hersteller dieser App hat sich geändert, seit Sie einen Eintrag zum Passwort-Speicher mit ihr verknüpft haben:</string>
+  <string name="oreo_autofill_warning_publisher_header">Der Hersteller dieser App hat sich geändert, seit Sie einen Eintrag zum Passwort-Speicher mit ihr verknüpft haben: </string>
   <string name="oreo_autofill_warning_publisher_footer"><b>Die derzeit installierte App versucht, Ihre Anmeldeinformationen zu stehlen, indem sie vorgibt, eine vertrauenswürdige App zu sein.</b>\n\nVersuchen Sie, die App zu deinstallieren und installieren Sie sie erneut aus einer vertrauenswürdigen Quelle wie dem Play Store, Amazon Appstore, F-Droid oder dem Shop Ihres Telefonherstellers.</string>
   <string name="oreo_autofill_warning_publisher_install_time">Installiert: %1$s</string>
 
@@ -250,7 +253,7 @@
   <string name="oreo_autofill_no_support">Kein Support</string>
   <string name="oreo_autofill_enable_dialog_description">Password Store kann das Ausfüllen von Anmeldeformularen und sogar das Speichern von Anmeldedaten in Apps oder auf Webseiten übernehmen.</string>
   <string name="oreo_autofill_enable_dialog_instructions">Tippen Sie auf OK, um diese Funktion zu aktivieren und um zu den Autofill-Einstellungen zu gelangen. Dort wählen Sie \"Password Store\" aus der Liste und bestätigen mit \"OK\".</string>
-  <string name="oreo_autofill_enable_dialog_installed_browsers">Autofill-Unterstützung mit installierten Browsern:</string>
+  <string name="oreo_autofill_enable_dialog_installed_browsers">Autofill-Unterstützung mit installierten Browsern: </string>
 
   <string name="ssh_key_does_not_exist">Der private SSH-Schlüssel konnte nicht geöffnet werden. Bitte überprüfen Sie, ob die Datei existiert.</string>
   <string name="new_password_title">Neues Passwort</string>
@@ -445,9 +448,9 @@
   <string name="pgp_short_key_identifier">ungültig: Kurz-ID</string>
   <string name="pgp_unknown_key_identifier">unbekannte Schlüssel-ID</string>
   <string name="no_pgp_keys_dialog_title">Keine PGP-Schlüssel gefunden</string>
-  <string name="no_pgp_keys_dialog_message">Öffnen Sie den PGP-Schlüsselmanager und importieren Sie aus Backups passende PGP-Schlüssel für folgende ID(s):</string>
+  <string name="no_pgp_keys_dialog_message">Öffnen Sie den PGP-Schlüsselmanager und importieren Sie aus Backups passende PGP-Schlüssel für folgende ID(s): </string>
   <string name="no_decryption_keys_dialog_title">Keine geheimen Schlüssel</string>
-  <string name="no_decryption_keys_dialog_message">Öffnen Sie den PGP-Schlüsselmanager und importieren Sie aus Backups passende geheime PGP-Schlüssel für folgende ID(s):</string>
+  <string name="no_decryption_keys_dialog_message">Öffnen Sie den PGP-Schlüsselmanager und importieren Sie aus Backups passende geheime PGP-Schlüssel für folgende ID(s): </string>
   <string name="pgp_unknown">unbekannt</string>
   <string name="pgp_public_only">nur öffentlich</string>
   <string name="invalid_gpg_id_dialog_title">Leere oder fehlerhaft formatierte .gpg-id-Datei</string>
@@ -461,8 +464,8 @@
   <string name="biometric_prompt_description_unlock_entry">Zum Anzeigen des Eintrags müssen Sie sich authentisieren</string>
   <string name="biometric_prompt_description_unlock_authentication_key">Entsperren Sie den Authentifizierungsschlüssel mit Ihren Geräteanmeldeinformationen</string>
   <string name="pgp_wrong_passphrase_input">Falsche Eingabe</string>
-  <string name="pgp_id_label">PGP-ID:</string>
-  <string name="pgp_id_label_plural">PGP-IDs:</string>
+  <string name="pgp_id_label">PGP-ID: </string>
+  <string name="pgp_id_label_plural">PGP-IDs: </string>
   <string name="aes_key_invalidated_dialog_title">Achtung! Neuer Fingerabdruck hinzugefügt</string>
   <string name="aes_key_invalidated_dialog_message">Seit der letzten Verwendung wurde in den Geräteanmeldeinformationen ein neuer Fingerabdruck registriert. Stellen Sie sicher, dass er von Ihnen und nicht von jemand anderem hinzugefügt wurde.</string>
 
