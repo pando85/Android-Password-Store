@@ -42,7 +42,7 @@ jobs:
         if: "${{ steps.cpr.outputs.pull-request-operation == 'created' }}"
         shell: bash
         run: |
-          gh pr merge --squash --auto "${PR_URL}"
+          gh pr merge --squash --auto --admin "${PR_URL}"
         env:
           GITHUB_TOKEN: ${{ secrets.PSL_UPDATE_TOKEN }}
           PR_URL: ${{ steps.cpr.outputs.pull-request-url }}
