@@ -9,6 +9,10 @@ All notable changes to this project will be documented in this file
 - When moving files or directories, conclude action with listing the content of the destination directory
 - Improved app behaviour during password repo export and import; a modal dialog is shown until the process completes
 
+### Fixed
+
+- Accidental overwriting of existing password items after editing
+
 ## [1.16.3] - 2026-04-15
 
 ### Added
