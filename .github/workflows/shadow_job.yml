@@ -40,7 +40,7 @@ jobs:
 
     - name: Run checks
       shell: bash
-      run: ./gradlew check
+      run: ./gradlew check --stacktrace --info
       env:
         DEP_OVERRIDE: true
         DEP_OVERRIDE_agp: ${{ matrix.agp-version }}
