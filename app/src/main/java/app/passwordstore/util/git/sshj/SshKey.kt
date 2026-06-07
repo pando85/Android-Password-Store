@@ -36,6 +36,8 @@ import java.security.KeyPairGenerator
 import java.security.KeyStore
 import java.security.PrivateKey
 import java.security.PublicKey
+import java.security.SecureRandom
+import java.security.spec.NamedParameterSpec
 import java.security.spec.PKCS8EncodedKeySpec
 import java.security.spec.X509EncodedKeySpec
 import javax.crypto.SecretKey
@@ -283,7 +285,6 @@ object SshKey {
   fun generateKeystoreNativeKey(algorithm: Algorithm, requireAuthentication: Boolean) {
     delete()
 
-    // Generate Keystore-backed private key.
     val parameterSpec =
       KeyGenParameterSpec.Builder(KEYSTORE_ALIAS, KeyProperties.PURPOSE_SIGN).run {
         apply(algorithm.applyToSpec)
@@ -302,7 +303,7 @@ object SshKey {
       }
     val keyPair =
       KeyPairGenerator.getInstance(algorithm.algorithm, PROVIDER_ANDROID_KEY_STORE).run {
-        initialize(parameterSpec)
+        initialize(parameterSpec, SecureRandom())
         generateKeyPair()
       }
 
@@ -317,12 +318,12 @@ object SshKey {
   fun generateKeystoreWrappedEd25519Key(requireAuthentication: Boolean) {
     delete()
 
-    // Generate the ed25519 key pair, encrypt the private key and store it away
-    val keyPair = KeyPairGenerator.getInstance("Ed25519", BouncyCastleProvider()).generateKeyPair()
-
-    // Write public key in SSH format to .ssh_key.pub.
-    val userId = context.sharedPrefs.getString(PreferenceKeys.GIT_CONFIG_AUTHOR_EMAIL) ?: "nn@aps"
-    publicKeyFile.writeText(toSshPublicKey(keyPair.public) + " " + userId)
+    // Generate the Ed25519 key pair, encrypt the private key and store it away
+    val keyPair =
+      KeyPairGenerator.getInstance("EdDSA", BouncyCastleProvider()).run {
+        initialize(NamedParameterSpec("Ed25519"), SecureRandom())
+        generateKeyPair()
+      }
 
     val privateEncodedEncrypted =
       AESEncryption.encrypt(
@@ -338,6 +339,9 @@ object SshKey {
         "${requireAuthentication}:" + privateEncodedEncrypted,
       )
     }
+
+    val userId = context.sharedPrefs.getString(PreferenceKeys.GIT_CONFIG_AUTHOR_EMAIL) ?: "nn@aps"
+    publicKeyFile.writeText(toSshPublicKey(keyPair.public) + " " + userId)
 
     type = Type.KeystoreWrappedEd25519
   }
