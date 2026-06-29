@@ -8,7 +8,6 @@ package app.passwordstore.passkeys
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
-import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.credentials.CreatePublicKeyCredentialRequest
 import androidx.credentials.CreatePublicKeyCredentialResponse
@@ -24,6 +23,7 @@ import app.passwordstore.passkeys.provider.PasskeyAuthenticator
 import app.passwordstore.passkeys.provider.PasskeyCredentialProviderService
 import app.passwordstore.passkeys.provider.PasskeyProviderUtils
 import app.passwordstore.passkeys.storage.PasskeyStorage
+import app.passwordstore.data.repo.PasswordRepository
 import app.passwordstore.ui.git.base.BaseGitActivity
 import app.passwordstore.ui.git.base.BaseGitActivity.GitOp
 import app.passwordstore.util.extensions.sharedPrefs
@@ -43,19 +43,20 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
   @Inject lateinit var cryptoHandler: PasskeyCryptoHandler
   @Inject lateinit var authenticator: PasskeyAuthenticator
 
-  private fun dbg(msg: () -> String) {
-    Log.i("PASSKEY_DEBUG", msg())
-  }
-
   private fun maybeSyncToGit() {
     if (!sharedPrefs.getBoolean(PreferenceKeys.PASSKEY_AUTO_GIT_SYNC, true)) return
     if (gitSettings.url == null) return
+    if (PasswordRepository.repository == null) return
     CoroutineScope(dispatcherProvider.io()).launch {
-      launchGitOperation(GitOp.SYNC)
-        .fold(
-          success = { logcat { "Passkey auto-sync completed" } },
-          failure = { logcat(LogPriority.WARN) { "Passkey auto-sync failed: $it" } },
-        )
+      try {
+        launchGitOperation(GitOp.SYNC)
+          .fold(
+            success = { logcat { "Passkey auto-sync completed" } },
+            failure = { logcat(LogPriority.WARN) { "Passkey auto-sync failed: $it" } },
+          )
+      } catch (e: Exception) {
+        logcat(LogPriority.WARN) { "Passkey auto-sync crashed: $e" }
+      }
     }
   }
 
@@ -89,7 +90,6 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
       val selectedCredentialId =
         intent.getStringExtra(PasskeyCredentialProviderService.EXTRA_CREDENTIAL_ID)
       if (selectedCredentialId == null) {
-        Log.e("PASSKEY_DEBUG", "finishing with get error: No passkey was selected")
         finishWithGetError(GetCredentialCancellationException("No passkey was selected"))
         return
       }
@@ -97,12 +97,9 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
       val option =
         request.credentialOptions.filterIsInstance<GetPublicKeyCredentialOption>().firstOrNull()
       if (option == null) {
-        Log.e("PASSKEY_DEBUG", "finishing with get error: Missing passkey get option")
         finishWithGetError(GetCredentialUnknownException("Missing passkey get option"))
         return
       }
-
-      dbg { "GET request JSON: ${option.requestJson}" }
 
       val parsedRequest =
         PasskeyProviderUtils.json.decodeFromString<
@@ -110,9 +107,6 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
         >(
           option.requestJson
         )
-      dbg {
-        "GET parsed: rpId=${parsedRequest.rpId}, challenge=${parsedRequest.challenge}, origin=${parsedRequest.origin}, userVerification=${parsedRequest.userVerification}"
-      }
 
       val credentialId = PasskeyProviderUtils.decodeBase64Url(selectedCredentialId)
       val credential =
@@ -121,27 +115,19 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
           .fold(
             success = { it },
             failure = {
-              Log.e("PASSKEY_DEBUG", "getCredential failed", it)
               logcat(LogPriority.ERROR) { "Failed reading stored passkey: $it" }
               null
             },
           )
       if (credential == null) {
-        Log.e("PASSKEY_DEBUG", "finishing with get error: Selected passkey is unavailable")
         finishWithGetError(GetCredentialUnknownException("Selected passkey is unavailable"))
         return
-      }
-      dbg {
-        "GET credential loaded: id=${PasskeyProviderUtils.encodeBase64Url(credential.credentialId)}, rpId=${credential.rpId}"
       }
 
       if (authenticator.canAuthenticate(this)) {
         when (val authResult = authenticator.authenticateForPasskey(this, credential.rpId)) {
-          is PasskeyAuthenticator.Result.Success -> {
-            Log.i("PASSKEY_DEBUG", "biometric success, proceeding to assertion")
-          }
+          is PasskeyAuthenticator.Result.Success -> {}
           is PasskeyAuthenticator.Result.Canceled -> {
-            Log.e("PASSKEY_DEBUG", "finishing with get error: Authentication canceled")
             finishWithGetError(GetCredentialCancellationException("Authentication canceled"))
             return
           }
@@ -149,7 +135,6 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
             logcat(LogPriority.WARN) { "Biometric auth not available, proceeding without it" }
           }
           is PasskeyAuthenticator.Result.Failure -> {
-            Log.e("PASSKEY_DEBUG", "finishing with get error: Authentication failed: ${authResult.message}")
             finishWithGetError(
               GetCredentialUnknownException("Authentication failed: ${authResult.message}")
             )
@@ -165,10 +150,7 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
         .updateSignCount(credential.credentialId, newSignCount)
         .fold(
           success = {},
-          failure = { 
-            Log.w("PASSKEY_DEBUG", "updateSignCount failed", it)
-            logcat(LogPriority.WARN) { "Failed to update sign count: $it" } 
-          },
+          failure = { logcat(LogPriority.WARN) { "Failed to update sign count: $it" } },
         )
 
       val requestJson = option.requestJson
@@ -183,38 +165,17 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
           .fold(
             success = { it },
             failure = {
-              Log.e("PASSKEY_DEBUG", "getAssertion failed", it)
               logcat(LogPriority.ERROR) { "Failed building assertion: $it" }
               null
             },
           )
       if (assertion == null) {
-        Log.e("PASSKEY_DEBUG", "finishing with get error: Failed generating passkey assertion")
         finishWithGetError(GetCredentialUnknownException("Failed generating passkey assertion"))
         return
       }
 
-      dbg {
-        "GET assertion: authData=${assertion.authenticatorData.size}B, sig=${assertion.signature.size}B, clientDataJSON=${assertion.clientDataJSON}"
-      }
-      val clientDataHash =
-        java.security.MessageDigest.getInstance("SHA-256")
-          .digest(assertion.clientDataJSON.toByteArray())
-      cryptoHandler
-        .verify(
-          credential.publicKey,
-          assertion.signature,
-          assertion.authenticatorData,
-          clientDataHash,
-        )
-        .fold(
-          success = { Log.w("PASSKEY_DEBUG", "self-verify: $it") },
-          failure = { Log.e("PASSKEY_DEBUG", "self-verify error", it) },
-        )
-
       val responseJson =
         PasskeyProviderUtils.buildAssertionResponse(assertion, credential, requestJson)
-      dbg { "GET response JSON: $responseJson" }
       val resultIntent = Intent()
       PendingIntentHandler.setGetCredentialResponse(
         resultIntent,
@@ -224,8 +185,8 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
       maybeSyncToGit()
       finish()
     } catch (e: Exception) {
-      Log.e("PASSKEY_DEBUG", "handleGetCredential UNCAUGHT EXCEPTION", e)
-      finishWithGetError(GetCredentialUnknownException("Unexpected error: ${e.message}"))
+      logcat(LogPriority.ERROR) { "handleGetCredential unexpected error: $e" }
+      finishWithGetError(GetCredentialUnknownException("Unexpected error"))
     }
   }
 
@@ -236,12 +197,9 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
     try {
       val createRequest = request.callingRequest as? CreatePublicKeyCredentialRequest
       if (createRequest == null) {
-        Log.e("PASSKEY_DEBUG", "finishing with create error: Missing passkey create request")
         finishWithCreateError(CreateCredentialUnknownException("Missing passkey create request"))
         return
       }
-
-      dbg { "CREATE request JSON: ${createRequest.requestJson}" }
 
       val parsedRequest =
         PasskeyProviderUtils.json.decodeFromString<
@@ -249,15 +207,11 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
         >(
           createRequest.requestJson
         )
-      dbg {
-        "CREATE parsed: rpId=${parsedRequest.rp.id}, challenge=${parsedRequest.challenge}, attestation=${parsedRequest.attestation}"
-      }
 
       if (authenticator.canAuthenticate(this)) {
         when (val authResult = authenticator.authenticateForCreation(this, parsedRequest.rp.id)) {
           is PasskeyAuthenticator.Result.Success -> {}
           is PasskeyAuthenticator.Result.Canceled -> {
-            Log.e("PASSKEY_DEBUG", "finishing with create error: Authentication canceled")
             finishWithCreateError(CreateCredentialUnknownException("Authentication canceled"))
             return
           }
@@ -265,7 +219,6 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
             logcat(LogPriority.WARN) { "Biometric auth not available, proceeding without it" }
           }
           is PasskeyAuthenticator.Result.Failure -> {
-            Log.e("PASSKEY_DEBUG", "finishing with create error: Authentication failed: ${authResult.message}")
             finishWithCreateError(
               CreateCredentialUnknownException("Authentication failed: ${authResult.message}")
             )
@@ -286,13 +239,11 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
           .fold(
             success = { it },
             failure = {
-              Log.e("PASSKEY_DEBUG", "Failed creating passkey: $it", it)
               logcat(LogPriority.ERROR) { "Failed creating passkey: $it" }
               null
             },
           )
       if (createdCredential == null) {
-        Log.e("PASSKEY_DEBUG", "finishing with create error: Failed creating passkey")
         finishWithCreateError(CreateCredentialUnknownException("Failed creating passkey"))
         return
       }
@@ -301,19 +252,14 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
       if (saveResult.isErr) {
         saveResult.fold(
           success = {},
-          failure = { 
-            Log.e("PASSKEY_DEBUG", "Failed storing passkey: $it", it)
-            logcat(LogPriority.ERROR) { "Failed storing passkey: $it" } 
-          },
+          failure = { logcat(LogPriority.ERROR) { "Failed storing passkey: $it" } },
         )
-        Log.e("PASSKEY_DEBUG", "finishing with create error: Failed storing passkey")
         finishWithCreateError(CreateCredentialUnknownException("Failed storing passkey"))
         return
       }
 
       val responseJson =
         PasskeyProviderUtils.buildAttestationResponse(createdCredential, createRequest.requestJson)
-      dbg { "CREATE response JSON: $responseJson" }
       val resultIntent = Intent()
       PendingIntentHandler.setCreateCredentialResponse(
         resultIntent,
@@ -323,8 +269,8 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
       maybeSyncToGit()
       finish()
     } catch (e: Exception) {
-      Log.e("PASSKEY_DEBUG", "handleCreateCredential UNCAUGHT EXCEPTION", e)
-      finishWithCreateError(CreateCredentialUnknownException("Unexpected error: ${e.message}"))
+      logcat(LogPriority.ERROR) { "handleCreateCredential unexpected error: $e" }
+      finishWithCreateError(CreateCredentialUnknownException("Unexpected error"))
     }
   }
 
