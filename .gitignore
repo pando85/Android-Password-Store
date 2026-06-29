@@ -173,3 +173,7 @@ app/outputs
 # Rust build artifacts
 rust/target/
 Cargo.lock
+
+# Local release signing
+keystore.jks
+keystore.properties
