@@ -1,0 +1,59 @@
+name: Auto tag
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - app/version.properties
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT }}
+          fetch-depth: 0
+
+      - name: Read version from version.properties
+        id: version
+        run: |
+          VERSION=$(grep 'versioning-plugin.versionName' app/version.properties | cut -d= -f2 | tr -d '[:space:]')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          if [[ "$VERSION" == *"SNAPSHOT"* || "$VERSION" == *"-"* ]]; then
+            echo "is_release=false" >> $GITHUB_OUTPUT
+            echo "Snapshot or pre-release version: $VERSION — skipping tag"
+          else
+            echo "is_release=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check if tag exists
+        if: steps.version.outputs.is_release == 'true'
+        id: check_tag
+        run: |
+          TAG="v${{ steps.version.outputs.version }}"
+          if git ls-remote --tags origin | grep -q "refs/tags/$TAG"; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Tag $TAG already exists"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Import GPG key
+        if: steps.version.outputs.is_release == 'true' && steps.check_tag.outputs.exists == 'false'
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        run: |
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+
+      - name: Create signed tag
+        if: steps.version.outputs.is_release == 'true' && steps.check_tag.outputs.exists == 'false'
+        run: |
+          TAG="v${{ steps.version.outputs.version }}"
+          git config --global user.name "${{ github.repository_owner }}"
+          git config --global user.email "${{ github.repository_owner }}@users.noreply.github.com"
+          GPG_KEY_ID=$(gpg --list-secret-keys --with-colons | grep '^sec' | cut -d':' -f5 | head -1)
+          git tag -s "$TAG" -m "Release $TAG" --local-user "$GPG_KEY_ID"
+          git push origin "$TAG"
