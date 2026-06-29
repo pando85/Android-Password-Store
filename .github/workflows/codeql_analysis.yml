@@ -19,7 +19,7 @@ jobs:
       security-events: write
     steps:
     - name: Setup build environment
-      uses: agrahn/android-password-store/.github/reusable-workflows/setup-gradle@develop
+      uses: pando85/Android-Password-Store/.github/reusable-workflows/setup-gradle@develop
       with:
         java-version: 21
 
