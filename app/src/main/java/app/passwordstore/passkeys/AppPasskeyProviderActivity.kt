@@ -28,12 +28,14 @@ import app.passwordstore.ui.git.base.BaseGitActivity.GitOp
 import app.passwordstore.util.extensions.sharedPrefs
 import app.passwordstore.util.settings.PreferenceKeys
 import com.github.michaelbull.result.fold
+import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import logcat.LogPriority
 import logcat.logcat
 
+@AndroidEntryPoint
 class AppPasskeyProviderActivity : BaseGitActivity() {
 
   @Inject lateinit var passkeyStorage: PasskeyStorage
