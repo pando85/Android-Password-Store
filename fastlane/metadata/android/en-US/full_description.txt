@@ -1,4 +1,6 @@
-<p>Simple password manager that is compatible with <a href="https://www.passwordstore.org/">pass</a>: Passwords are stored in simple text files which are encrypted with OpenPGP.</p>
+<p>Pass-compatible password manager that stores passwords as encrypted (OpenPGP) text files. A community continuation of the original pass: project (GPL-3.0-only).</p>
+
+<p>This app can also act as an Android WebAuthn/passkey Credential Provider, allowing stored credentials to satisfy passkey requests from other apps.</p>
 
 <p>
 <strong>Features:</strong>
@@ -9,5 +11,6 @@
 <li>Decrypt and copy passwords</li>
 <li>Automatically fill and save credentials in apps and supported browsers</li>
 <li>Supports time-based one-time passwords (TOTP) for two-step authentication</li>
+<li>Provides WebAuthn/passkey authentication to other apps</li>
 </ul>
 </p>

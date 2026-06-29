@@ -1,4 +1,6 @@
-# Password Store (pando85 fork)
+# Password Store (Passkey Edition)
+
+A fork of the (now-archived) Android Password Store, a pass-compatible password manager, with the added ability to act as an Android WebAuthn/passkey Credential Provider (so your pass passwords can also satisfy passkey requests).
 
 [![CI](https://github.com/pando85/Android-Password-Store/actions/workflows/pull_request.yml/badge.svg)](https://github.com/pando85/Android-Password-Store/actions)
 [![Release](https://github.com/pando85/Android-Password-Store/actions/workflows/release.yml/badge.svg)](https://github.com/pando85/Android-Password-Store/releases)
@@ -6,6 +8,7 @@
 ## Download
 
 - [GitHub Releases](https://github.com/pando85/Android-Password-Store/releases)
+- _F-Droid: coming soon_
 
 ## Documentation
 
@@ -28,11 +31,15 @@ File `myKeyForPass.sec.asc` can be directly imported into Password Store via Set
 
 ## Contributing
 
-This fork adds passkey/WebAuthn support with passless compatibility. See [CHANGELOG](CHANGELOG.md) and [Release process](RELEASE.md).
+Issues and pull requests are welcome at [the GitHub repository](https://github.com/pando85/Android-Password-Store). This fork focuses on enhancing passkey support and maintaining compatibility with the upstream project. See [CHANGELOG](CHANGELOG.md) and [Release process](RELEASE.md).
 
 ## Donations
 
-If you wish to sponsor the original author, financial contributions can be made through the following platforms
+Support the original upstream authors through their sponsorship platforms:
 
 - [GitHub Sponsors](https://github.com/sponsors/android-password-store)
 - [OpenCollective](https://opencollective.com/android-password-store)
+
+---
+
+*This project is licensed under GPL-3.0-only and is a fork of https://github.com/android-password-store/Android-Password-Store.*
