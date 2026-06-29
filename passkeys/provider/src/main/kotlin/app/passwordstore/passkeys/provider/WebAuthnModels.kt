@@ -92,12 +92,12 @@ public data class AttestationResponseJson(
   @SerialName("response") val response: AttestationResponseData,
   @SerialName("authenticatorAttachment") val authenticatorAttachment: String = "platform",
   @SerialName("clientExtensionResults")
-  val clientExtensionResults: ClientExtensionResults = ClientExtensionResults(),
+  val clientExtensionResults: ClientExtensionResults = ClientExtensionResults(CredProps(rk = true)),
 )
 
 @Serializable
 public data class ClientExtensionResults(
-  @SerialName("credProps") val credProps: CredProps = CredProps()
+  @SerialName("credProps") val credProps: CredProps? = null
 )
 
 @Serializable public data class CredProps(@SerialName("rk") val rk: Boolean = true)

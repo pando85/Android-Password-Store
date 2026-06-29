@@ -30,7 +30,7 @@ public interface PasskeyCryptoHandler {
    * @param privateKey PKCS#8 encoded private key
    * @param authenticatorData 37-byte authenticator data structure
    * @param clientDataHash 32-byte SHA-256 hash of client data JSON
-   * @return 64-byte raw signature (R || S) or an error
+   * @return DER-encoded ECDSA signature (typically 70-72 bytes) or an error
    */
   public fun sign(
     privateKey: ByteArray,
@@ -42,7 +42,7 @@ public interface PasskeyCryptoHandler {
    * Verifies an ES256 signature.
    *
    * @param publicKey Raw 65-byte uncompressed P-256 public key
-   * @param signature 64-byte raw signature (R || S)
+   * @param signature DER-encoded ECDSA signature (typically 70-72 bytes)
    * @param authenticatorData 37-byte authenticator data structure
    * @param clientDataHash 32-byte SHA-256 hash of client data JSON
    * @return True if signature is valid, false otherwise, or an error
@@ -94,7 +94,7 @@ public interface PasskeyCryptoHandler {
  *
  * @property credentialId The credential identifier
  * @property authenticatorData 37-byte authenticator data structure
- * @property signature 64-byte raw ES256 signature
+ * @property signature DER-encoded ECDSA signature (typically 70-72 bytes)
  * @property userHandle Optional user handle returned to the relying party
  * @property clientDataJSON The client data JSON string used for signing
  */
