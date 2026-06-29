@@ -54,8 +54,6 @@ dependencyResolutionManagement {
       content {
         includeGroupByRegex("androidx.*")
         includeGroupByRegex("com.android.*")
-        includeGroup("com.google.android.gms")
-        includeGroup("com.google.android.libraries.identity.googleid")
         includeModule("com.google.android.material", "material")
       }
     }
