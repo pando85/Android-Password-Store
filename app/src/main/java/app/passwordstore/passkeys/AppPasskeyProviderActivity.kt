@@ -8,6 +8,7 @@ package app.passwordstore.passkeys
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.annotation.RequiresApi
 import androidx.credentials.CreatePublicKeyCredentialRequest
 import androidx.credentials.CreatePublicKeyCredentialResponse
@@ -18,6 +19,7 @@ import androidx.credentials.exceptions.CreateCredentialUnknownException
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialUnknownException
 import androidx.credentials.provider.PendingIntentHandler
+import androidx.lifecycle.lifecycleScope
 import app.passwordstore.passkeys.crypto.PasskeyCryptoHandler
 import app.passwordstore.passkeys.provider.PasskeyAuthenticator
 import app.passwordstore.passkeys.provider.PasskeyCredentialProviderService
@@ -31,7 +33,6 @@ import app.passwordstore.util.settings.PreferenceKeys
 import com.github.michaelbull.result.fold
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import logcat.LogPriority
 import logcat.logcat
@@ -47,7 +48,7 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
     if (!sharedPrefs.getBoolean(PreferenceKeys.PASSKEY_AUTO_GIT_SYNC, true)) return
     if (gitSettings.url == null) return
     if (PasswordRepository.repository == null) return
-    CoroutineScope(dispatcherProvider.io()).launch {
+    lifecycleScope.launch(dispatcherProvider.io()) {
       try {
         launchGitOperation(GitOp.SYNC)
           .fold(
@@ -62,8 +63,12 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
 
   @RequiresApi(34)
   override fun onCreate(savedInstanceState: Bundle?) {
+    window.setFlags(
+      WindowManager.LayoutParams.FLAG_SECURE,
+      WindowManager.LayoutParams.FLAG_SECURE
+    )
     super.onCreate(savedInstanceState)
-    CoroutineScope(dispatcherProvider.mainImmediate()).launch { handleProviderRequest() }
+    lifecycleScope.launch(dispatcherProvider.mainImmediate()) { handleProviderRequest() }
   }
 
   @RequiresApi(34)
@@ -124,6 +129,11 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
         return
       }
 
+      if (credential.rpId != parsedRequest.rpId) {
+        finishWithGetError(GetCredentialUnknownException("Credential RP ID does not match request"))
+        return
+      }
+
       if (authenticator.canAuthenticate(this)) {
         when (val authResult = authenticator.authenticateForPasskey(this, credential.rpId)) {
           is PasskeyAuthenticator.Result.Success -> {}
@@ -132,7 +142,8 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
             return
           }
           is PasskeyAuthenticator.Result.NotAvailable -> {
-            logcat(LogPriority.WARN) { "Biometric auth not available, proceeding without it" }
+            finishWithGetError(GetCredentialUnknownException("Biometric authentication required but not available"))
+            return
           }
           is PasskeyAuthenticator.Result.Failure -> {
             finishWithGetError(
@@ -141,6 +152,9 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
             return
           }
         }
+      } else {
+        finishWithGetError(GetCredentialUnknownException("Biometric authentication required"))
+        return
       }
 
       val constantSignatureCounter =
@@ -216,7 +230,8 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
             return
           }
           is PasskeyAuthenticator.Result.NotAvailable -> {
-            logcat(LogPriority.WARN) { "Biometric auth not available, proceeding without it" }
+            finishWithCreateError(CreateCredentialUnknownException("Biometric authentication required but not available"))
+            return
           }
           is PasskeyAuthenticator.Result.Failure -> {
             finishWithCreateError(
@@ -225,6 +240,9 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
             return
           }
         }
+      } else {
+        finishWithCreateError(CreateCredentialUnknownException("Biometric authentication required"))
+        return
       }
 
       val createdCredential =

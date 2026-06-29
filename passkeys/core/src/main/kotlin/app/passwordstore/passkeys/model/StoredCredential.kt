@@ -25,6 +25,9 @@ public data class StoredCredential(
   val discoverable: Boolean = true,
   val extensions: Extensions = Extensions(),
 ) {
+  
+  override fun toString(): String =
+    "StoredCredential(id=${'$'}{id.contentToString()}, rp=$'$'{rp}, signCount=$'$'{signCount}, alg=$'$'{alg}, privateKey=<REDACTED>, publicKey=${'$'}{publicKey?.let { \"<present>\" } ?: \"<null>\"}, created=$'$'{created})"
   public fun toCbor(): ByteArray {
     val map = mutableMapOf<String, CborValue>()
     map["id"] = id.toCborIntegerArray()
@@ -98,12 +101,10 @@ public data class StoredCredential(
     private val p256Curve by lazy { CustomNamedCurves.getByName("secp256r1") }
 
     public fun deriveP256PublicKey(privateKeyScalar: ByteArray): ByteArray {
-      return try {
-        val d = BigInteger(1, privateKeyScalar)
-        p256Curve.g.multiply(d).normalize().getEncoded(false)
-      } catch (e: Exception) {
-        ByteArray(65)
-      }
+      val n = p256Curve.n
+      val d = BigInteger(1, privateKeyScalar)
+      require(d >= BigInteger.ONE && d < n) { "Private key scalar out of valid range" }
+      return p256Curve.g.multiply(d).normalize().getEncoded(false)
     }
 
     public fun fromCbor(bytes: ByteArray): StoredCredential {

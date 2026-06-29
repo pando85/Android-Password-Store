@@ -25,6 +25,10 @@ import java.security.spec.ECPrivateKeySpec
 import java.security.spec.PKCS8EncodedKeySpec
 import java.security.spec.X509EncodedKeySpec
 import kotlinx.datetime.Clock
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.buildJsonObject
 import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo
 import org.bouncycastle.crypto.ec.CustomNamedCurves
 
@@ -43,7 +47,10 @@ public class ES256CryptoHandler : PasskeyCryptoHandler {
   private fun loadPrivateKey(keyBytes: ByteArray): java.security.PrivateKey {
     val keyFactory = KeyFactory.getInstance("EC")
     return if (keyBytes.size == 32) {
-      val keySpec = ECPrivateKeySpec(BigInteger(1, keyBytes), p256Spec)
+      val d = BigInteger(1, keyBytes)
+      val n = p256BcCurve.n
+      require(d >= BigInteger.ONE && d < n) { "Private key scalar out of valid range" }
+      val keySpec = ECPrivateKeySpec(d, p256Spec)
       keyFactory.generatePrivate(keySpec)
     } else {
       keyFactory.generatePrivate(PKCS8EncodedKeySpec(keyBytes))
@@ -199,6 +206,8 @@ public class ES256CryptoHandler : PasskeyCryptoHandler {
   override fun derivePublicKey(privateKey: ByteArray): Result<ByteArray, Throwable> {
     return try {
       val d = BigInteger(1, privateKey)
+      val n = p256BcCurve.n
+      require(d >= BigInteger.ONE && d < n) { "Private key scalar out of valid range" }
       val q = p256BcCurve.g.multiply(d).normalize()
       Ok(q.getEncoded(false))
     } catch (e: Exception) {
@@ -230,8 +239,12 @@ public class ES256CryptoHandler : PasskeyCryptoHandler {
     origin: String,
     type: String,
   ): Pair<String, ByteArray> {
-    val clientDataJson =
-      """{"type":"$type","challenge":"${java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(challenge)}","origin":"$origin","crossOrigin":false}"""
+    val clientDataJson = Json.encodeToString(JsonObject.serializer(), buildJsonObject {
+        put("type", type)
+        put("challenge", java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(challenge))
+        put("origin", origin)
+        put("crossOrigin", false)
+    })
     return Pair(
       clientDataJson,
       MessageDigest.getInstance("SHA-256").digest(clientDataJson.toByteArray()),

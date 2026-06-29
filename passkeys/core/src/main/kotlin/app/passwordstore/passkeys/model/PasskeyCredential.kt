@@ -20,6 +20,9 @@ public data class PasskeyCredential(
   public val transports: List<String> = listOf("internal"),
   public val uvInitialized: Boolean = true,
 ) {
+  
+  override fun toString(): String =
+    "PasskeyCredential(credentialId=${'$'}{credentialId.contentToString()}, rpId=$'$'{rpId}, privateKey=<REDACTED>, publicKey=${'$'}{publicKey.contentToString()})"
   override fun equals(other: Any?): Boolean {
     if (this === other) return true
     if (other !is PasskeyCredential) return false

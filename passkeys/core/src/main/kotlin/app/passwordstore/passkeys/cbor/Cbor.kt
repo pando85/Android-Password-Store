@@ -238,6 +238,7 @@ private object CborReader {
 
   private const val MAX_COLLECTION_SIZE = 100000
   private const val MAX_DEPTH = 100
+  private const val MAX_STRING_SIZE = 10 * 1024 * 1024 // 10MB
 
   fun read(bytes: ByteArray): CborValue {
     val input = DataInputStream(ByteArrayInputStream(bytes))
@@ -277,7 +278,7 @@ private object CborReader {
       24 -> BigInteger.valueOf(input.readUnsignedByte().toLong())
       25 -> BigInteger.valueOf(input.readUnsignedShort().toLong())
       26 -> BigInteger.valueOf(input.readInt().toLong() and 0xFFFFFFFF)
-      27 -> BigInteger(input.readNBytes(8).reversedArray())
+      27 -> BigInteger(1, input.readNBytes(8)) // unsigned interpretation, big-endian
       else -> throw CborException("Invalid additional info for unsigned integer: $additionalInfo")
     }
   }
@@ -287,6 +288,9 @@ private object CborReader {
     if (length > Int.MAX_VALUE) {
       throw CborException("Byte string length too large: $length")
     }
+    if (length > MAX_STRING_SIZE) {
+      throw CborException("Byte string too large: $length")
+    }
     return input.readNBytes(length.toInt())
   }
 
@@ -294,6 +298,9 @@ private object CborReader {
     val length = readLength(input, additionalInfo)
     if (length > Int.MAX_VALUE) {
       throw CborException("Text string length too large: $length")
+    }
+    if (length > MAX_STRING_SIZE) {
+      throw CborException("Text string too large: $length")
     }
     return String(input.readNBytes(length.toInt()), Charsets.UTF_8)
   }
@@ -388,6 +395,9 @@ private object CborWriter {
   }
 
   private fun writeUnsignedInteger(output: DataOutputStream, value: BigInteger) {
+    if (value > BigInteger.valueOf(Long.MAX_VALUE)) {
+      throw CborException("Unsigned integer too large for CBOR encoding: $value")
+    }
     val longValue = value.toLong()
     when {
       longValue in 0..23 -> output.writeByte((MAJOR_UNSIGNED shl 5) or longValue.toInt())
@@ -411,6 +421,9 @@ private object CborWriter {
   }
 
   private fun writeNegativeInteger(output: DataOutputStream, value: BigInteger) {
+    if (value < BigInteger.valueOf(Long.MIN_VALUE)) {
+      throw CborException("Negative integer too small for CBOR encoding: $value")
+    }
     val cborValue = (-value.toLong()) - 1
     when {
       cborValue in 0..23 -> output.writeByte((MAJOR_NEGATIVE shl 5) or cborValue.toInt())
