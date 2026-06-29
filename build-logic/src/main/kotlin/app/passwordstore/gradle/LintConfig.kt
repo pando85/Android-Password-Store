@@ -53,6 +53,8 @@ object LintConfig {
       disable += "ArgInFormattedQuantityStringRes"
       // Third-party dispatchers check not applicable
       disable += "RawDispatchersUse"
+      // App is a credential provider backed by the system, not a Play Services client
+      disable += "CredentialDependency"
     }
     baseline = project.file("lint-baseline.xml")
   }
