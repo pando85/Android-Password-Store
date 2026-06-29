@@ -25,9 +25,10 @@ public data class StoredCredential(
   val discoverable: Boolean = true,
   val extensions: Extensions = Extensions(),
 ) {
-  
+
   override fun toString(): String =
     "StoredCredential(id=${'$'}{id.contentToString()}, rp=$'$'{rp}, signCount=$'$'{signCount}, alg=$'$'{alg}, privateKey=<REDACTED>, publicKey=${'$'}{publicKey?.let { \"<present>\" } ?: \"<null>\"}, created=$'$'{created})"
+
   public fun toCbor(): ByteArray {
     val map = mutableMapOf<String, CborValue>()
     map["id"] = id.toCborIntegerArray()

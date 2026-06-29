@@ -27,8 +27,8 @@ import java.security.spec.X509EncodedKeySpec
 import kotlinx.datetime.Clock
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.put
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo
 import org.bouncycastle.crypto.ec.CustomNamedCurves
 
@@ -239,12 +239,19 @@ public class ES256CryptoHandler : PasskeyCryptoHandler {
     origin: String,
     type: String,
   ): Pair<String, ByteArray> {
-    val clientDataJson = Json.encodeToString(JsonObject.serializer(), buildJsonObject {
-        put("type", type)
-        put("challenge", java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(challenge))
-        put("origin", origin)
-        put("crossOrigin", false)
-    })
+    val clientDataJson =
+      Json.encodeToString(
+        JsonObject.serializer(),
+        buildJsonObject {
+          put("type", type)
+          put(
+            "challenge",
+            java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(challenge),
+          )
+          put("origin", origin)
+          put("crossOrigin", false)
+        },
+      )
     return Pair(
       clientDataJson,
       MessageDigest.getInstance("SHA-256").digest(clientDataJson.toByteArray()),

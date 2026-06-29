@@ -20,12 +20,12 @@ import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialUnknownException
 import androidx.credentials.provider.PendingIntentHandler
 import androidx.lifecycle.lifecycleScope
+import app.passwordstore.data.repo.PasswordRepository
 import app.passwordstore.passkeys.crypto.PasskeyCryptoHandler
 import app.passwordstore.passkeys.provider.PasskeyAuthenticator
 import app.passwordstore.passkeys.provider.PasskeyCredentialProviderService
 import app.passwordstore.passkeys.provider.PasskeyProviderUtils
 import app.passwordstore.passkeys.storage.PasskeyStorage
-import app.passwordstore.data.repo.PasswordRepository
 import app.passwordstore.ui.git.base.BaseGitActivity
 import app.passwordstore.ui.git.base.BaseGitActivity.GitOp
 import app.passwordstore.util.extensions.sharedPrefs
@@ -63,10 +63,7 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
 
   @RequiresApi(34)
   override fun onCreate(savedInstanceState: Bundle?) {
-    window.setFlags(
-      WindowManager.LayoutParams.FLAG_SECURE,
-      WindowManager.LayoutParams.FLAG_SECURE
-    )
+    window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
     super.onCreate(savedInstanceState)
     lifecycleScope.launch(dispatcherProvider.mainImmediate()) { handleProviderRequest() }
   }
@@ -142,7 +139,9 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
             return
           }
           is PasskeyAuthenticator.Result.NotAvailable -> {
-            finishWithGetError(GetCredentialUnknownException("Biometric authentication required but not available"))
+            finishWithGetError(
+              GetCredentialUnknownException("Biometric authentication required but not available")
+            )
             return
           }
           is PasskeyAuthenticator.Result.Failure -> {
@@ -230,7 +229,11 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
             return
           }
           is PasskeyAuthenticator.Result.NotAvailable -> {
-            finishWithCreateError(CreateCredentialUnknownException("Biometric authentication required but not available"))
+            finishWithCreateError(
+              CreateCredentialUnknownException(
+                "Biometric authentication required but not available"
+              )
+            )
             return
           }
           is PasskeyAuthenticator.Result.Failure -> {

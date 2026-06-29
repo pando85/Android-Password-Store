@@ -188,36 +188,50 @@ class ES256CryptoHandlerTest {
 
   @Test
   fun `getAssertion produces verifiable assertion`() {
-    // Create handler, call `createCredential(rpId="example.com", userId=byteArrayOf(1), userName="user", userDisplayName="User", challenge=ByteArray(32))`
+    // Create handler, call `createCredential(rpId="example.com", userId=byteArrayOf(1),
+    // userName="user", userDisplayName="User", challenge=ByteArray(32))`
     val handler = ES256CryptoHandler()
-    val credentialResult = handler.createCredential(
-      rpId = "example.com",
-      userId = byteArrayOf(1),
-      userName = "user",
-      userDisplayName = "User",
-      challenge = ByteArray(32)
-    )
+    val credentialResult =
+      handler.createCredential(
+        rpId = "example.com",
+        userId = byteArrayOf(1),
+        userName = "user",
+        userDisplayName = "User",
+        challenge = ByteArray(32),
+      )
     assertTrue(credentialResult.isOk, "Create credential should succeed")
     val credential = credentialResult.getOrElse { throw AssertionError("Create credential failed") }
-    
-    // Call `getAssertion(credential, rpId="example.com", challenge=ByteArray(32), origin="https://example.com")`
-    val assertionResult = handler.getAssertion(
-      credential = credential,
-      rpId = "example.com",
-      challenge = ByteArray(32),
-      origin = "https://example.com"
-    )
+
+    // Call `getAssertion(credential, rpId="example.com", challenge=ByteArray(32),
+    // origin="https://example.com")`
+    val assertionResult =
+      handler.getAssertion(
+        credential = credential,
+        rpId = "example.com",
+        challenge = ByteArray(32),
+        origin = "https://example.com",
+      )
     assertTrue(assertionResult.isOk, "Get assertion should succeed")
     val assertion = assertionResult.getOrElse { throw AssertionError("Get assertion failed") }
-    
+
     // Assert authenticatorData size is 37
     assertEquals(37, assertion.authenticatorData.size, "Authenticator data should be 37 bytes")
     // Assert signature size is 70-72
-    assertTrue(assertion.signature.size in 70..72, "Signature should be 70-72 bytes, got ${assertion.signature.size}")
+    assertTrue(
+      assertion.signature.size in 70..72,
+      "Signature should be 70-72 bytes, got ${assertion.signature.size}",
+    )
     // Compute clientDataHash = SHA256(assertionResult.clientDataJSON.toByteArray())
-    val clientDataHash = MessageDigest.getInstance("SHA-256").digest(assertion.clientDataJSON.toByteArray())
+    val clientDataHash =
+      MessageDigest.getInstance("SHA-256").digest(assertion.clientDataJSON.toByteArray())
     // Call `verify(credential.publicKey, signature, authData, clientDataHash)` → should return true
-    val verifyResult = handler.verify(credential.publicKey, assertion.signature, assertion.authenticatorData, clientDataHash)
+    val verifyResult =
+      handler.verify(
+        credential.publicKey,
+        assertion.signature,
+        assertion.authenticatorData,
+        clientDataHash,
+      )
     assertTrue(verifyResult.isOk, "Verify should succeed")
     assertTrue(verifyResult.getOrElse { false }, "Signature should be valid")
   }
@@ -225,50 +239,65 @@ class ES256CryptoHandlerTest {
   @Test
   fun `assertion with passless-generated key verifies`() {
     // Load the passless fixture data (hex decode the PKCS8 private key and raw public key)
-    val privateKeyPkcs8Hex = "308187020100301306072a8648ce3d020106082a8648ce3d030107046d306b0201010420bbac624fcad5f4c02b19587910107e9f641cacbaa5f377021af660b87e43db05a14403420004ab3d5ec694acf7925f90997f7a5d5cc31530184fa83f1fd15db76f528ee97ddaedbb7141c3ad7caa0e5866bf57acc2377337051fbb664a6d0284235473472df2"
-    val publicKeyRawHex = "04ab3d5ec694acf7925f90997f7a5d5cc31530184fa83f1fd15db76f528ee97ddaedbb7141c3ad7caa0e5866bf57acc2377337051fbb664a6d0284235473472df2"
+    val privateKeyPkcs8Hex =
+      "308187020100301306072a8648ce3d020106082a8648ce3d030107046d306b0201010420bbac624fcad5f4c02b19587910107e9f641cacbaa5f377021af660b87e43db05a14403420004ab3d5ec694acf7925f90997f7a5d5cc31530184fa83f1fd15db76f528ee97ddaedbb7141c3ad7caa0e5866bf57acc2377337051fbb664a6d0284235473472df2"
+    val publicKeyRawHex =
+      "04ab3d5ec694acf7925f90997f7a5d5cc31530184fa83f1fd15db76f528ee97ddaedbb7141c3ad7caa0e5866bf57acc2377337051fbb664a6d0284235473472df2"
     val credentialIdHex = "c347446904ec77359200888afa8b5299a113aa80fa501291a60223f6e55a3228"
-    
+
     // Hex decode the keys
     val privateKey = hexStringToByteArray(privateKeyPkcs8Hex)
     val publicKey = hexStringToByteArray(publicKeyRawHex)
     val credentialId = hexStringToByteArray(credentialIdHex)
-    
-    // Build a `PasskeyCredential` with: credentialId from fixture, privateKey from PKCS8 hex, publicKey from raw hex, 
-    // rpId="example.com", user with id/name/displayName, signCount=0u, transports=listOf("internal"), 
+
+    // Build a `PasskeyCredential` with: credentialId from fixture, privateKey from PKCS8 hex,
+    // publicKey from raw hex,
+    // rpId="example.com", user with id/name/displayName, signCount=0u,
+    // transports=listOf("internal"),
     // uvInitialized=true, createdAt=Clock.System.now()
-    val credential = PasskeyCredential(
-      credentialId = credentialId,
-      privateKey = privateKey,
-      publicKey = publicKey,
-      rpId = "example.com",
-      user = FidoUser(
-        id = "passless-user".toByteArray(),
-        name = "passless-user",
-        displayName = "Passless User"
-      ),
-      signCount = 0u,
-      createdAt = Clock.System.now(),
-      transports = listOf("internal"),
-      uvInitialized = true
-    )
-    
-    // Call `getAssertion(credential, "example.com", ByteArray(32){it.toByte()}, "https://example.com")`
+    val credential =
+      PasskeyCredential(
+        credentialId = credentialId,
+        privateKey = privateKey,
+        publicKey = publicKey,
+        rpId = "example.com",
+        user =
+          FidoUser(
+            id = "passless-user".toByteArray(),
+            name = "passless-user",
+            displayName = "Passless User",
+          ),
+        signCount = 0u,
+        createdAt = Clock.System.now(),
+        transports = listOf("internal"),
+        uvInitialized = true,
+      )
+
+    // Call `getAssertion(credential, "example.com", ByteArray(32){it.toByte()},
+    // "https://example.com")`
     val handler = ES256CryptoHandler()
-    val assertionResult = handler.getAssertion(
-      credential = credential,
-      rpId = "example.com",
-      challenge = ByteArray(32) { it.toByte() },
-      origin = "https://example.com"
-    )
+    val assertionResult =
+      handler.getAssertion(
+        credential = credential,
+        rpId = "example.com",
+        challenge = ByteArray(32) { it.toByte() },
+        origin = "https://example.com",
+      )
     assertTrue(assertionResult.isOk, "Get assertion should succeed")
     val assertion = assertionResult.getOrElse { throw AssertionError("Get assertion failed") }
-    
+
     // Compute clientDataHash
-    val clientDataHash = MessageDigest.getInstance("SHA-256").digest(assertion.clientDataJSON.toByteArray())
-    
+    val clientDataHash =
+      MessageDigest.getInstance("SHA-256").digest(assertion.clientDataJSON.toByteArray())
+
     // Verify signature with passless public key
-    val verifyResult = handler.verify(credential.publicKey, assertion.signature, assertion.authenticatorData, clientDataHash)
+    val verifyResult =
+      handler.verify(
+        credential.publicKey,
+        assertion.signature,
+        assertion.authenticatorData,
+        clientDataHash,
+      )
     assertTrue(verifyResult.isOk, "Verify should succeed")
     assertTrue(verifyResult.getOrElse { false }, "Signature should be valid")
   }
@@ -277,43 +306,46 @@ class ES256CryptoHandlerTest {
   fun `authenticatorData has correct rpIdHash and flags`() {
     // Create credential and get assertion for rpId="example.com"
     val handler = ES256CryptoHandler()
-    val credentialResult = handler.createCredential(
-      rpId = "example.com",
-      userId = "user".toByteArray(),
-      userName = "user",
-      userDisplayName = "User",
-      challenge = ByteArray(32)
-    )
+    val credentialResult =
+      handler.createCredential(
+        rpId = "example.com",
+        userId = "user".toByteArray(),
+        userName = "user",
+        userDisplayName = "User",
+        challenge = ByteArray(32),
+      )
     assertTrue(credentialResult.isOk, "Create credential should succeed")
     val credential = credentialResult.getOrElse { throw AssertionError("Create credential failed") }
-    
-    val assertionResult = handler.getAssertion(
-      credential = credential,
-      rpId = "example.com",
-      challenge = ByteArray(32),
-      origin = "https://example.com"
-    )
+
+    val assertionResult =
+      handler.getAssertion(
+        credential = credential,
+        rpId = "example.com",
+        challenge = ByteArray(32),
+        origin = "https://example.com",
+      )
     assertTrue(assertionResult.isOk, "Get assertion should succeed")
     val assertion = assertionResult.getOrElse { throw AssertionError("Get assertion failed") }
-    
+
     // Compute expected rpIdHash = SHA256("example.com".toByteArray())
     val expectedRpIdHash = MessageDigest.getInstance("SHA-256").digest("example.com".toByteArray())
-    
+
     // Assert assertion.authenticatorData[:32] == expected rpIdHash
     val actualRpIdHash = assertion.authenticatorData.sliceArray(0..31)
     assertTrue(expectedRpIdHash.contentEquals(actualRpIdHash), "RP ID hash should match")
-    
+
     // Assert flags byte (authenticatorData[32]) has UP (0x01) and UV (0x04) set
     val flagsByte = assertion.authenticatorData[32].toInt() and 0xFF
     assertTrue(flagsByte and 0x01 != 0, "UP flag should be set")
     assertTrue(flagsByte and 0x04 != 0, "UV flag should be set")
-    
+
     // Assert signCount (authenticatorData[33:37]) is 0
     val signCountBytes = assertion.authenticatorData.sliceArray(33..36)
-    val signCount = ((signCountBytes[0].toInt() and 0xFF) shl 24) or
-                    ((signCountBytes[1].toInt() and 0xFF) shl 16) or
-                    ((signCountBytes[2].toInt() and 0xFF) shl 8) or
-                    (signCountBytes[3].toInt() and 0xFF)
+    val signCount =
+      ((signCountBytes[0].toInt() and 0xFF) shl 24) or
+        ((signCountBytes[1].toInt() and 0xFF) shl 16) or
+        ((signCountBytes[2].toInt() and 0xFF) shl 8) or
+        (signCountBytes[3].toInt() and 0xFF)
     assertEquals(0, signCount, "Sign count should be 0")
   }
 
@@ -321,38 +353,43 @@ class ES256CryptoHandlerTest {
   fun `clientDataJSON has correct format for GET`() {
     // Create credential and get assertion
     val handler = ES256CryptoHandler()
-    val credentialResult = handler.createCredential(
-      rpId = "example.com",
-      userId = "user".toByteArray(),
-      userName = "user",
-      userDisplayName = "User",
-      challenge = ByteArray(32)
-    )
+    val credentialResult =
+      handler.createCredential(
+        rpId = "example.com",
+        userId = "user".toByteArray(),
+        userName = "user",
+        userDisplayName = "User",
+        challenge = ByteArray(32),
+      )
     assertTrue(credentialResult.isOk, "Create credential should succeed")
     val credential = credentialResult.getOrElse { throw AssertionError("Create credential failed") }
-    
-    val assertionResult = handler.getAssertion(
-      credential = credential,
-      rpId = "example.com",
-      challenge = ByteArray(32),
-      origin = "https://example.com"
-    )
+
+    val assertionResult =
+      handler.getAssertion(
+        credential = credential,
+        rpId = "example.com",
+        challenge = ByteArray(32),
+        origin = "https://example.com",
+      )
     assertTrue(assertionResult.isOk, "Get assertion should succeed")
     val assertion = assertionResult.getOrElse { throw AssertionError("Get assertion failed") }
-    
+
     // Parse assertionResult.clientDataJSON as JSON
     val clientDataJSON = assertion.clientDataJSON
-    
+
     // Assert type == "webauthn.get"
     assertTrue(clientDataJSON.contains("\"type\":\"webauthn.get\""), "Type should be webauthn.get")
-    
+
     // Assert origin == "https://example.com"
-    assertTrue(clientDataJSON.contains("\"origin\":\"https://example.com\""), "Origin should be https://example.com")
-    
+    assertTrue(
+      clientDataJSON.contains("\"origin\":\"https://example.com\""),
+      "Origin should be https://example.com",
+    )
+
     // Assert challenge is present and non-empty
     assertTrue(clientDataJSON.contains("\"challenge\":\""), "Challenge should be present")
     assertTrue(!clientDataJSON.contains("\"challenge\":\"\""), "Challenge should not be empty")
-    
+
     // Assert crossOrigin == false
     assertTrue(clientDataJSON.contains("\"crossOrigin\":false"), "Cross-origin should be false")
   }

@@ -2,12 +2,12 @@ name: "CodeQL"
 
 on:
   workflow_dispatch:
-  # push:
-    # branches:
-      # - develop
-  # pull_request:
-    # branches:
-      # - develop
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
   analyze:
@@ -19,7 +19,7 @@ jobs:
       security-events: write
     steps:
     - name: Setup build environment
-      uses: pando85/Android-Password-Store/.github/reusable-workflows/setup-gradle@develop
+      uses: pando85/Android-Password-Store/.github/reusable-workflows/setup-gradle@main
       with:
         java-version: 21
 

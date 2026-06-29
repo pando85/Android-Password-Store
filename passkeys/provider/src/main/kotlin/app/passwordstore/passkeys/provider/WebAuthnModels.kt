@@ -96,9 +96,7 @@ public data class AttestationResponseJson(
 )
 
 @Serializable
-public data class ClientExtensionResults(
-  @SerialName("credProps") val credProps: CredProps? = null
-)
+public data class ClientExtensionResults(@SerialName("credProps") val credProps: CredProps? = null)
 
 @Serializable public data class CredProps(@SerialName("rk") val rk: Boolean = true)
 
