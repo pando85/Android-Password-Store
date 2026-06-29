@@ -11,25 +11,53 @@ import com.github.michaelbull.result.Err
 import com.github.michaelbull.result.Ok
 import com.github.michaelbull.result.Result
 import com.github.michaelbull.result.fold
+import java.math.BigInteger
+import java.security.KeyFactory
 import java.security.KeyPairGenerator
 import java.security.MessageDigest
 import java.security.SecureRandom
 import java.security.Signature
+import java.security.interfaces.ECPrivateKey
+import java.security.interfaces.ECPublicKey
 import java.security.spec.ECGenParameterSpec
+import java.security.spec.ECParameterSpec
+import java.security.spec.ECPrivateKeySpec
+import java.security.spec.PKCS8EncodedKeySpec
+import java.security.spec.X509EncodedKeySpec
 import kotlinx.datetime.Clock
 import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo
+import org.bouncycastle.crypto.ec.CustomNamedCurves
 
 public class ES256CryptoHandler : PasskeyCryptoHandler {
 
   private val secureRandom = SecureRandom()
 
-  private fun logD(msg: String) {
-    System.out.println("PASSKEY_DEBUG: $msg")
+  private val p256Spec: ECParameterSpec by lazy {
+    val gen = KeyPairGenerator.getInstance("EC")
+    gen.initialize(ECGenParameterSpec("secp256r1"))
+    (gen.generateKeyPair().public as ECPublicKey).params
   }
 
-  private fun logE(msg: String, e: Throwable) {
-    System.err.println("PASSKEY_DEBUG ERROR: $msg")
-    e.printStackTrace(System.err)
+  private val p256BcCurve by lazy { CustomNamedCurves.getByName("secp256r1") }
+
+  private fun loadPrivateKey(keyBytes: ByteArray): java.security.PrivateKey {
+    val keyFactory = KeyFactory.getInstance("EC")
+    return if (keyBytes.size == 32) {
+      val keySpec = ECPrivateKeySpec(BigInteger(1, keyBytes), p256Spec)
+      keyFactory.generatePrivate(keySpec)
+    } else {
+      keyFactory.generatePrivate(PKCS8EncodedKeySpec(keyBytes))
+    }
+  }
+
+  private fun bigIntegerTo32Bytes(value: BigInteger): ByteArray {
+    val bytes = value.toByteArray()
+    return when {
+      bytes.size == 32 -> bytes
+      bytes.size == 33 && bytes[0] == 0.toByte() -> bytes.copyOfRange(1, 33)
+      bytes.size < 32 -> ByteArray(32 - bytes.size) + bytes
+      else -> bytes.copyOfRange(bytes.size - 32, bytes.size)
+    }
   }
 
   override fun generateKeyPair(): Pair<ByteArray, ByteArray> {
@@ -39,7 +67,7 @@ public class ES256CryptoHandler : PasskeyCryptoHandler {
 
     val publicKeyBytes =
       SubjectPublicKeyInfo.getInstance(keyPair.public.encoded).publicKeyData.bytes
-    val privateKeyBytes = keyPair.private.encoded
+    val privateKeyBytes = bigIntegerTo32Bytes((keyPair.private as ECPrivateKey).s)
 
     return Pair(privateKeyBytes, publicKeyBytes)
   }
@@ -49,7 +77,6 @@ public class ES256CryptoHandler : PasskeyCryptoHandler {
     authenticatorData: ByteArray,
     clientDataHash: ByteArray,
   ): Result<ByteArray, Throwable> {
-    logD("sign: privateKey.size=${privateKey.size}, authData.size=${authenticatorData.size}, clientDataHash.size=${clientDataHash.size}")
     if (privateKey.isEmpty()) return Err(IllegalArgumentException("Private key cannot be empty"))
     if (authenticatorData.isEmpty())
       return Err(IllegalArgumentException("Authenticator data cannot be empty"))
@@ -57,9 +84,7 @@ public class ES256CryptoHandler : PasskeyCryptoHandler {
       return Err(IllegalArgumentException("Client data hash cannot be empty"))
 
     return try {
-      val keyFactory = java.security.KeyFactory.getInstance("EC")
-      val keySpec = java.security.spec.PKCS8EncodedKeySpec(privateKey)
-      val privateKeyObj = keyFactory.generatePrivate(keySpec)
+      val privateKeyObj = loadPrivateKey(privateKey)
 
       val dataToSign = authenticatorData + clientDataHash
 
@@ -70,7 +95,6 @@ public class ES256CryptoHandler : PasskeyCryptoHandler {
 
       Ok(derSignature)
     } catch (e: Exception) {
-      logE("sign failed", e)
       Err(e)
     }
   }
@@ -89,8 +113,8 @@ public class ES256CryptoHandler : PasskeyCryptoHandler {
       return Err(IllegalArgumentException("Client data hash cannot be empty"))
 
     return try {
-      val keyFactory = java.security.KeyFactory.getInstance("EC")
-      val keySpec = java.security.spec.X509EncodedKeySpec(unwrapRawPublicKey(publicKey))
+      val keyFactory = KeyFactory.getInstance("EC")
+      val keySpec = X509EncodedKeySpec(unwrapRawPublicKey(publicKey))
       val publicKeyObj = keyFactory.generatePublic(keySpec)
 
       val dataToVerify = authenticatorData + clientDataHash
@@ -142,7 +166,6 @@ public class ES256CryptoHandler : PasskeyCryptoHandler {
     challenge: ByteArray,
     origin: String,
   ): Result<AssertionResult, Throwable> {
-    logD("getAssertion: rpId=$rpId, challenge.size=${challenge.size}, origin=$origin, privateKey.size=${credential.privateKey.size}")
     if (rpId.isBlank()) return Err(IllegalArgumentException("RP ID cannot be blank"))
     if (challenge.isEmpty()) return Err(IllegalArgumentException("Challenge cannot be empty"))
     if (origin.isBlank()) return Err(IllegalArgumentException("Origin cannot be blank"))
@@ -166,13 +189,19 @@ public class ES256CryptoHandler : PasskeyCryptoHandler {
               )
             )
           },
-          failure = {
-            logE("getAssertion sign failed", it)
-            Err(it)
-          },
+          failure = { Err(it) },
         )
     } catch (e: Exception) {
-      logE("getAssertion failed", e)
+      Err(e)
+    }
+  }
+
+  override fun derivePublicKey(privateKey: ByteArray): Result<ByteArray, Throwable> {
+    return try {
+      val d = BigInteger(1, privateKey)
+      val q = p256BcCurve.g.multiply(d).normalize()
+      Ok(q.getEncoded(false))
+    } catch (e: Exception) {
       Err(e)
     }
   }

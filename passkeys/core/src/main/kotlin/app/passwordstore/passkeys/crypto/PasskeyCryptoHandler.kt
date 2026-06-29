@@ -19,7 +19,7 @@ public interface PasskeyCryptoHandler {
    * Generates a new P-256 ECDSA key pair.
    *
    * @return A pair of (privateKey, publicKey) where:
-   *     - privateKey is a PKCS#8 encoded private key
+   *     - privateKey is a raw 32-byte scalar (compatible with passless/FIDO2 authenticators)
    *     - publicKey is a raw 65-byte uncompressed EC point (0x04 || x || y)
    */
   public fun generateKeyPair(): Pair<ByteArray, ByteArray>
@@ -27,7 +27,7 @@ public interface PasskeyCryptoHandler {
   /**
    * Signs authenticator data and client data hash using ES256.
    *
-   * @param privateKey PKCS#8 encoded private key
+   * @param privateKey PKCS#8 encoded private key or raw 32-byte scalar
    * @param authenticatorData 37-byte authenticator data structure
    * @param clientDataHash 32-byte SHA-256 hash of client data JSON
    * @return DER-encoded ECDSA signature (typically 70-72 bytes) or an error
@@ -87,6 +87,16 @@ public interface PasskeyCryptoHandler {
     challenge: ByteArray,
     origin: String,
   ): Result<AssertionResult, Throwable>
+
+  /**
+   * Derives the uncompressed P-256 public key from a private key.
+   *
+   * Supports both raw 32-byte scalars (passless format) and PKCS#8 DER keys.
+   *
+   * @param privateKey Raw 32-byte scalar or PKCS#8 DER private key
+   * @return 65-byte uncompressed public key (0x04 || x || y) or an error
+   */
+  public fun derivePublicKey(privateKey: ByteArray): Result<ByteArray, Throwable>
 }
 
 /**

@@ -11,6 +11,7 @@ import app.passwordstore.passkeys.cbor.CborValue
 import app.passwordstore.passkeys.cbor.toCborIntegerArray
 import java.math.BigInteger
 import kotlinx.datetime.Instant
+import org.bouncycastle.crypto.ec.CustomNamedCurves
 
 public data class StoredCredential(
   val id: ByteArray,
@@ -44,7 +45,7 @@ public data class StoredCredential(
     return PasskeyCredential(
       credentialId = id,
       privateKey = privateKey,
-      publicKey = publicKey ?: ByteArray(65),
+      publicKey = publicKey ?: deriveP256PublicKey(privateKey),
       rpId = rp.id,
       user = FidoUser(id = user.id, name = user.name ?: "", displayName = user.displayName ?: ""),
       signCount = signCount.toULong(),
@@ -93,6 +94,17 @@ public data class StoredCredential(
 
   public companion object {
     public const val ALG_ES256: Int = -7
+
+    private val p256Curve by lazy { CustomNamedCurves.getByName("secp256r1") }
+
+    public fun deriveP256PublicKey(privateKeyScalar: ByteArray): ByteArray {
+      return try {
+        val d = BigInteger(1, privateKeyScalar)
+        p256Curve.g.multiply(d).normalize().getEncoded(false)
+      } catch (e: Exception) {
+        ByteArray(65)
+      }
+    }
 
     public fun fromCbor(bytes: ByteArray): StoredCredential {
       val map = Cbor.parse(bytes).asMap()
