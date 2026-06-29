@@ -48,7 +48,6 @@
   <!-- PGPHandler -->
   <string name="clipboard_copied_text">Panoya kopyalandı</string>
   <string name="file_toast_text">Lütfen bir dosya adı belirtin</string>
-  <string name="path_toast_text">Lütfen bir dosya yolu belirtin</string>
   <string name="empty_toast_text">Boş bir şifre veya boş ekstra içerik kullanamazsınız</string>
 
   <!-- Git Async Task -->
@@ -291,7 +290,6 @@
 
   <!-- Password creation failure -->
   <string name="password_creation_file_write_fail_message">Şifre dosyası depoya yazılamadı, lütfen tekrar deneyin.</string>
-  <string name="password_creation_file_delete_fail_message">%1$s şifre dosyası depodan silinemedi, lütfen manuel olarak silin.</string>
   <string name="password_creation_duplicate_error">Dosya zaten mevcut, lütfen farklı bir ad kullanın</string>
   <string name="add_otp">OTP ekle</string>
   <string name="otp_import_success">TOTP yapılandırması başarıyla içe aktarıldı</string>
@@ -361,9 +359,7 @@
   <string name="pgp_key_backupcode_title">Yedekleme kodu</string>
   <string name="pgp_key_backupcode_confirmation">Yedekleme kodunu not aldım ve güvenli bir yerde sakladım.</string>
   <string name="pgp_key_import_failed">PGP anahtarı içe aktarılamadı</string>
-  <string name="pgp_key_import_failed_replace_message">Bu kimliğe sahip mevcut bir anahtar bulundu, değiştirmek istiyor musunuz?</string>
-  <string name="pgp_key_import_succeeded">PGP anahtarı başarıyla içe aktarıldı</string>
-  <string name="pgp_key_import_succeeded_message">İçe aktarılan anahtarın kimliği aşağıda verilmiştir, lütfen doğruluğunu kontrol edin:\n%1$s</string>
+  <string name="pgp_key_import_failed_replace_message">Bu kimliğe sahip mevcut bir anahtar bulundu:\n\n\t%1$s\n\nDeğiştirmek istiyor musunuz?</string>
   <string name="pgp_key_export_failed">PGP anahtarı dışa aktarılamadı</string>
   <string name="pgp_key_export_succeeded">PGP anahtarı başarıyla dışa aktarıldı</string>
   <string name="pref_category_pgp_title">PGP ayarları</string>

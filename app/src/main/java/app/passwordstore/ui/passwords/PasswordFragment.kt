@@ -16,6 +16,7 @@ import android.view.animation.AnimationUtils
 import androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult
 import androidx.appcompat.view.ActionMode
 import androidx.core.content.edit
+import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.flowWithLifecycle
@@ -88,6 +89,16 @@ class PasswordFragment : Fragment(R.layout.password_recycler_view) {
     super.onViewCreated(view, savedInstanceState)
     settings = requireContext().sharedPrefs
     initializePasswordList()
+    binding.fabSync.setOnClickListener {
+      if (!PasswordRepository.isInitialized) {
+        MaterialAlertDialogBuilder(requireContext())
+          .setMessage(R.string.creation_dialog_text)
+          .setPositiveButton(R.string.dialog_ok, null)
+          .show()
+      } else {
+        requireStore().runGitOperation(BaseGitActivity.GitOp.SYNC)
+      }
+    }
     binding.fab.setOnClickListener {
       ItemCreationBottomSheet().show(childFragmentManager, "BOTTOM_SHEET")
     }
@@ -150,7 +161,8 @@ class PasswordFragment : Fragment(R.layout.password_recycler_view) {
           // In order to not interfere with drag selection, we disable the
           // SwipeRefreshLayout
           // once an item is selected.
-          binding.swipeRefresher.isEnabled = selection.isEmpty
+          binding.swipeRefresher.isEnabled =
+            selection.isEmpty && !prefs.getBoolean(PreferenceKeys.DISABLE_SYNC_ACTION, false)
 
           if (actionMode == null)
             actionMode =
@@ -220,7 +232,10 @@ class PasswordFragment : Fragment(R.layout.password_recycler_view) {
         }
       }
     }
+    updateFabSync()
   }
+
+  private var fabVisible = true
 
   private val actionModeCallback =
     object : ActionMode.Callback {
@@ -237,11 +252,14 @@ class PasswordFragment : Fragment(R.layout.password_recycler_view) {
       // but may be called multiple times if the mode is invalidated.
       override fun onPrepareActionMode(mode: ActionMode, menu: Menu): Boolean {
         val selectedItems = recyclerAdapter.getSelectedItems()
-        menu.findItem(R.id.menu_edit_password).isVisible = selectedItems.all {
-          it.type == PasswordItem.TYPE_CATEGORY
-        }
-        menu.findItem(R.id.menu_pin_password).isVisible =
-          selectedItems.size == 1 && selectedItems[0].type == PasswordItem.TYPE_PASSWORD
+        menu
+          .findItem(R.id.menu_edit_password)
+          .setVisible(selectedItems.all { it.type == PasswordItem.TYPE_CATEGORY })
+        menu
+          .findItem(R.id.menu_pin_password)
+          .setVisible(
+            selectedItems.size == 1 && selectedItems[0].type == PasswordItem.TYPE_PASSWORD
+          )
         return true
       }
 
@@ -285,6 +303,7 @@ class PasswordFragment : Fragment(R.layout.password_recycler_view) {
 
       private fun animateFab(show: Boolean) =
         with(binding.fab) {
+          fabVisible = show
           val animation =
             AnimationUtils.loadAnimation(context, if (show) R.anim.scale_up else R.anim.scale_down)
           animation.setAnimationListener(
@@ -300,14 +319,42 @@ class PasswordFragment : Fragment(R.layout.password_recycler_view) {
               }
             }
           )
-          animate()
-            .rotationBy(if (show) -90f else 90f)
-            .setStartDelay(if (show) 100 else 0)
-            .setDuration(100)
-            .start()
+          animate().setStartDelay(if (show) 100 else 0).setDuration(100).start()
           startAnimation(animation)
+          updateFabSync()
         }
     }
+
+  public fun updateFabSync() {
+    val syncNeeded = PasswordRepository.getAheadCount() > 0
+
+    val showAnim = if (syncNeeded && fabVisible && !binding.fabSync.isVisible) true else false
+
+    val hideAnim = if (binding.fabSync.isVisible && (!fabVisible || !syncNeeded)) true else false
+
+    with(binding.fabSync) {
+      val animation =
+        AnimationUtils.loadAnimation(context, if (showAnim) R.anim.scale_up else R.anim.scale_down)
+
+      animation.setAnimationListener(
+        object : Animation.AnimationListener {
+          override fun onAnimationRepeat(animation: Animation?) {}
+
+          override fun onAnimationEnd(animation: Animation?) {
+            if (hideAnim) visibility = View.GONE
+          }
+
+          override fun onAnimationStart(animation: Animation?) {
+            if (showAnim) visibility = View.VISIBLE
+          }
+        }
+      )
+
+      animate().setStartDelay(if (showAnim) 100 else 0).setDuration(100).start()
+
+      if (showAnim || hideAnim) startAnimation(animation)
+    }
+  }
 
   override fun onResume() {
     super.onResume()
@@ -386,7 +433,7 @@ class PasswordFragment : Fragment(R.layout.password_recycler_view) {
     MaterialAlertDialogBuilder(requireContext())
       .setTitle(title.substringBefore(':'))
       .setMessage(gpgIds.joinToString("\n"))
-      .setPositiveButton(resources.getString(R.string.dialog_ok)) { dialog, _ -> dialog.dismiss() }
+      .setPositiveButton(R.string.dialog_ok) { dialog, _ -> dialog.dismiss() }
       .show()
   }
 

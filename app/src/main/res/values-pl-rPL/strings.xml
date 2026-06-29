@@ -38,7 +38,6 @@
   <!-- PGPHandler -->
   <string name="clipboard_copied_text">Skopiowano do schowka</string>
   <string name="file_toast_text">Podaj nazwę pliku</string>
-  <string name="path_toast_text">Podaj ścieżkę do pliku</string>
   <string name="empty_toast_text">Nie możesz użyć pustego hasła lub pustej dodatkowej zawartości</string>
   <!-- Git Async Task -->
   <string name="jgit_error_dialog_title">Wystąpił błąd podczas operacji Git</string>
@@ -249,7 +248,6 @@
   <string name="preference_custom_public_suffixes_summary">Autouzupełnianie rozróżni subdomeny tych domen</string>
   <!-- Password creation failure -->
   <string name="password_creation_file_write_fail_message">Nie udało się zapisać pliku z hasłem do repozytorium, spróbuj ponownie.</string>
-  <string name="password_creation_file_delete_fail_message">Nie udało się usunąć pliku hasła %1$s z repozytorium, usuń go ręcznie.</string>
   <string name="password_creation_duplicate_error">Plik o tej nazwie już istnieje, użyj innej nazwy</string>
   <string name="add_otp">Dodaj OTP</string>
   <string name="otp_import_success">Pomyślnie zaimportowano konfigurację TOTP</string>
@@ -301,9 +299,7 @@
   <string name="place_shortcut_on_home_screen">Utwórz skrót na pulpicie</string>
   <string name="password_list_fab_content_description">Utwórz nowe hasło lub folder</string>
   <string name="pgp_key_import_failed">Nie udało się zaimportować klucza PGP</string>
-  <string name="pgp_key_import_failed_replace_message">Znaleziono istniejący klucz z tym identyfikatorem, czy chcesz go zastąpić?</string>
-  <string name="pgp_key_import_succeeded">Pomyślnie zaimportowano klucz PGP</string>
-  <string name="pgp_key_import_succeeded_message">ID zaimportowanego klucza jest podany poniżej, sprawdź go pod kątem poprawności:\n%1$s</string>
+  <string name="pgp_key_import_failed_replace_message">Znaleziono istniejący klucz z tym identyfikatorem:\n\n\t%1$s\n\nCzy chcesz go zastąpić?</string>
   <string name="pref_category_pgp_title">Ustawienia PGP</string>
   <string name="pwgen_some_error_occurred">Wystąpił błąd</string>
   <string name="git_run_gc_job">Uruchom operację sprzątania śmieci</string>

@@ -9,6 +9,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
+import android.view.View
 import androidx.core.content.edit
 import androidx.lifecycle.lifecycleScope
 import app.passwordstore.R
@@ -24,7 +25,6 @@ import app.passwordstore.util.extensions.enableEdgeToEdgeView
 import app.passwordstore.util.extensions.getString
 import app.passwordstore.util.extensions.snackbar
 import app.passwordstore.util.extensions.toCharArray
-import app.passwordstore.util.extensions.unsafeLazy
 import app.passwordstore.util.extensions.viewBinding
 import app.passwordstore.util.extensions.wipe
 import app.passwordstore.util.settings.PreferenceKeys
@@ -33,7 +33,9 @@ import com.github.michaelbull.result.getOrThrow
 import dagger.hilt.android.AndroidEntryPoint
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.nio.file.Paths
 import javax.inject.Inject
+import kotlin.io.path.pathString
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -45,7 +47,6 @@ class DecryptActivity : BasePGPActivity() {
 
   private var itemsAdapter: FieldItemAdapter? = null
   private val binding by viewBinding(DecryptLayoutBinding::inflate)
-  private val relativeParentPath by unsafeLazy { getParentPath(fullPath, repoPath) }
 
   // temporarily AES-encrypted password entry
   private var encryptedEntryChars: CharArray? = null // AES encrypted password entry
@@ -65,6 +66,7 @@ class DecryptActivity : BasePGPActivity() {
         copyTextToClipboard(name.toCharArray(), isSensitive = false)
         true
       }
+      fab.setOnClickListener { copyPassword() }
     }
     requireKeysExist {
       requireDecryptionKeysExist(relativeParentPath) { ids -> getPersistentAndDecrypt(ids) }
@@ -130,18 +132,24 @@ class DecryptActivity : BasePGPActivity() {
 
   override fun onCreateOptionsMenu(menu: Menu): Boolean {
     menuInflater.inflate(R.menu.pgp_handler, menu)
+    return true
+  }
+
+  override fun onPrepareOptionsMenu(menu: Menu): Boolean {
     encryptedEntryChars?.let { encrypted ->
-      menu.findItem(R.id.edit_password).isVisible = true
+      menu.findItem(R.id.edit_password).setVisible(true)
       AESEncryption.decrypt(encrypted)?.let { decrypted ->
         val entry = passwordEntryFactory.create(decrypted)
         decrypted.wipe()
         if (entry.password?.let { !it.isBlank() } ?: false) {
-          menu.findItem(R.id.share_password_as_plaintext).isVisible = true
-          menu.findItem(R.id.copy_password).isVisible = true
+          menu.findItem(R.id.share_password_as_plaintext).setVisible(true)
+          menu.findItem(R.id.copy_password).setVisible(true)
+          binding.fab.setVisibility(View.VISIBLE)
         }
         entry.clear()
       }
     }
+
     return true
   }
 
@@ -150,22 +158,24 @@ class DecryptActivity : BasePGPActivity() {
       android.R.id.home -> onBackPressedDispatcher.onBackPressed()
       R.id.edit_password -> editPassword()
       R.id.share_password_as_plaintext -> shareAsPlaintext()
-      R.id.copy_password -> {
-        encryptedEntryChars?.let { encrypted ->
-          AESEncryption.decrypt(encrypted)?.let { decrypted ->
-            val entry = passwordEntryFactory.create(decrypted)
-            decrypted.wipe()
-            if (entry.password?.let { !it.isBlank() } ?: false) {
-              clearTimer?.shutdownNow()
-              clearTimer = copyPasswordToClipboard(entry?.password)
-            }
-            entry.clear()
-          }
-        }
-      }
+      R.id.copy_password -> copyPassword()
       else -> return super.onOptionsItemSelected(item)
     }
     return true
+  }
+
+  private fun copyPassword() {
+    encryptedEntryChars?.let { encrypted ->
+      AESEncryption.decrypt(encrypted)?.let { decrypted ->
+        val entry = passwordEntryFactory.create(decrypted)
+        decrypted.wipe()
+        if (entry.password?.let { !it.isBlank() } ?: false) {
+          clearTimer?.shutdownNow()
+          clearTimer = copyPasswordToClipboard(entry.password)
+        }
+        entry.clear()
+      }
+    }
   }
 
   /**
@@ -176,8 +186,8 @@ class DecryptActivity : BasePGPActivity() {
     encryptedEntryChars?.let { encrypted ->
       val intent = Intent(this, PasswordCreationActivity::class.java)
       intent.action = Intent.ACTION_VIEW
-      intent.putExtra("FILE_PATH", relativeParentPath)
-      intent.putExtra("REPO_PATH", repoPath)
+      intent.putExtra(EXTRA_FILE_PATH, Paths.get(fullPath).parent.pathString)
+      intent.putExtra(EXTRA_REPO_PATH, repoPath)
       intent.putExtra(PasswordCreationActivity.EXTRA_FILE_NAME, name)
       intent.putExtra(PasswordCreationActivity.EXTRA_ENTRY, encrypted)
       intent.putExtra(PasswordCreationActivity.EXTRA_EDITING, true)
@@ -213,7 +223,7 @@ class DecryptActivity : BasePGPActivity() {
     withContext(dispatcherProvider.main()) {
       val labelFormat = resources.getString(R.string.otp_label_format)
       val showPassword = settings.getBoolean(PreferenceKeys.SHOW_PASSWORD, false)
-      invalidateOptionsMenu()
+      invalidateOptionsMenu() // redraws/enables menu items in the action bar
 
       entry.extraContentChars?.wipe() // not used here
 

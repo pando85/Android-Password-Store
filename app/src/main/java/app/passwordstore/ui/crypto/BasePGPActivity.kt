@@ -65,15 +65,17 @@ open class BasePGPActivity : AppCompatActivity() {
 
   /** Full path to the password file being worked on */
   val fullPath by unsafeLazy {
-    requireNotNull(intent.getStringExtra("FILE_PATH")) { "FILE_PATH is missing" }
+    requireNotNull(intent.getStringExtra(EXTRA_FILE_PATH)) { "${EXTRA_FILE_PATH} is missing" }
   }
 
   /** Full path to the repository */
   val repoPath by unsafeLazy {
-    requireNotNull(intent.getStringExtra("REPO_PATH")) { "REPO_PATH is missing" }
+    requireNotNull(intent.getStringExtra(EXTRA_REPO_PATH)) { "${EXTRA_REPO_PATH} is missing" }
   }
 
-  private val relativeParentPath by unsafeLazy { getParentPath(fullPath, repoPath) }
+  protected val relativeParentPath by unsafeLazy {
+    PasswordRepository.getParentPath(fullPath, repoPath)
+  }
 
   /**
    * Name of the password file
@@ -803,34 +805,5 @@ open class BasePGPActivity : AppCompatActivity() {
      */
     private const val CLIPBOARD_CLEAR_COUNT = 50
     var clearTimer: ScheduledExecutorService? = null
-
-    /** Gets the relative path to the repository */
-    fun getRelativePath(fullPath: String, repositoryPath: String): String =
-      fullPath.replace(repositoryPath, "").replace("/+".toRegex(), "/")
-
-    /** Gets the Parent path, relative to the repository */
-    fun getParentPath(fullPath: String, repositoryPath: String): String {
-      val relativePath = getRelativePath(fullPath, repositoryPath)
-      val index = relativePath.lastIndexOf("/")
-      return "/${relativePath.substring(startIndex = 0, endIndex = index + 1)}/"
-        .replace("/+".toRegex(), "/")
-    }
-
-    /** /path/to/store/social/facebook.gpg -> social/facebook */
-    @JvmStatic
-    fun getLongName(fullPath: String, repositoryPath: String, basename: String): String {
-      var relativePath = getRelativePath(fullPath, repositoryPath)
-      return if (relativePath.isNotEmpty() && relativePath != "/") {
-        // remove preceding '/'
-        relativePath = relativePath.substring(1)
-        if (relativePath.endsWith('/')) {
-          relativePath + basename
-        } else {
-          "$relativePath/$basename"
-        }
-      } else {
-        basename
-      }
-    }
   }
 }

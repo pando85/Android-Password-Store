@@ -16,6 +16,7 @@ import com.github.michaelbull.result.onErr
 import com.github.michaelbull.result.runCatching
 import java.io.File
 import org.eclipse.jgit.api.Git
+import org.eclipse.jgit.lib.BranchTrackingStatus
 import org.eclipse.jgit.lib.Constants
 import org.eclipse.jgit.lib.Repository
 import org.eclipse.jgit.storage.file.FileRepositoryBuilder
@@ -110,6 +111,44 @@ object PasswordRepository {
     return File(filesDir.toString(), "/store")
   }
 
+  /* referencePath: /a/b/c
+   * /a/b/c/d/e/dir -> /d/e/dir
+   * /a/b/c/d/e/file.ext -> /d/e/file.ext
+   */
+  fun getRelativePath(fullPath: String, referencePath: String): String {
+    return fullPath.replace(referencePath, "").replace("/+".toRegex(), "/")
+  }
+
+  /* referencePath=/a/b/c
+   * fullPath=/a/b/c/d/e
+   * basename=file
+   * -> d/e/file
+   */
+  fun getLongName(fullPath: String, referencePath: String, basename: String): String {
+    var relativePath = getRelativePath(fullPath, referencePath)
+    return if (relativePath.isNotEmpty() && relativePath != "/") {
+      // remove preceding '/'
+      relativePath = relativePath.substring(1)
+      if (relativePath.endsWith('/')) {
+        relativePath + basename
+      } else {
+        "$relativePath/$basename"
+      }
+    } else {
+      basename
+    }
+  }
+
+  /* referencePath: /a/b/c
+   * /a/b/c/d/e/file.ext -> /d/e/
+   */
+  fun getParentPath(fullPath: String, referencePath: String): String {
+    val relativePath = getRelativePath(fullPath, referencePath)
+    val index = relativePath.lastIndexOf("/")
+    return "/${relativePath.substring(startIndex = 0, endIndex = index + 1)}/"
+      .replace("/+".toRegex(), "/")
+  }
+
   fun initialize(): Repository? {
     val dir = getRepositoryDirectory()
     // Un-initialize the repo if the dir does not exist or is absolutely empty
@@ -152,6 +191,20 @@ object PasswordRepository {
       null
     }
   }
+
+  /** If repo is tracking a remote branch, return commit count to be pushed, zero otherwise */
+  fun getAheadCount(): Int =
+    runCatching {
+        repository?.let { repo ->
+          getCurrentBranch()?.let { branch ->
+            BranchTrackingStatus.of(repo, branch)?.getAheadCount()
+          }
+        } ?: 0
+      }
+      .getOrElse { e ->
+        e.printStackTrace()
+        0
+      }
 
   /**
    * Gets the .gpg files in a directory

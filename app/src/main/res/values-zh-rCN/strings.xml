@@ -39,7 +39,6 @@
   <!-- PGPHandler -->
   <string name="clipboard_copied_text">复制到剪切板</string>
   <string name="file_toast_text">请提供文件名</string>
-  <string name="path_toast_text">请提供文件路径</string>
   <string name="empty_toast_text">您不能使用空密码或空额外内容</string>
   <!-- Git Async Task -->
   <string name="jgit_error_dialog_title">Git操作过程中发生错误</string>
@@ -257,7 +256,6 @@
 personal.com</string>
   <!-- Password creation failure -->
   <string name="password_creation_file_write_fail_message">将密码文件写入存储失败,请重试</string>
-  <string name="password_creation_file_delete_fail_message">从仓库删除密码文件%1$s失败,请手动删除</string>
   <string name="password_creation_duplicate_error">文件已存在,请使用其他名称</string>
   <string name="add_otp">添加 OTP</string>
   <string name="otp_import_success">导入TOTP配置成功</string>
@@ -312,9 +310,7 @@ personal.com</string>
   <string name="place_shortcut_on_home_screen">在主屏幕上放置快捷方式</string>
   <string name="password_list_fab_content_description">创建新密码或文件夹</string>
   <string name="pgp_key_import_failed">导入 PGP 密钥失败</string>
-  <string name="pgp_key_import_failed_replace_message">发现了 ID 相同的现有密钥，您要替换它吗？</string>
-  <string name="pgp_key_import_succeeded">成功导入 PGP 密钥</string>
-  <string name="pgp_key_import_succeeded_message">下面给出了导入密钥的 key ID，请检查它是否正确：\n%1$s</string>
+  <string name="pgp_key_import_failed_replace_message">发现了 ID 相同的现有密钥，:\n\n\t%1$s\n\n您要替换它吗？</string>
   <string name="pref_category_pgp_title">PGP 设置</string>
   <string name="pwgen_some_error_occurred">发生某些错误</string>
   <string name="git_run_gc_job">运行垃圾收集作业</string>

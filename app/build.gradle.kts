@@ -56,6 +56,7 @@ dependencies {
   implementation(libs.androidx.credentials.play.services)
   implementation(libs.androidx.documentfile)
   implementation(libs.androidx.fragment.ktx)
+  implementation(libs.androidx.work.runtime.ktx)
   implementation(libs.bundles.androidxLifecycle)
   implementation(libs.androidx.lifecycle.viewmodel.compose)
   implementation(libs.androidx.material)
@@ -83,7 +84,6 @@ dependencies {
   implementation(libs.thirdparty.kotlinResult)
   implementation(libs.thirdparty.logcat)
   implementation(libs.thirdparty.modernAndroidPrefs)
-  implementation(libs.thirdparty.leakcanary.plumber)
   implementation(libs.thirdparty.sshj)
   implementation(libs.thirdparty.bouncycastle.bcprov)
   implementation(libs.thirdparty.bouncycastle.bcutil)
@@ -96,4 +96,10 @@ dependencies {
   testImplementation(libs.testing.robolectric)
   testImplementation(libs.testing.sharedPrefsMock)
   testImplementation(libs.bundles.testDependencies)
+  // implementation(libs.thirdparty.leakcanary.plumber)
+}
+
+// temporary fix for hilt-2.60, https://github.com/google/dagger/issues/5203
+tasks.withType<JavaCompile>().configureEach {
+  options.compilerArgs.add("-Adagger.fastInit=enabled")
 }

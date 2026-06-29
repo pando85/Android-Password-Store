@@ -6,12 +6,34 @@ All notable changes to this project will be documented in this file
 
 ### Added
 
+- Search result filter options "exact match" and "fuzzy" in Settings --> General
+- PGP Manager now imports all keys from multi-key backups, such as those produced with OpenKeychain (previously, only the first key was imported)
+- Option to generate Ed25519 SSH keys restored
+
+### Changed
+
+- When moving files or directories, conclude action with listing the content of the destination directory
+- Improved app behaviour during password repo export and import; a modal dialog is shown until the process completes
+
+### Fixed
+
+- Accidental overwriting of existing password items of same file name after editing
+
+## [1.16.3] - 2026-04-15
+
+### Added
+
 - The host key fingerprint is displayed when connecting to the Git server for the first time, so that the user can decide whether to establish the connection
+- Diceware passphrase generator options for capitalising words and embedding a numeral
+- Floating sync button on the password list that is shown if there are local commits to be pushed to remote
+- Enhanced folder selection when moving password items, allow navigating upwards, floating button for creating new subfolder
 
 ### Fixed
 
 - Keystore-provided SSH keys are usable again
 - Allow empty passphrase on Git authentication via PGP key
+- Autofill support for Chrome/Chromium browser
+- Password entry creation after first successful login (autofill-save)
 
 ## [1.16.2] - 2026-03-01
 
@@ -138,7 +160,7 @@ All notable changes to this project will be documented in this file
 ### Fixed
 
 - Re-enable pre-launch biometric auth option on Android-14 devices (<https://github.com/android-password-store/Android-Password-Store/issues/2802>)
-- More reliable detection of AES key invalidation due to fingerprint enrollment 
+- More reliable detection of AES key invalidation due to fingerprint enrollment
 
 ## [1.14.1] - 2025-04-16
 
@@ -642,7 +664,8 @@ All notable changes to this project will be documented in this file
 
 - Fix elements overlapping.
 
-[unreleased]: https://github.com/agrahn/Android-Password-Store/compare/v1.16.2...HEAD
+[unreleased]: https://github.com/agrahn/Android-Password-Store/compare/v1.16.3...HEAD
+[1.16.3]: https://github.com/agrahn/Android-Password-Store/compare/v1.16.2...v1.16.3
 [1.16.2]: https://github.com/agrahn/Android-Password-Store/compare/v1.16.1...v1.16.2
 [1.16.1]: https://github.com/agrahn/Android-Password-Store/compare/v1.16.0...v1.16.1
 [1.16.0]: https://github.com/agrahn/Android-Password-Store/compare/v1.15.4...v1.16.0

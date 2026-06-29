@@ -16,6 +16,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import app.passwordstore.R
 import app.passwordstore.data.password.PasswordItem
+import app.passwordstore.data.repo.PasswordRepository
 import app.passwordstore.databinding.PasswordRecyclerViewBinding
 import app.passwordstore.ui.adapters.PasswordItemRecyclerAdapter
 import app.passwordstore.ui.passwords.PasswordStore
@@ -47,7 +48,10 @@ class SelectFolderFragment : Fragment(R.layout.password_recycler_view) {
 
     ViewCompat.setOnApplyWindowInsetsListener(view, windowInsetsLambda)
 
-    binding.fab.hide()
+    binding.fab.setMaxImageSize(64)
+    binding.fab.setImageResource(R.drawable.ic_new_folder_48dp)
+    binding.fab.setOnClickListener { (requireActivity() as SelectFolderActivity).createFolder() }
+
     recyclerAdapter =
       PasswordItemRecyclerAdapter(lifecycleScope, dispatcherProvider).onItemClicked { _, item ->
         listener.onFragmentInteraction(item)
@@ -61,16 +65,38 @@ class SelectFolderFragment : Fragment(R.layout.password_recycler_view) {
     FastScrollerBuilder(binding.passRecycler).build()
     registerForContextMenu(binding.passRecycler)
 
-    val path =
-      requireNotNull(requireArguments().getString(PasswordStore.REQUEST_ARG_PATH)) {
-        "Cannot navigate if ${PasswordStore.REQUEST_ARG_PATH} is not provided"
+    model.navigateTo(
+      PasswordRepository.getRepositoryDirectory(),
+      listMode = ListMode.DirectoriesOnly,
+      pushPreviousLocation = false,
+    )
+    getArguments()?.getString(PasswordStore.REQUEST_ARG_PATH)?.let { relPath ->
+      relPath.trim('/').split('/').forEach { dir ->
+        model.navigateTo(
+          File(currentDir, dir),
+          pushPreviousLocation = true,
+          listMode = ListMode.DirectoriesOnly,
+        )
       }
-    model.navigateTo(File(path), listMode = ListMode.DirectoriesOnly, pushPreviousLocation = false)
+    }
+    (requireActivity() as AppCompatActivity)
+      .supportActionBar
+      ?.setDisplayHomeAsUpEnabled(model.canNavigateBack)
+
     lifecycleScope.launch {
       model.searchResult.flowWithLifecycle(lifecycle).collect { result ->
         recyclerAdapter.submitList(result.passwordItems)
       }
     }
+  }
+
+  fun navigateTo(file: File) {
+    model.navigateTo(
+      file,
+      listMode = ListMode.DirectoriesOnly,
+      recyclerViewState =
+        binding.passRecycler.layoutManager?.onSaveInstanceState() ?: throw NullPointerException(),
+    )
   }
 
   override fun onAttach(context: Context) {
@@ -89,6 +115,15 @@ class SelectFolderFragment : Fragment(R.layout.password_recycler_view) {
           }
       }
       .onErr { throw ClassCastException("$context must implement OnFragmentInteractionListener") }
+  }
+
+  /** Returns true if the back press was handled by the [Fragment]. */
+  fun onBackPressedInActivity(): Boolean {
+    if (!model.canNavigateBack) return false
+    model.navigateBack(listMode = ListMode.DirectoriesOnly)
+    if (!model.canNavigateBack)
+      (requireActivity() as AppCompatActivity).supportActionBar?.setDisplayHomeAsUpEnabled(false)
+    return true
   }
 
   val currentDir: File
