@@ -23,6 +23,15 @@ public class ES256CryptoHandler : PasskeyCryptoHandler {
 
   private val secureRandom = SecureRandom()
 
+  private fun logD(msg: String) {
+    System.out.println("PASSKEY_DEBUG: $msg")
+  }
+
+  private fun logE(msg: String, e: Throwable) {
+    System.err.println("PASSKEY_DEBUG ERROR: $msg")
+    e.printStackTrace(System.err)
+  }
+
   override fun generateKeyPair(): Pair<ByteArray, ByteArray> {
     val keyPairGenerator = KeyPairGenerator.getInstance("EC")
     keyPairGenerator.initialize(ECGenParameterSpec("secp256r1"), secureRandom)
@@ -40,6 +49,7 @@ public class ES256CryptoHandler : PasskeyCryptoHandler {
     authenticatorData: ByteArray,
     clientDataHash: ByteArray,
   ): Result<ByteArray, Throwable> {
+    logD("sign: privateKey.size=${privateKey.size}, authData.size=${authenticatorData.size}, clientDataHash.size=${clientDataHash.size}")
     if (privateKey.isEmpty()) return Err(IllegalArgumentException("Private key cannot be empty"))
     if (authenticatorData.isEmpty())
       return Err(IllegalArgumentException("Authenticator data cannot be empty"))
@@ -60,6 +70,7 @@ public class ES256CryptoHandler : PasskeyCryptoHandler {
 
       Ok(derSignature)
     } catch (e: Exception) {
+      logE("sign failed", e)
       Err(e)
     }
   }
@@ -131,6 +142,7 @@ public class ES256CryptoHandler : PasskeyCryptoHandler {
     challenge: ByteArray,
     origin: String,
   ): Result<AssertionResult, Throwable> {
+    logD("getAssertion: rpId=$rpId, challenge.size=${challenge.size}, origin=$origin, privateKey.size=${credential.privateKey.size}")
     if (rpId.isBlank()) return Err(IllegalArgumentException("RP ID cannot be blank"))
     if (challenge.isEmpty()) return Err(IllegalArgumentException("Challenge cannot be empty"))
     if (origin.isBlank()) return Err(IllegalArgumentException("Origin cannot be blank"))
@@ -154,9 +166,13 @@ public class ES256CryptoHandler : PasskeyCryptoHandler {
               )
             )
           },
-          failure = { Err(it) },
+          failure = {
+            logE("getAssertion sign failed", it)
+            Err(it)
+          },
         )
     } catch (e: Exception) {
+      logE("getAssertion failed", e)
       Err(e)
     }
   }
