@@ -14,28 +14,50 @@ Releases are fully automated via GitHub Actions:
 ## Cutting a release
 
 ```bash
-# 1. Remove SNAPSHOT suffix
+# 1. Update CHANGELOG.md: rename [Unreleased] to [version] with today's date
+#    Example: ## [1.17.1] - 2026-06-30
+
+# 2. Remove SNAPSHOT suffix
 ./gradlew :app:clearPreRelease
 
-# 2. Commit and push
-git add app/version.properties
+# 3. Commit and push
+git add app/version.properties CHANGELOG.md
 git commit -m "release: $(grep 'versionName' app/version.properties | cut -d= -f2)"
 git push origin main
 
-# 3. Wait ~8 minutes for CI to build and publish
+# 4. Wait ~8 minutes for CI to build and publish
+#    Auto-tag creates GPG-signed tag → release.yml builds APK
+#    Release notes are extracted from CHANGELOG.md entry
 
-# 4. Verify
+# 5. Verify
 gh release view v$(grep 'versionName' app/version.properties | cut -d= -f2 | tr -d ' ')
-```
 
-## Starting the next development cycle
-
-```bash
+# 6. Start next development cycle
 ./gradlew :app:bumpSnapshot
 git add app/version.properties
 git commit -m "chore: start next SNAPSHOT"
 git push origin main
 ```
+
+## CHANGELOG.md format
+
+The release workflow reads the changelog entry matching the version being released.
+Entries must follow this format:
+
+```markdown
+## [1.17.1] - 2026-06-30
+
+### Added
+- Feature description
+
+### Changed
+- Change description
+
+### Fixed
+- Fix description
+```
+
+If no entry is found for the version, the release fails.
 
 ## Required secrets
 

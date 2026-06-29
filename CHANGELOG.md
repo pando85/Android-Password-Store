@@ -6,18 +6,94 @@ All notable changes to this project will be documented in this file
 
 ### Added
 
+- WebAuthn/Passkey support with passless compatibility (ES256/P-256 credentials)
+- Credential provider integrated with Android Credential Manager API
+- Auto-sync passkey credentials to git repository
+- Configurable signature counter behavior and constant counter option
+
+### Security
+
+- JSON injection prevention in clientDataJSON (kotlinx.serialization)
+- Scalar range validation for P-256 private keys ([1, n-1])
+- Biometric authentication is now mandatory — no silent bypass when hardware unavailable
+- FLAG_SECURE on passkey activity to prevent screen capture
+- RP ID validation on assertion responses
+- CBOR BigInteger signed interpretation fix
+- CBOR allocation limits (10MB max string size)
+- toString() redaction of private keys in credential models
+
+### Fixed
+
+- Hilt injection failure in passkey activity (missing @AndroidEntryPoint)
+- Private key format mismatch (raw 32-byte scalar vs PKCS8 DER)
+- Git sync crash when repository not initialized
+- credProps extension correctly omitted from assertion responses
+
+## [1.17.1] - 2026-06-30
+
+### Added
+
 - Search result filter options "exact match" and "fuzzy" in Settings --> General
 - PGP Manager now imports all keys from multi-key backups, such as those produced with OpenKeychain (previously, only the first key was imported)
-- Option to generate Ed25519 SSH keys restored
+- Option to generate Ed25519 SSH keys restored (app-generated with SecureRandom)
+- Floating sync button on password list for local commits push
+- Diceware passphrase generator options for capitalising words and embedding a numeral
+- Enhanced folder selection when moving password items (navigate upwards, floating button for creating new subfolder)
+- Host key fingerprint displayed when connecting to Git server for the first time
+- Floating password copy button on password list
 
 ### Changed
 
 - When moving files or directories, conclude action with listing the content of the destination directory
 - Improved app behaviour during password repo export and import; a modal dialog is shown until the process completes
+- Target SDK and Compile SDK raised to 37
+- Kotlin 2.3.20, Compose updates, Gradle 9.6.1, Hilt 2.60
 
 ### Fixed
 
 - Accidental overwriting of existing password items of same file name after editing
+- Autofill support for Chrome/Chromium browser
+- Autofill-save (password entry creation after first successful login)
+- Folder selection during password editing
+- Navigation when moving files and directories
+- Path display above password list items
+- Crash when renaming folders
+- Menu items in action bar visibility
+- Conscrypt EdDSA keys normalization for SSHJ host key verification
+- PGP v4 key generation in key manager
+
+### Fork infrastructure
+
+- Standalone CI pipeline (spotless, tests, lint, build-apks on push/PR)
+- Automated release pipeline (GPG-signed tags → signed APK → GitHub Releases)
+- All references updated from upstream (agrahn) to pando85
+
+## [1.17.0] - 2026-06-29
+
+### Added
+
+- WebAuthn/Passkey support with passless compatibility (ES256/P-256 credentials)
+- Credential provider integrated with Android Credential Manager API
+- Auto-sync passkey credentials to git repository
+- Configurable signature counter behavior and constant counter option
+
+### Security
+
+- JSON injection prevention in clientDataJSON (kotlinx.serialization)
+- Scalar range validation for P-256 private keys ([1, n-1])
+- Biometric authentication is now mandatory — no silent bypass when hardware unavailable
+- FLAG_SECURE on passkey activity to prevent screen capture
+- RP ID validation on assertion responses
+- CBOR BigInteger signed interpretation fix
+- CBOR allocation limits (10MB max string size)
+- toString() redaction of private keys in credential models
+
+### Fixed
+
+- Hilt injection failure in passkey activity (missing @AndroidEntryPoint)
+- Private key format mismatch (raw 32-byte scalar vs PKCS8 DER)
+- Git sync crash when repository not initialized
+- credProps extension correctly omitted from assertion responses
 
 ## [1.16.3] - 2026-04-15
 
