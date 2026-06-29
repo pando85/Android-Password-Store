@@ -1,12 +1,11 @@
-# Password Store
+# Password Store (pando85 fork)
 
-[![GitHub workflow](https://github.com/agrahn/Android-Password-Store/workflows/Deploy%20snapshot%20builds/badge.svg)](https://github.com/agrahn/Android-Password-Store/actions)
+[![CI](https://github.com/pando85/Android-Password-Store/actions/workflows/pull_request.yml/badge.svg)](https://github.com/pando85/Android-Password-Store/actions)
+[![Release](https://github.com/pando85/Android-Password-Store/actions/workflows/release.yml/badge.svg)](https://github.com/pando85/Android-Password-Store/releases)
 
 ## Download
 
-- Latest [snapshot build (APK)](https://github.com/agrahn/Android-Password-Store/releases/tag/latest) of this fork
-- [GitHub Releases](https://github.com/agrahn/Android-Password-Store/releases)
-- [<img src="https://f-droid.org/assets/fdroid-logo-text_S0MUfk_FsnAYL7n2MQye-34IoSNm6QM6xYjDnMqkufo=.svg" height="32px"/>](https://f-droid.org/en/packages/app.passwordstore.agrahn)
+- [GitHub Releases](https://github.com/pando85/Android-Password-Store/releases)
 
 ## Documentation
 
@@ -31,7 +30,7 @@ File `myKeyForPass.sec.asc` can be directly imported into Password Store; enter 
 
 ## Contributing
 
-This fork of the original repository just tries to keep pace with automatic dependency updates made by [Renovate](https://github.com/apps/renovate). New features will most likely not be implemented, only fixes. See [ChangeLog](https://github.com/agrahn/Android-Password-Store/blob/develop/CHANGELOG.md).
+This fork adds passkey/WebAuthn support with passless compatibility. See [CHANGELOG](CHANGELOG.md) and [Release process](RELEASE.md).
 
 ## Donations
 
