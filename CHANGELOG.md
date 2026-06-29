@@ -4,12 +4,18 @@ All notable changes to this project will be documented in this file
 
 ## [Unreleased]
 
+## [1.17.2] - 2026-06-30
+
 ### Added
 
 - WebAuthn/Passkey support with passless compatibility (ES256/P-256 credentials)
 - Credential provider integrated with Android Credential Manager API
 - Auto-sync passkey credentials to git repository
 - Configurable signature counter behavior and constant counter option
+
+### Removed
+
+- `androidx.credentials:credentials-play-services-auth` (Google Play Services) dependency, enabling F-Droid builds with no proprietary dependencies
 
 ### Security
 
