@@ -1,6 +1,6 @@
 ---
 name: setup-android-release
-description: Set up automated GitHub Actions release pipeline for Android apps with signed APKs, GPG-signed tags, and auto-tagging from version files.
+description: Set up automated GitHub Actions release pipeline for Android apps with signed APKs, GPG-signed tags, and auto-tagging from version files. Use for one-time setup, not routine release cuts.
 ---
 
 ## Purpose
@@ -15,8 +15,8 @@ Set up a two-stage CI release pipeline for Android projects:
 - User wants GitHub Releases with signed APKs
 - User wants automatic tagging when version changes
 - User mentions "release pipeline", "release workflow", or "auto-tag"
-- User asks to "release", "cut a release", "publish a new version", or "tag a release"
-- User mentions bumping version, clearing snapshot, or preparing a release
+- User asks to create, fix, or redesign the release automation itself
+- User asks about required signing/GPG/PAT secrets for the Android release pipeline
 
 ## Pre-release checklist (MANDATORY before pushing)
 
@@ -140,7 +140,7 @@ jobs:
   tag:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           token: ${{ secrets.PAT }}
           fetch-depth: 0
@@ -201,7 +201,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-java@v4
         with:
