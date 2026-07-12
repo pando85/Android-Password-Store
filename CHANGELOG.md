@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file
 
 ## [Unreleased]
 
+## [1.17.3] - 2026-07-12
+
+### Fixed
+
+- Crash on empty biometrics/PIN timeout preference
+
+### Fork infrastructure
+
+- Added release skill and automation
+- Fixed F-Droid scanignore for build-logic included build
+- Disabled lint CredentialDependency check after dropping Play Services auth
+
 ## [1.17.2] - 2026-06-30
 
 ### Added
@@ -746,8 +758,12 @@ All notable changes to this project will be documented in this file
 
 - Fix elements overlapping.
 
-[unreleased]: https://github.com/agrahn/Android-Password-Store/compare/v1.16.3...HEAD
-[1.16.3]: https://github.com/agrahn/Android-Password-Store/compare/v1.16.2...v1.16.3
+[unreleased]: https://github.com/pando85/Android-Password-Store/compare/v1.17.3...HEAD
+[1.17.3]: https://github.com/pando85/Android-Password-Store/compare/v1.17.2...v1.17.3
+[1.17.2]: https://github.com/pando85/Android-Password-Store/compare/v1.17.1...v1.17.2
+[1.17.1]: https://github.com/pando85/Android-Password-Store/compare/v1.17.0...v1.17.1
+[1.17.0]: https://github.com/pando85/Android-Password-Store/compare/v1.16.3...v1.17.0
+[1.16.3]: https://github.com/pando85/Android-Password-Store/compare/v1.16.2...v1.16.3
 [1.16.2]: https://github.com/agrahn/Android-Password-Store/compare/v1.16.1...v1.16.2
 [1.16.1]: https://github.com/agrahn/Android-Password-Store/compare/v1.16.0...v1.16.1
 [1.16.0]: https://github.com/agrahn/Android-Password-Store/compare/v1.15.4...v1.16.0
