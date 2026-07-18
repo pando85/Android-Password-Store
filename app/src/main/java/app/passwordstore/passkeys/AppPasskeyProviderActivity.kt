@@ -22,7 +22,6 @@ import androidx.credentials.provider.PendingIntentHandler
 import androidx.lifecycle.lifecycleScope
 import app.passwordstore.data.repo.PasswordRepository
 import app.passwordstore.passkeys.crypto.PasskeyCryptoHandler
-import app.passwordstore.passkeys.model.PasskeyMetadata
 import app.passwordstore.passkeys.model.SensitivePasskeyCredential
 import app.passwordstore.passkeys.provider.PasskeyAuthenticator
 import app.passwordstore.passkeys.provider.PasskeyCredentialProviderService
