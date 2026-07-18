@@ -8,6 +8,7 @@ package app.passwordstore.passkeys.provider
 import app.passwordstore.passkeys.crypto.AssertionResult
 import app.passwordstore.passkeys.crypto.ES256CryptoHandler
 import app.passwordstore.passkeys.model.PasskeyCredential
+import app.passwordstore.passkeys.model.PasskeyMetadata
 import java.io.ByteArrayOutputStream
 import java.security.MessageDigest
 import java.util.Base64
@@ -48,6 +49,15 @@ public object PasskeyProviderUtils {
     return credentials.filter { credential ->
       encodeBase64Url(credential.credentialId) in allowedIds
     }
+  }
+
+  internal fun selectCredentialsByMetadata(
+    metadata: List<PasskeyMetadata>,
+    allowCredentials: List<PublicKeyCredentialDescriptor>,
+  ): List<PasskeyMetadata> {
+    if (allowCredentials.isEmpty()) return metadata
+    val allowedIds = allowCredentials.mapTo(hashSetOf()) { it.id }
+    return metadata.filter { meta -> encodeBase64Url(meta.credentialId) in allowedIds }
   }
 
   /**
