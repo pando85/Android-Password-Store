@@ -7,13 +7,15 @@ package app.passwordstore.passkeys.storage
 
 import app.passwordstore.passkeys.model.FidoUser
 import app.passwordstore.passkeys.model.PasskeyCredential
+import app.passwordstore.passkeys.model.PasskeyMetadata
+import app.passwordstore.passkeys.model.SensitivePasskeyCredential
 import com.github.michaelbull.result.Err
 import com.github.michaelbull.result.Ok
 import com.github.michaelbull.result.Result
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.Clock
-import kotlinx.serialization.encodeToString
+import kotlinx.datetime.Instant
 
 public class InMemoryPasskeyStorage : PasskeyStorage {
 
@@ -23,7 +25,7 @@ public class InMemoryPasskeyStorage : PasskeyStorage {
     return java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(id)
   }
 
-  override suspend fun listCredentials(rpId: String?): Result<List<PasskeyCredential>, Throwable> =
+  override suspend fun listMetadata(rpId: String?): Result<List<PasskeyMetadata>, Throwable> =
     withContext(Dispatchers.Default) {
       val filtered =
         if (rpId != null) {
@@ -31,13 +33,33 @@ public class InMemoryPasskeyStorage : PasskeyStorage {
         } else {
           credentials.values.toList()
         }
-      Ok(filtered)
+      Ok(filtered.map { PasskeyMetadata.fromPasskeyCredential(it) })
     }
 
-  override suspend fun getCredential(
-    credentialId: ByteArray
-  ): Result<PasskeyCredential?, Throwable> =
-    withContext(Dispatchers.Default) { Ok(credentials[credentialIdKey(credentialId)]) }
+  override suspend fun loadForSigning(
+    credentialId: ByteArray,
+  ): Result<SensitivePasskeyCredential, Throwable> =
+    withContext(Dispatchers.Default) {
+      val credential = credentials[credentialIdKey(credentialId)]
+      if (credential != null) {
+        Ok(
+          SensitivePasskeyCredential(
+            credentialId = credential.credentialId.copyOf(),
+            publicKey = credential.publicKey.copyOf(),
+            rpId = credential.rpId,
+            user = credential.user,
+            signCount = credential.signCount,
+            createdAt = credential.createdAt,
+            transports = credential.transports,
+            uvInitialized = credential.uvInitialized,
+            fileLastModified = 0L,
+            privateKey = credential.privateKey.copyOf(),
+          )
+        )
+      } else {
+        Err(IllegalArgumentException("Credential not found"))
+      }
+    }
 
   override suspend fun saveCredential(credential: PasskeyCredential): Result<Unit, Throwable> =
     withContext(Dispatchers.Default) {

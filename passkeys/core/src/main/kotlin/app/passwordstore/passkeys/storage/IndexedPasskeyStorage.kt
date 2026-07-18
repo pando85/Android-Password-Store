@@ -6,6 +6,8 @@
 package app.passwordstore.passkeys.storage
 
 import app.passwordstore.passkeys.model.PasskeyCredential
+import app.passwordstore.passkeys.model.PasskeyMetadata
+import app.passwordstore.passkeys.model.SensitivePasskeyCredential
 import com.github.michaelbull.result.Err
 import com.github.michaelbull.result.Ok
 import com.github.michaelbull.result.Result
@@ -21,7 +23,7 @@ import logcat.logcat
 
 public class IndexedPasskeyStorage(private val delegate: PasskeyStorage) : PasskeyStorage {
 
-  private val credentialIndex = ConcurrentHashMap<String, PasskeyCredential>()
+  private val metadataIndex = ConcurrentHashMap<String, PasskeyMetadata>()
   private val rpIdIndex = ConcurrentHashMap<String, MutableSet<String>>()
   @Volatile private var indexLoaded = false
   private val indexLoadMutex = Mutex()
@@ -36,10 +38,10 @@ public class IndexedPasskeyStorage(private val delegate: PasskeyStorage) : Passk
       if (indexLoaded) return
       withContext(Dispatchers.IO) {
         delegate
-          .listCredentials()
+          .listMetadata()
           .fold(
-            success = { credentials ->
-              credentials.forEach { credential -> indexCredential(credential) }
+            success = { metadataList ->
+              metadataList.forEach { metadata -> indexMetadata(metadata) }
               indexLoaded = true
             },
             failure = { error ->
@@ -50,73 +52,64 @@ public class IndexedPasskeyStorage(private val delegate: PasskeyStorage) : Passk
     }
   }
 
-  private fun indexCredential(credential: PasskeyCredential) {
-    val key = credentialKey(credential.credentialId)
-    credentialIndex[key] = credential
-    rpIdIndex.getOrPut(credential.rpId) { ConcurrentHashMap.newKeySet() }.add(key)
+  private fun indexMetadata(metadata: PasskeyMetadata) {
+    val key = credentialKey(metadata.credentialId)
+    metadataIndex[key] = metadata
+    rpIdIndex.getOrPut(metadata.rpId) { ConcurrentHashMap.newKeySet() }.add(key)
   }
 
-  private fun removeFromIndex(credential: PasskeyCredential) {
-    val key = credentialKey(credential.credentialId)
-    credentialIndex.remove(key)
-    val rpSet = rpIdIndex[credential.rpId]
+  private fun removeFromIndex(metadata: PasskeyMetadata) {
+    val key = credentialKey(metadata.credentialId)
+    metadataIndex.remove(key)
+    val rpSet = rpIdIndex[metadata.rpId]
     rpSet?.remove(key)
     if (rpSet?.isEmpty() == true) {
-      rpIdIndex.remove(credential.rpId)
+      rpIdIndex.remove(metadata.rpId)
     }
   }
 
-  override suspend fun listCredentials(rpId: String?): Result<List<PasskeyCredential>, Throwable> {
+  override suspend fun listMetadata(rpId: String?): Result<List<PasskeyMetadata>, Throwable> {
     ensureIndexLoaded()
 
     return withContext(Dispatchers.Default) {
       try {
-        val credentials =
+        val metadata =
           if (rpId != null) {
-            rpIdIndex[rpId]?.mapNotNull { credentialIndex[it] } ?: emptyList()
+            rpIdIndex[rpId]?.mapNotNull { metadataIndex[it] } ?: emptyList()
           } else {
-            credentialIndex.values.toList()
+            metadataIndex.values.toList()
           }
-        Ok(credentials)
+        Ok(metadata)
       } catch (e: Exception) {
         Err(e)
       }
     }
   }
 
-  override suspend fun getCredential(
-    credentialId: ByteArray
-  ): Result<PasskeyCredential?, Throwable> {
-    ensureIndexLoaded()
-
-    return withContext(Dispatchers.Default) {
-      try {
-        val key = credentialKey(credentialId)
-        Ok(credentialIndex[key])
-      } catch (e: Exception) {
-        Err(e)
-      }
-    }
+  override suspend fun loadForSigning(
+    credentialId: ByteArray,
+  ): Result<SensitivePasskeyCredential, Throwable> {
+    return delegate.loadForSigning(credentialId)
   }
 
   override suspend fun saveCredential(credential: PasskeyCredential): Result<Unit, Throwable> {
     return delegate.saveCredential(credential).also { result ->
       if (result.isOk) {
-        indexCredential(credential)
+        indexMetadata(PasskeyMetadata.fromPasskeyCredential(credential))
       }
     }
   }
 
   override suspend fun deleteCredential(credentialId: ByteArray): Result<Boolean, Throwable> {
     val key = credentialKey(credentialId)
-    val credential = credentialIndex[key]
+    val metadata = metadataIndex[key]
 
     return delegate
       .deleteCredential(credentialId)
       .fold(
         success = { deleted ->
-          if (deleted && credential != null) {
-            removeFromIndex(credential)
+          if (deleted && metadata != null) {
+            removeFromIndex(metadata)
           }
           Ok(deleted)
         },
@@ -129,13 +122,12 @@ public class IndexedPasskeyStorage(private val delegate: PasskeyStorage) : Passk
     newSignCount: ULong,
   ): Result<Unit, Throwable> {
     val key = credentialKey(credentialId)
-    val existing = credentialIndex[key]
+    val existing = metadataIndex[key]
 
     return if (existing != null) {
-      val updated = existing.copy(signCount = newSignCount)
-      delegate.saveCredential(updated).also { result ->
+      delegate.updateSignCount(credentialId, newSignCount).also { result ->
         if (result.isOk) {
-          credentialIndex[key] = updated
+          metadataIndex[key] = existing.copy(signCount = newSignCount)
         }
       }
     } else {
@@ -144,12 +136,12 @@ public class IndexedPasskeyStorage(private val delegate: PasskeyStorage) : Passk
   }
 
   public fun clearIndex() {
-    credentialIndex.clear()
+    metadataIndex.clear()
     rpIdIndex.clear()
     indexLoaded = false
   }
 
-  public fun indexedCredentialCount(): Int = credentialIndex.size
+  public fun indexedCredentialCount(): Int = metadataIndex.size
 
   public fun indexedRpIds(): Set<String> = rpIdIndex.keys.toSet()
 
