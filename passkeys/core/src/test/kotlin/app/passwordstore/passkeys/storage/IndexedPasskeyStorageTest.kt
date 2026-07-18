@@ -7,6 +7,7 @@ package app.passwordstore.passkeys.storage
 
 import app.passwordstore.passkeys.model.FidoUser
 import app.passwordstore.passkeys.model.PasskeyCredential
+import app.passwordstore.passkeys.model.PasskeyMetadata
 import com.github.michaelbull.result.getOrElse
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -41,7 +42,7 @@ class IndexedPasskeyStorageTest {
   }
 
   @Test
-  fun `saveCredential indexes credential`() = runBlocking {
+  fun `saveCredential indexes metadata`() = runBlocking {
     val credential = createTestCredential()
 
     indexedStorage.saveCredential(credential)
@@ -52,19 +53,22 @@ class IndexedPasskeyStorageTest {
   }
 
   @Test
-  fun `getCredential returns from index after save`() = runBlocking {
+  fun `loadForSigning returns credential after save`() = runBlocking {
     val credential = createTestCredential()
     indexedStorage.saveCredential(credential)
 
-    val result = indexedStorage.getCredential(credential.credentialId)
+    val result = indexedStorage.loadForSigning(credential.credentialId)
 
     assertTrue(result.isOk)
-    val retrieved = result.getOrElse { null }
-    assertEquals(credential.credentialIdBase64(), retrieved?.credentialIdBase64())
+    result.getOrElse { null }?.use { sensitive ->
+      assertEquals(credential.credentialIdBase64(), sensitive.credentialId.let {
+        java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(it)
+      })
+    }
   }
 
   @Test
-  fun `listCredentials filters by rpId from index`() = runBlocking {
+  fun `listMetadata filters by rpId from index`() = runBlocking {
     val cred1 = createTestCredential(rpId = "example.com", credentialId = "cred1".toByteArray())
     val cred2 = createTestCredential(rpId = "example.com", credentialId = "cred2".toByteArray())
     val cred3 = createTestCredential(rpId = "other.com", credentialId = "cred3".toByteArray())
@@ -73,12 +77,12 @@ class IndexedPasskeyStorageTest {
     indexedStorage.saveCredential(cred2)
     indexedStorage.saveCredential(cred3)
 
-    val result = indexedStorage.listCredentials("example.com")
+    val result = indexedStorage.listMetadata("example.com")
 
     assertTrue(result.isOk)
-    val credentials = result.getOrElse { emptyList() }
-    assertEquals(2, credentials.size)
-    assertTrue(credentials.all { it.rpId == "example.com" })
+    val metadata = result.getOrElse { emptyList() }
+    assertEquals(2, metadata.size)
+    assertTrue(metadata.all { it.rpId == "example.com" })
   }
 
   @Test
@@ -99,10 +103,10 @@ class IndexedPasskeyStorageTest {
 
     indexedStorage.updateSignCount(credential.credentialId, 42u)
 
-    val result = indexedStorage.getCredential(credential.credentialId)
+    val result = indexedStorage.listMetadata()
     assertTrue(result.isOk)
-    val updated = result.getOrElse { null }
-    assertEquals(42u, updated?.signCount)
+    val metadata = result.getOrElse { emptyList() }
+    assertEquals(42u, metadata.first().signCount)
   }
 
   @Test
