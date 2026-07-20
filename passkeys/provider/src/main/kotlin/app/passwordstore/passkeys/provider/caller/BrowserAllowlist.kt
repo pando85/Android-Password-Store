@@ -73,4 +73,13 @@ public object BrowserAllowlist {
       pinned.equals(certificateDigestSha256, ignoreCase = true)
     }
   }
+
+  public fun isCertificateAcceptedHex(
+    entry: TrustedBrowserEntry,
+    hexDigest: String,
+  ): Boolean {
+    return entry.signingCertificateDigestSha256.any { pinned ->
+      pinned.replace(":", "").lowercase() == hexDigest.lowercase()
+    }
+  }
 }

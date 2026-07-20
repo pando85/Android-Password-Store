@@ -44,58 +44,43 @@ public class DefaultWebAuthnCallerVerifier(
     request: ProviderGetCredentialRequest,
     rpId: String,
   ): Result<VerifiedWebAuthnContext, CallerVerificationError> {
-    val normalizedRpId = rpId.trim().lowercase()
-    if (!RpIdValidator.validateRpIdSyntax(normalizedRpId)) {
-      return Err(CallerVerificationError.InvalidRpId(rpId, "invalid syntax"))
-    }
-
-    val callingAppInfo = request.callingAppInfo
-    if (callingAppInfo == null) {
-      emitDiagnostic(null, null, normalizedRpId, "get", "CALLER_INFO_MISSING", "No calling app info")
-      return Err(CallerVerificationError.MissingCallingAppInfo("get"))
-    }
-
-    val packageName = callingAppInfo.packageName
-    if (packageName.isNullOrBlank()) {
-      emitDiagnostic(null, null, normalizedRpId, "get", "PACKAGE_NAME_MISSING", "Blank package name")
-      return Err(CallerVerificationError.MissingPackageName("get"))
-    }
-
-    val browserEntry = BrowserAllowlist.findEntry(browserAllowlist, packageName)
-    if (browserEntry != null) {
-      return verifyBrowserCaller(callingAppInfo, browserEntry, normalizedRpId, "get")
-    }
-
-    return verifyNativeCaller(callingAppInfo, packageName, normalizedRpId, "get")
+    return verifyCaller(request.callingAppInfo, rpId, "get")
   }
 
   override suspend fun verifyCreateRequest(
     request: ProviderCreateCredentialRequest,
     rpId: String,
   ): Result<VerifiedWebAuthnContext, CallerVerificationError> {
+    return verifyCaller(request.callingAppInfo, rpId, "create")
+  }
+
+  private suspend fun verifyCaller(
+    callingAppInfo: CallingAppInfo?,
+    rpId: String,
+    stage: String,
+  ): Result<VerifiedWebAuthnContext, CallerVerificationError> {
     val normalizedRpId = rpId.trim().lowercase()
     if (!RpIdValidator.validateRpIdSyntax(normalizedRpId)) {
       return Err(CallerVerificationError.InvalidRpId(rpId, "invalid syntax"))
     }
 
-    val callingAppInfo = request.callingAppInfo
     if (callingAppInfo == null) {
-      emitDiagnostic(null, null, normalizedRpId, "create", "CALLER_INFO_MISSING", "No calling app info")
-      return Err(CallerVerificationError.MissingCallingAppInfo("create"))
+      emitDiagnostic(null, null, normalizedRpId, stage, "CALLER_INFO_MISSING", "No calling app info")
+      return Err(CallerVerificationError.MissingCallingAppInfo(stage))
     }
 
     val packageName = callingAppInfo.packageName
     if (packageName.isNullOrBlank()) {
-      emitDiagnostic(null, null, normalizedRpId, "create", "PACKAGE_NAME_MISSING", "Blank package name")
-      return Err(CallerVerificationError.MissingPackageName("create"))
+      emitDiagnostic(null, null, normalizedRpId, stage, "PACKAGE_NAME_MISSING", "Blank package name")
+      return Err(CallerVerificationError.MissingPackageName(stage))
     }
 
     val browserEntry = BrowserAllowlist.findEntry(browserAllowlist, packageName)
     if (browserEntry != null) {
-      return verifyBrowserCaller(callingAppInfo, browserEntry, normalizedRpId, "create")
+      return verifyBrowserCaller(callingAppInfo, browserEntry, normalizedRpId, stage)
     }
 
-    return verifyNativeCaller(callingAppInfo, packageName, normalizedRpId, "create")
+    return verifyNativeCaller(callingAppInfo, packageName, normalizedRpId, stage)
   }
 
   private fun verifyBrowserCaller(
@@ -113,7 +98,10 @@ public class DefaultWebAuthnCallerVerifier(
     }
 
     val certMatchesPinned =
-      certDigests.any { digest -> BrowserAllowlist.isCertificateAccepted(browserEntry, digest) }
+      certDigests.any { digest ->
+        val hexDigest = normalizeBase64UrlToHex(digest)
+        hexDigest != null && BrowserAllowlist.isCertificateAcceptedHex(browserEntry, hexDigest)
+      }
     if (!certMatchesPinned) {
       emitDiagnostic(packageName, null, rpId, stage, "BROWSER_CERT_MISMATCH", "Cert not pinned")
       return Err(CallerVerificationError.BrowserCertificateMismatch(packageName))
@@ -196,7 +184,13 @@ public class DefaultWebAuthnCallerVerifier(
         val packageMatches = target.packageName == packageName
         val certMatches =
           target.sha256CertFingerprint?.let { fingerprint ->
-            certDigests.any { digest -> fingerprint.equals(digest, ignoreCase = true) }
+            val normalizedFingerprint = normalizeCertFingerprint(fingerprint)
+            certDigests.any { digest ->
+              val normalizedDigest = normalizeBase64UrlToHex(digest)
+              normalizedFingerprint != null &&
+                normalizedDigest != null &&
+                normalizedFingerprint == normalizedDigest
+            }
           } ?: false
         isDelegatePermissionRelation && isAndroidNamespace && packageMatches && certMatches
       }
@@ -254,6 +248,23 @@ public class DefaultWebAuthnCallerVerifier(
     } catch (e: Exception) {
       logcat(LogPriority.ERROR) { "Failed to get signing certs for $packageName: $e" }
       emptySet()
+    }
+  }
+
+  private fun normalizeCertFingerprint(fingerprint: String): String? {
+    return try {
+      fingerprint.replace(":", "").lowercase()
+    } catch (_: Exception) {
+      null
+    }
+  }
+
+  private fun normalizeBase64UrlToHex(base64Url: String): String? {
+    return try {
+      val bytes = Base64.getUrlDecoder().decode(base64Url)
+      bytes.joinToString("") { "%02x".format(it) }
+    } catch (_: Exception) {
+      null
     }
   }
 

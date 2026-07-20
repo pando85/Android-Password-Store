@@ -194,9 +194,6 @@ public object PasskeyProviderUtils {
     require(credential.credentialId.size <= 1023) {
       "Credential ID too large: ${credential.credentialId.size} bytes (max 1023)"
     }
-    require(credential.credentialId.size <= 65535) {
-      "Credential ID exceeds 16-bit length encoding: ${credential.credentialId.size}"
-    }
     val rpIdHash = MessageDigest.getInstance("SHA-256").digest(credential.rpId.toByteArray())
     val flags =
       (ES256CryptoHandler.FLAG_USER_PRESENT.toInt() or

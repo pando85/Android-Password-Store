@@ -134,9 +134,11 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
           },
         )
 
-      if (!RpIdValidator.isValidOriginForRpId(verifiedContext.origin, rpId)) {
-        finishWithGetError(GetCredentialUnknownException("Verified origin does not match RP ID"))
-        return
+      if (verifiedContext.callerType != CallerType.NATIVE_APP) {
+        if (!RpIdValidator.isValidOriginForRpId(verifiedContext.origin, rpId)) {
+          finishWithGetError(GetCredentialUnknownException("Verified origin does not match RP ID"))
+          return
+        }
       }
 
       val credentialId = PasskeyProviderUtils.decodeBase64Url(selectedCredentialId)
@@ -279,11 +281,13 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
           },
         )
 
-      if (!RpIdValidator.isValidOriginForRpId(verifiedContext.origin, rpId)) {
-        finishWithCreateError(
-          CreateCredentialUnknownException("Verified origin does not match RP ID")
-        )
-        return
+      if (verifiedContext.callerType != CallerType.NATIVE_APP) {
+        if (!RpIdValidator.isValidOriginForRpId(verifiedContext.origin, rpId)) {
+          finishWithCreateError(
+            CreateCredentialUnknownException("Verified origin does not match RP ID")
+          )
+          return
+        }
       }
 
       if (authenticator.canAuthenticate(this)) {

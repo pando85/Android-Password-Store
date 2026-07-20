@@ -30,12 +30,16 @@ internal class AssetLinkCache(
   }
 
   fun put(key: AssetLinkCacheKey) {
+    val now = System.currentTimeMillis()
     if (cache.size >= maxEntries) {
-      val now = System.currentTimeMillis()
       val expired = cache.entries.filter { now - it.value > ttlMs }.map { it.key }
       expired.forEach { cache.remove(it) }
     }
-    cache[key] = System.currentTimeMillis()
+    cache[key] = now
+    if (cache.size > maxEntries) {
+      val oldest = cache.minByOrNull { it.value }?.key
+      if (oldest != null) cache.remove(oldest)
+    }
   }
 
   fun clear() {
