@@ -5,7 +5,9 @@
 
 package app.passwordstore.passkeys.provider
 
+import app.passwordstore.passkeys.crypto.CallerType
 import app.passwordstore.passkeys.crypto.ES256CryptoHandler
+import app.passwordstore.passkeys.crypto.VerifiedWebAuthnContext
 import app.passwordstore.passkeys.model.FidoUser
 import app.passwordstore.passkeys.model.PasskeyCredential
 import com.github.michaelbull.result.getOrElse
@@ -59,8 +61,15 @@ class WebAuthnProtocolTest {
       }
     """
         .trimIndent()
+    val verifiedContext = VerifiedWebAuthnContext(
+      callingPackage = "com.test",
+      origin = "https://${credential.rpId}",
+      clientDataHash = null,
+      callerType = CallerType.NATIVE_APP,
+      signingCertificateDigests = setOf("test"),
+    )
 
-    val responseJson = PasskeyProviderUtils.buildAttestationResponse(credential, requestJson)
+    val responseJson = PasskeyProviderUtils.buildAttestationResponse(credential, requestJson, verifiedContext)
     val response =
       PasskeyProviderUtils.json.decodeFromString(AttestationResponseJson.serializer(), responseJson)
 
@@ -93,8 +102,15 @@ class WebAuthnProtocolTest {
       }
     """
         .trimIndent()
+    val verifiedContext = VerifiedWebAuthnContext(
+      callingPackage = "com.test",
+      origin = "https://${credential.rpId}",
+      clientDataHash = null,
+      callerType = CallerType.NATIVE_APP,
+      signingCertificateDigests = setOf("test"),
+    )
 
-    val responseJson = PasskeyProviderUtils.buildAttestationResponse(credential, requestJson)
+    val responseJson = PasskeyProviderUtils.buildAttestationResponse(credential, requestJson, verifiedContext)
     val response =
       PasskeyProviderUtils.json.decodeFromString(AttestationResponseJson.serializer(), responseJson)
 
@@ -120,8 +136,15 @@ class WebAuthnProtocolTest {
       }
     """
         .trimIndent()
+    val verifiedContext = VerifiedWebAuthnContext(
+      callingPackage = "com.test",
+      origin = "https://${credential.rpId}",
+      clientDataHash = null,
+      callerType = CallerType.NATIVE_APP,
+      signingCertificateDigests = setOf("test"),
+    )
 
-    val responseJson = PasskeyProviderUtils.buildAttestationResponse(credential, requestJson)
+    val responseJson = PasskeyProviderUtils.buildAttestationResponse(credential, requestJson, verifiedContext)
     val response =
       PasskeyProviderUtils.json.decodeFromString(AttestationResponseJson.serializer(), responseJson)
 
