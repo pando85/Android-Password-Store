@@ -5,6 +5,7 @@
 
 package app.passwordstore.passkeys.model
 
+import app.passwordstore.passkeys.crypto.CallerType
 import kotlinx.datetime.Instant
 import kotlinx.serialization.Serializable
 
@@ -19,6 +20,10 @@ public data class PasskeyCredential(
   public val createdAt: Instant,
   public val transports: List<String> = listOf("internal"),
   public val uvInitialized: Boolean = true,
+  public val createdByCallerType: CallerType? = null,
+  public val createdByPackage: String? = null,
+  public val createdByCertificateDigest: String? = null,
+  public val verifiedOrigin: String? = null,
 ) {
 
   override fun toString(): String =
@@ -36,6 +41,10 @@ public data class PasskeyCredential(
     if (createdAt != other.createdAt) return false
     if (transports != other.transports) return false
     if (uvInitialized != other.uvInitialized) return false
+    if (createdByCallerType != other.createdByCallerType) return false
+    if (createdByPackage != other.createdByPackage) return false
+    if (createdByCertificateDigest != other.createdByCertificateDigest) return false
+    if (verifiedOrigin != other.verifiedOrigin) return false
     return true
   }
 
@@ -49,6 +58,10 @@ public data class PasskeyCredential(
     result = 31 * result + createdAt.hashCode()
     result = 31 * result + transports.hashCode()
     result = 31 * result + uvInitialized.hashCode()
+    result = 31 * result + (createdByCallerType?.hashCode() ?: 0)
+    result = 31 * result + (createdByPackage?.hashCode() ?: 0)
+    result = 31 * result + (createdByCertificateDigest?.hashCode() ?: 0)
+    result = 31 * result + (verifiedOrigin?.hashCode() ?: 0)
     return result
   }
 
