@@ -16,6 +16,7 @@ public data class WebAuthnGetRequest(
   val allowCredentials: List<PublicKeyCredentialDescriptor> = emptyList(),
   @SerialName("userVerification") val userVerification: String? = null,
   @SerialName("timeout") val timeout: Long? = null,
+  @Deprecated("Origin from request JSON is untrusted; use VerifiedWebAuthnContext instead")
   @SerialName("origin") val origin: String? = null,
 )
 

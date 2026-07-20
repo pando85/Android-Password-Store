@@ -21,10 +21,13 @@ import androidx.credentials.exceptions.GetCredentialUnknownException
 import androidx.credentials.provider.PendingIntentHandler
 import androidx.lifecycle.lifecycleScope
 import app.passwordstore.data.repo.PasswordRepository
+import app.passwordstore.passkeys.crypto.CallerType
 import app.passwordstore.passkeys.crypto.PasskeyCryptoHandler
+import app.passwordstore.passkeys.crypto.RpIdValidator
 import app.passwordstore.passkeys.provider.PasskeyAuthenticator
 import app.passwordstore.passkeys.provider.PasskeyCredentialProviderService
 import app.passwordstore.passkeys.provider.PasskeyProviderUtils
+import app.passwordstore.passkeys.provider.caller.WebAuthnCallerVerifier
 import app.passwordstore.passkeys.storage.PasskeyStorage
 import app.passwordstore.ui.git.base.BaseGitActivity
 import app.passwordstore.ui.git.base.BaseGitActivity.GitOp
@@ -43,6 +46,7 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
   @Inject lateinit var passkeyStorage: PasskeyStorage
   @Inject lateinit var cryptoHandler: PasskeyCryptoHandler
   @Inject lateinit var authenticator: PasskeyAuthenticator
+  @Inject lateinit var callerVerifier: WebAuthnCallerVerifier
 
   private fun maybeSyncToGit() {
     if (!sharedPrefs.getBoolean(PreferenceKeys.PASSKEY_AUTO_GIT_SYNC, true)) return
@@ -110,6 +114,31 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
           option.requestJson
         )
 
+      val rpId = parsedRequest.rpId
+      if (rpId.isNullOrBlank() || !RpIdValidator.validateRpIdSyntax(rpId)) {
+        finishWithGetError(GetCredentialUnknownException("Invalid RP ID in request"))
+        return
+      }
+
+      val verifiedContext =
+        callerVerifier.verifyGetRequest(request, rpId).fold(
+          success = { it },
+          failure = { error ->
+            logcat(LogPriority.WARN) {
+              "Caller verification failed for get: ${error.errorCode()}"
+            }
+            finishWithGetError(
+              GetCredentialUnknownException("Caller verification failed")
+            )
+            return
+          },
+        )
+
+      if (!RpIdValidator.isValidOriginForRpId(verifiedContext.origin, rpId)) {
+        finishWithGetError(GetCredentialUnknownException("Verified origin does not match RP ID"))
+        return
+      }
+
       val credentialId = PasskeyProviderUtils.decodeBase64Url(selectedCredentialId)
       val credential =
         passkeyStorage
@@ -126,7 +155,7 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
         return
       }
 
-      if (credential.rpId != parsedRequest.rpId) {
+      if (credential.rpId != rpId) {
         finishWithGetError(GetCredentialUnknownException("Credential RP ID does not match request"))
         return
       }
@@ -173,7 +202,7 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
             credential = credential.copy(signCount = newSignCount),
             rpId = credential.rpId,
             challenge = PasskeyProviderUtils.decodeBase64Url(parsedRequest.challenge),
-            origin = parsedRequest.origin ?: "https://${credential.rpId}",
+            origin = verifiedContext.origin,
           )
           .fold(
             success = { it },
@@ -221,8 +250,44 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
           createRequest.requestJson
         )
 
+      val rpId = parsedRequest.rp.id
+      if (rpId.isBlank() || !RpIdValidator.validateRpIdSyntax(rpId)) {
+        finishWithCreateError(CreateCredentialUnknownException("Invalid RP ID in request"))
+        return
+      }
+
+      val hasEs256 = parsedRequest.pubKeyCredParams.any { it.alg == -7L }
+      if (!hasEs256) {
+        val requestedAlgs = parsedRequest.pubKeyCredParams.map { it.alg }
+        finishWithCreateError(
+          CreateCredentialUnknownException("No supported algorithm (ES256) in request")
+        )
+        return
+      }
+
+      val verifiedContext =
+        callerVerifier.verifyCreateRequest(request, rpId).fold(
+          success = { it },
+          failure = { error ->
+            logcat(LogPriority.WARN) {
+              "Caller verification failed for create: ${error.errorCode()}"
+            }
+            finishWithCreateError(
+              CreateCredentialUnknownException("Caller verification failed")
+            )
+            return
+          },
+        )
+
+      if (!RpIdValidator.isValidOriginForRpId(verifiedContext.origin, rpId)) {
+        finishWithCreateError(
+          CreateCredentialUnknownException("Verified origin does not match RP ID")
+        )
+        return
+      }
+
       if (authenticator.canAuthenticate(this)) {
-        when (val authResult = authenticator.authenticateForCreation(this, parsedRequest.rp.id)) {
+        when (val authResult = authenticator.authenticateForCreation(this, rpId)) {
           is PasskeyAuthenticator.Result.Success -> {}
           is PasskeyAuthenticator.Result.Canceled -> {
             finishWithCreateError(CreateCredentialUnknownException("Authentication canceled"))
@@ -251,7 +316,7 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
       val createdCredential =
         cryptoHandler
           .createCredential(
-            rpId = parsedRequest.rp.id,
+            rpId = rpId,
             userId = PasskeyProviderUtils.decodeBase64Url(parsedRequest.user.id),
             userName = parsedRequest.user.name ?: "",
             userDisplayName = parsedRequest.user.displayName ?: parsedRequest.user.name ?: "",
@@ -269,7 +334,14 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
         return
       }
 
-      val saveResult = passkeyStorage.saveCredential(createdCredential)
+      val credentialWithBinding = createdCredential.copy(
+        createdByCallerType = verifiedContext.callerType,
+        createdByPackage = verifiedContext.callingPackage,
+        createdByCertificateDigest = verifiedContext.signingCertificateDigests.firstOrNull(),
+        verifiedOrigin = verifiedContext.origin,
+      )
+
+      val saveResult = passkeyStorage.saveCredential(credentialWithBinding)
       if (saveResult.isErr) {
         saveResult.fold(
           success = {},
@@ -279,8 +351,11 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
         return
       }
 
-      val responseJson =
-        PasskeyProviderUtils.buildAttestationResponse(createdCredential, createRequest.requestJson)
+      val responseJson = PasskeyProviderUtils.buildAttestationResponse(
+        credentialWithBinding,
+        createRequest.requestJson,
+        verifiedContext,
+      )
       val resultIntent = Intent()
       PendingIntentHandler.setCreateCredentialResponse(
         resultIntent,

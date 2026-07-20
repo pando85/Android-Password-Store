@@ -7,6 +7,7 @@ package app.passwordstore.passkeys.provider
 
 import app.passwordstore.passkeys.crypto.AssertionResult
 import app.passwordstore.passkeys.crypto.ES256CryptoHandler
+import app.passwordstore.passkeys.crypto.VerifiedWebAuthnContext
 import app.passwordstore.passkeys.model.PasskeyCredential
 import java.io.ByteArrayOutputStream
 import java.security.MessageDigest
@@ -93,19 +94,25 @@ public object PasskeyProviderUtils {
    *
    * @param credential The newly created credential
    * @param requestJson The original request JSON
+   * @param verifiedContext The verified caller context providing the trusted origin
    * @return JSON-encoded attestation response
    */
-  public fun buildAttestationResponse(credential: PasskeyCredential, requestJson: String): String {
+  public fun buildAttestationResponse(
+    credential: PasskeyCredential,
+    requestJson: String,
+    verifiedContext: VerifiedWebAuthnContext,
+  ): String {
     val request = json.decodeFromString<WebAuthnCreateRequest>(requestJson)
-    return buildAttestationResponse(credential, request)
+    return buildAttestationResponse(credential, request, verifiedContext)
   }
 
   internal fun buildAttestationResponse(
     credential: PasskeyCredential,
     request: WebAuthnCreateRequest,
+    verifiedContext: VerifiedWebAuthnContext,
   ): String {
-    val origin = "https://${credential.rpId}"
-    val clientDataJson = buildClientDataJson("webauthn.create", request.challenge, origin)
+    val clientDataJson =
+      buildClientDataJson("webauthn.create", request.challenge, verifiedContext.origin)
     val coseKey = encodeCoseEcPublicKey(credential.publicKey)
     val authData = buildAttestedAuthenticatorData(credential, coseKey)
     val spkiPublicKey = buildSpkiPublicKey(credential.publicKey)
