@@ -128,7 +128,6 @@ public class DefaultWebAuthnCallerVerifier(
     )
   }
 
-  @OptIn(com.github.michaelbull.result.Result.UnsafeAccess::class)
   private suspend fun verifyNativeCaller(
     callingAppInfo: CallingAppInfo,
     packageName: String,
@@ -160,16 +159,14 @@ public class DefaultWebAuthnCallerVerifier(
     val assetLinksResult =
       withContext(Dispatchers.IO) { assetLinksClient.fetchAssetLinks(rpId) }
 
-    val statements =
-      if (assetLinksResult.isOk) {
-        assetLinksResult.value
-      } else {
-        val error = assetLinksResult.error
-        emitDiagnostic(packageName, null, rpId, stage, "ASSET_LINK_FAILED", error.reason)
-        return Err(
-          CallerVerificationError.AssetLinkVerificationFailed(rpId, error.reason)
-        )
-      }
+    val statements = assetLinksResult.get()
+    if (statements == null) {
+      val error = assetLinksResult.error
+      emitDiagnostic(packageName, null, rpId, stage, "ASSET_LINK_FAILED", error.reason)
+      return Err(
+        CallerVerificationError.AssetLinkVerificationFailed(rpId, error.reason)
+      )
+    }
 
     val matched =
       statements.any { statement ->
