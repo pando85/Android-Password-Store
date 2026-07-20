@@ -7,7 +7,6 @@ package app.passwordstore.passkeys.storage
 
 import app.passwordstore.passkeys.model.FidoUser
 import app.passwordstore.passkeys.model.PasskeyCredential
-import app.passwordstore.passkeys.model.PasskeyMetadata
 import com.github.michaelbull.result.getOrElse
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest

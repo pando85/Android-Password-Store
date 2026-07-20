@@ -7,11 +7,8 @@ package app.passwordstore.passkeys.storage
 
 import app.passwordstore.passkeys.model.FidoUser
 import app.passwordstore.passkeys.model.PasskeyCredential
-import app.passwordstore.passkeys.model.PasskeyMetadata
 import app.passwordstore.passkeys.model.SensitivePasskeyCredential
-import com.github.michaelbull.result.Result
 import com.github.michaelbull.result.getOrElse
-import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.Clock
 import kotlin.test.Test
@@ -217,49 +214,5 @@ class PasskeySecurityRegressionTest {
 
     val loadResult = indexed.loadForSigning(cred.credentialId)
     assertTrue(loadResult.isOk)
-  }
-}
-
-class CountingPasskeyStorage : PasskeyStorage {
-
-  val decryptCount = AtomicInteger(0)
-  val metadataCount = AtomicInteger(0)
-  val touchedRpIds = mutableSetOf<String>()
-
-  private val delegate = InMemoryPasskeyStorage()
-
-  fun resetCounters() {
-    decryptCount.set(0)
-    metadataCount.set(0)
-    touchedRpIds.clear()
-  }
-
-  override suspend fun listMetadata(rpId: String?): Result<List<PasskeyMetadata>, Throwable> {
-    metadataCount.incrementAndGet()
-    if (rpId != null) {
-      synchronized(touchedRpIds) { touchedRpIds.add(rpId) }
-    }
-    return delegate.listMetadata(rpId)
-  }
-
-  override suspend fun loadForSigning(credentialId: ByteArray): Result<SensitivePasskeyCredential, Throwable> {
-    decryptCount.incrementAndGet()
-    return delegate.loadForSigning(credentialId)
-  }
-
-  override suspend fun saveCredential(credential: PasskeyCredential): Result<Unit, Throwable> {
-    return delegate.saveCredential(credential)
-  }
-
-  override suspend fun deleteCredential(credentialId: ByteArray): Result<Boolean, Throwable> {
-    return delegate.deleteCredential(credentialId)
-  }
-
-  override suspend fun updateSignCount(credentialId: ByteArray, newSignCount: ULong): Result<Unit, Throwable> {
-    return delegate.updateSignCount(credentialId, newSignCount)
-  }
-
-  fun clear() {
-    delegate.clear()
   }
 }
