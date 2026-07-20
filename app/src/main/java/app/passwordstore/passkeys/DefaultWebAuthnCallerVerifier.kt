@@ -1,0 +1,279 @@
+/*
+ * Copyright © 2014-2026 The Android Password Store Authors. All Rights Reserved.
+ * SPDX-License-Identifier: GPL-3.0-only
+ */
+
+package app.passwordstore.passkeys
+
+import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.credentials.CallingAppInfo
+import androidx.credentials.provider.ProviderCreateCredentialRequest
+import androidx.credentials.provider.ProviderGetCredentialRequest
+import app.passwordstore.passkeys.crypto.CallerType
+import app.passwordstore.passkeys.crypto.CallerVerificationDiagnostic
+import app.passwordstore.passkeys.crypto.CallerVerificationError
+import app.passwordstore.passkeys.crypto.RpIdValidator
+import app.passwordstore.passkeys.crypto.VerifiedWebAuthnContext
+import app.passwordstore.passkeys.provider.caller.BrowserAllowlist
+import app.passwordstore.passkeys.provider.caller.TrustedBrowserEntry
+import app.passwordstore.passkeys.provider.caller.WebAuthnCallerVerifier
+import com.github.michaelbull.result.Err
+import com.github.michaelbull.result.Ok
+import com.github.michaelbull.result.Result
+import java.security.MessageDigest
+import java.util.Base64
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import logcat.LogPriority
+import logcat.logcat
+
+public class DefaultWebAuthnCallerVerifier(
+  private val context: Context,
+  private val assetLinksClient: DigitalAssetLinksClient = DigitalAssetLinksClient(),
+  private val browserAllowlist: List<TrustedBrowserEntry> = BrowserAllowlist.DEFAULT_ALLOWLIST,
+  private val diagnosticSink: (CallerVerificationDiagnostic) -> Unit = { diag ->
+    logcat(LogPriority.WARN) { "CallerVerification: $diag" }
+  },
+) : WebAuthnCallerVerifier {
+
+  private val assetLinkCache = AssetLinkCache(maxEntries = 64, ttlMs = 5 * 60 * 1_000L)
+
+  override suspend fun verifyGetRequest(
+    request: ProviderGetCredentialRequest,
+    rpId: String,
+  ): Result<VerifiedWebAuthnContext, CallerVerificationError> {
+    val normalizedRpId = rpId.trim().lowercase()
+    if (!RpIdValidator.validateRpIdSyntax(normalizedRpId)) {
+      return Err(CallerVerificationError.InvalidRpId(rpId, "invalid syntax"))
+    }
+
+    val callingAppInfo = request.callingAppInfo
+    if (callingAppInfo == null) {
+      emitDiagnostic(null, null, normalizedRpId, "get", "CALLER_INFO_MISSING", "No calling app info")
+      return Err(CallerVerificationError.MissingCallingAppInfo("get"))
+    }
+
+    val packageName = callingAppInfo.packageName
+    if (packageName.isNullOrBlank()) {
+      emitDiagnostic(null, null, normalizedRpId, "get", "PACKAGE_NAME_MISSING", "Blank package name")
+      return Err(CallerVerificationError.MissingPackageName("get"))
+    }
+
+    val browserEntry = BrowserAllowlist.findEntry(browserAllowlist, packageName)
+    if (browserEntry != null) {
+      return verifyBrowserCaller(callingAppInfo, browserEntry, normalizedRpId, "get")
+    }
+
+    return verifyNativeCaller(callingAppInfo, packageName, normalizedRpId, "get")
+  }
+
+  override suspend fun verifyCreateRequest(
+    request: ProviderCreateCredentialRequest,
+    rpId: String,
+  ): Result<VerifiedWebAuthnContext, CallerVerificationError> {
+    val normalizedRpId = rpId.trim().lowercase()
+    if (!RpIdValidator.validateRpIdSyntax(normalizedRpId)) {
+      return Err(CallerVerificationError.InvalidRpId(rpId, "invalid syntax"))
+    }
+
+    val callingAppInfo = request.callingAppInfo
+    if (callingAppInfo == null) {
+      emitDiagnostic(null, null, normalizedRpId, "create", "CALLER_INFO_MISSING", "No calling app info")
+      return Err(CallerVerificationError.MissingCallingAppInfo("create"))
+    }
+
+    val packageName = callingAppInfo.packageName
+    if (packageName.isNullOrBlank()) {
+      emitDiagnostic(null, null, normalizedRpId, "create", "PACKAGE_NAME_MISSING", "Blank package name")
+      return Err(CallerVerificationError.MissingPackageName("create"))
+    }
+
+    val browserEntry = BrowserAllowlist.findEntry(browserAllowlist, packageName)
+    if (browserEntry != null) {
+      return verifyBrowserCaller(callingAppInfo, browserEntry, normalizedRpId, "create")
+    }
+
+    return verifyNativeCaller(callingAppInfo, packageName, normalizedRpId, "create")
+  }
+
+  private fun verifyBrowserCaller(
+    callingAppInfo: CallingAppInfo,
+    browserEntry: TrustedBrowserEntry,
+    rpId: String,
+    stage: String,
+  ): Result<VerifiedWebAuthnContext, CallerVerificationError> {
+    val packageName = callingAppInfo.packageName
+    val certDigests = getSigningCertificateDigests(packageName)
+
+    if (certDigests.isEmpty()) {
+      emitDiagnostic(packageName, null, rpId, stage, "SIGNING_CERT_MISSING", "No signing certs")
+      return Err(CallerVerificationError.BrowserCertificateMismatch(packageName))
+    }
+
+    val certMatchesPinned =
+      certDigests.any { digest -> BrowserAllowlist.isCertificateAccepted(browserEntry, digest) }
+    if (!certMatchesPinned) {
+      emitDiagnostic(packageName, null, rpId, stage, "BROWSER_CERT_MISMATCH", "Cert not pinned")
+      return Err(CallerVerificationError.BrowserCertificateMismatch(packageName))
+    }
+
+    val verifiedOrigin = callingAppInfo.origin
+    if (verifiedOrigin.isNullOrBlank()) {
+      emitDiagnostic(packageName, null, rpId, stage, "UNTRUSTED_BROWSER", "No verified origin")
+      return Err(CallerVerificationError.UntrustedBrowser(packageName, "No verified origin from framework"))
+    }
+
+    if (!RpIdValidator.isValidOriginForRpId(verifiedOrigin, rpId)) {
+      emitDiagnostic(packageName, null, rpId, stage, "ORIGIN_RP_MISMATCH", "Origin/RP mismatch")
+      return Err(CallerVerificationError.OriginRpIdMismatch(verifiedOrigin, rpId))
+    }
+
+    logcat { "Browser caller verified: pkg=$packageName, rpId=$rpId, origin=$verifiedOrigin" }
+    return Ok(
+      VerifiedWebAuthnContext(
+        callingPackage = packageName,
+        origin = verifiedOrigin,
+        clientDataHash = null,
+        callerType = CallerType.PRIVILEGED_BROWSER,
+        signingCertificateDigests = certDigests,
+      )
+    )
+  }
+
+  private suspend fun verifyNativeCaller(
+    callingAppInfo: CallingAppInfo,
+    packageName: String,
+    rpId: String,
+    stage: String,
+  ): Result<VerifiedWebAuthnContext, CallerVerificationError> {
+    val certDigests = getSigningCertificateDigests(packageName)
+
+    if (certDigests.isEmpty()) {
+      emitDiagnostic(packageName, null, rpId, stage, "SIGNING_CERT_MISSING", "No signing certs")
+      return Err(CallerVerificationError.MissingSigningCertificate(stage))
+    }
+
+    val cacheKey = AssetLinkCacheKey(rpId, packageName, certDigests)
+    if (assetLinkCache.get(cacheKey)) {
+      val androidOrigin = "android:apk-key-hash:${certDigests.first()}"
+      logcat { "Native caller verified (cached): pkg=$packageName, rpId=$rpId" }
+      return Ok(
+        VerifiedWebAuthnContext(
+          callingPackage = packageName,
+          origin = androidOrigin,
+          clientDataHash = null,
+          callerType = CallerType.NATIVE_APP,
+          signingCertificateDigests = certDigests,
+        )
+      )
+    }
+
+    val assetLinksResult =
+      withContext(Dispatchers.IO) { assetLinksClient.fetchAssetLinks(rpId) }
+
+    val statements =
+      assetLinksResult.fold(
+        success = { it },
+        failure = { error ->
+          emitDiagnostic(packageName, null, rpId, stage, "ASSET_LINK_FAILED", error.reason)
+          return Err(
+            CallerVerificationError.AssetLinkVerificationFailed(rpId, error.reason)
+          )
+        },
+      )
+
+    val matched =
+      statements.any { statement ->
+        val target = statement.target ?: return@any false
+        val isDelegatePermissionRelation =
+          statement.relation?.any { rel ->
+            rel == "delegate_permission/common_handle" ||
+              rel == "delegate_permission/common_get_login_creds"
+          } ?: false
+        val isAndroidNamespace = target.namespace == "android_app"
+        val packageMatches = target.packageName == packageName
+        val certMatches =
+          target.sha256CertFingerprint?.let { fingerprint ->
+            certDigests.any { digest -> fingerprint.equals(digest, ignoreCase = true) }
+          } ?: false
+        isDelegatePermissionRelation && isAndroidNamespace && packageMatches && certMatches
+      }
+
+    if (!matched) {
+      emitDiagnostic(packageName, null, rpId, stage, "ASSET_LINK_FAILED", "No matching statement")
+      return Err(
+        CallerVerificationError.AssetLinkVerificationFailed(
+          rpId,
+          "No matching Digital Asset Links statement for $packageName",
+        )
+      )
+    }
+
+    assetLinkCache.put(cacheKey)
+    val androidOrigin = "android:apk-key-hash:${certDigests.first()}"
+    logcat { "Native caller verified: pkg=$packageName, rpId=$rpId" }
+    return Ok(
+      VerifiedWebAuthnContext(
+        callingPackage = packageName,
+        origin = androidOrigin,
+        clientDataHash = null,
+        callerType = CallerType.NATIVE_APP,
+        signingCertificateDigests = certDigests,
+      )
+    )
+  }
+
+  private fun getSigningCertificateDigests(packageName: String): Set<String> {
+    return try {
+      val packageInfo =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+          context.packageManager.getPackageInfo(packageName, PackageManager.GET_SIGNING_CERTIFICATES)
+        } else {
+          @Suppress("DEPRECATION")
+          context.packageManager.getPackageInfo(packageName, PackageManager.GET_SIGNATURES)
+        }
+
+      val signingCerts =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+          packageInfo.signingInfo?.apkContentsSigners
+        } else {
+          @Suppress("DEPRECATION") packageInfo.signatures
+        }
+
+      signingCerts
+        ?.map { cert ->
+          val digest = MessageDigest.getInstance("SHA-256").digest(cert.encoded)
+          Base64.getUrlEncoder().withoutPadding().encodeToString(digest)
+        }
+        ?.toSet() ?: emptySet()
+    } catch (e: PackageManager.NameNotFoundException) {
+      logcat(LogPriority.WARN) { "Package not found during cert extraction: $packageName" }
+      emptySet()
+    } catch (e: Exception) {
+      logcat(LogPriority.ERROR) { "Failed to get signing certs for $packageName: $e" }
+      emptySet()
+    }
+  }
+
+  private fun emitDiagnostic(
+    callerPackage: String?,
+    callerType: CallerType?,
+    requestedRpId: String?,
+    stage: String,
+    errorCode: String,
+    message: String,
+  ) {
+    diagnosticSink(
+      CallerVerificationDiagnostic(
+        callerPackage = callerPackage,
+        callerType = callerType,
+        requestedRpId = requestedRpId,
+        stage = stage,
+        errorCode = errorCode,
+        message = message,
+      )
+    )
+  }
+}
