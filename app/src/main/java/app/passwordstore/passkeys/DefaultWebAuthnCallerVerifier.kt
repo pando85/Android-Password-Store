@@ -105,7 +105,7 @@ public class DefaultWebAuthnCallerVerifier(
       return Err(CallerVerificationError.BrowserCertificateMismatch(packageName))
     }
 
-    val verifiedOrigin = callingAppInfo.getOrigin(ByteArray(0))
+    val verifiedOrigin = callingAppInfo.getOrigin("")
     if (verifiedOrigin.isNullOrBlank()) {
       emitDiagnostic(packageName, null, rpId, stage, "UNTRUSTED_BROWSER", "No verified origin")
       return Err(CallerVerificationError.UntrustedBrowser(packageName, "No verified origin from framework"))
@@ -128,6 +128,7 @@ public class DefaultWebAuthnCallerVerifier(
     )
   }
 
+  @OptIn(com.github.michaelbull.result.Result.UnsafeAccess::class)
   private suspend fun verifyNativeCaller(
     callingAppInfo: CallingAppInfo,
     packageName: String,
