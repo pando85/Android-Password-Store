@@ -17,7 +17,7 @@ public object RpIdValidator {
     if (rpId.contains('#')) return false
     if (rpId.contains('@')) return false
     if (rpId.startsWith('.') || rpId.endsWith('.')) return false
-    if (rpId.contains('..')) return false
+    if (rpId.contains("..")) return false
     if (rpId.length > 253) return false
     val labels = rpId.split('.')
     if (labels.size < 1) return false
