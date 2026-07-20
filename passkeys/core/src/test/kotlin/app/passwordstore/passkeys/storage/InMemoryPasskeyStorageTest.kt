@@ -14,7 +14,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.Clock
@@ -34,38 +33,38 @@ class InMemoryPasskeyStorageTest {
   }
 
   @Test
-  fun `listCredentials returns empty list when empty`() = runBlocking {
-    val result = storage.listCredentials()
+  fun `listMetadata returns empty list when empty`() = runBlocking {
+    val result = storage.listMetadata()
     assertTrue(result.isOk)
-    val credentials = result.getOrElse { emptyList() }
-    assertTrue(credentials.isEmpty())
+    val metadata = result.getOrElse { emptyList() }
+    assertTrue(metadata.isEmpty())
   }
 
   @Test
-  fun `saveCredential and getCredential work correctly`() = runBlocking {
+  fun `saveCredential and loadForSigning work correctly`() = runBlocking {
     val credential = createTestCredential()
 
     val saveResult = storage.saveCredential(credential)
     assertTrue(saveResult.isOk)
 
-    val getResult = storage.getCredential(credential.credentialId)
-    assertTrue(getResult.isOk)
-    val retrieved = getResult.getOrElse { null }
-    assertNotNull(retrieved)
-    assertEquals(credential.rpId, retrieved.rpId)
-    assertEquals(credential.user.name, retrieved.user.name)
+    val loadResult = storage.loadForSigning(credential.credentialId)
+    assertTrue(loadResult.isOk)
+    val sensitive = loadResult.getOrElse { null }
+    assertNotNull(sensitive)
+    sensitive.use {
+      assertEquals(credential.rpId, sensitive.rpId)
+      assertEquals(credential.user.name, sensitive.user.name)
+    }
   }
 
   @Test
-  fun `getCredential returns null for non-existent id`() = runBlocking {
-    val result = storage.getCredential("non-existent".toByteArray())
-    assertTrue(result.isOk)
-    val credential = result.getOrElse { null }
-    assertNull(credential)
+  fun `loadForSigning returns error for non-existent id`() = runBlocking {
+    val result = storage.loadForSigning("non-existent".toByteArray())
+    assertTrue(result.isErr)
   }
 
   @Test
-  fun `listCredentials filters by rpId`() = runBlocking {
+  fun `listMetadata filters by rpId`() = runBlocking {
     val cred1 =
       createTestCredential(
         rpId = "example.com",
@@ -89,25 +88,25 @@ class InMemoryPasskeyStorageTest {
     storage.saveCredential(cred2)
     storage.saveCredential(cred3)
 
-    val result = storage.listCredentials("example.com")
+    val result = storage.listMetadata("example.com")
     assertTrue(result.isOk)
-    val credentials = result.getOrElse { emptyList() }
-    assertEquals(2, credentials.size)
-    assertTrue(credentials.all { it.rpId == "example.com" })
+    val metadata = result.getOrElse { emptyList() }
+    assertEquals(2, metadata.size)
+    assertTrue(metadata.all { it.rpId == "example.com" })
   }
 
   @Test
-  fun `listCredentials returns all when rpId is null`() = runBlocking {
+  fun `listMetadata returns all when rpId is null`() = runBlocking {
     val cred1 = createTestCredential(rpId = "example.com", credentialId = "cred1".toByteArray())
     val cred2 = createTestCredential(rpId = "other.com", credentialId = "cred2".toByteArray())
 
     storage.saveCredential(cred1)
     storage.saveCredential(cred2)
 
-    val result = storage.listCredentials(null)
+    val result = storage.listMetadata(null)
     assertTrue(result.isOk)
-    val credentials = result.getOrElse { emptyList() }
-    assertEquals(2, credentials.size)
+    val metadata = result.getOrElse { emptyList() }
+    assertEquals(2, metadata.size)
   }
 
   @Test
@@ -119,9 +118,8 @@ class InMemoryPasskeyStorageTest {
     assertTrue(deleteResult.isOk)
     assertTrue(deleteResult.getOrElse { false })
 
-    val getResult = storage.getCredential(credential.credentialId)
-    assertTrue(getResult.isOk)
-    assertNull(getResult.getOrElse { null })
+    val loadResult = storage.loadForSigning(credential.credentialId)
+    assertTrue(loadResult.isErr)
   }
 
   @Test
@@ -139,11 +137,11 @@ class InMemoryPasskeyStorageTest {
     val updateResult = storage.updateSignCount(credential.credentialId, 5u)
     assertTrue(updateResult.isOk)
 
-    val getResult = storage.getCredential(credential.credentialId)
-    assertTrue(getResult.isOk)
-    val updated = getResult.getOrElse { null }
-    assertNotNull(updated)
-    assertEquals(5u, updated.signCount)
+    val metaResult = storage.listMetadata()
+    assertTrue(metaResult.isOk)
+    val metadata = metaResult.getOrElse { emptyList() }
+    assertNotNull(metadata.firstOrNull())
+    assertEquals(5u, metadata.first().signCount)
   }
 
   @Test
@@ -174,11 +172,11 @@ class InMemoryPasskeyStorageTest {
     val updated = credential.copy(signCount = 10u)
     storage.saveCredential(updated)
 
-    val result = storage.getCredential(credential.credentialId)
+    val result = storage.listMetadata()
     assertTrue(result.isOk)
-    val retrieved = result.getOrElse { null }
-    assertNotNull(retrieved)
-    assertEquals(10u, retrieved.signCount)
+    val metadata = result.getOrElse { emptyList() }
+    assertNotNull(metadata.firstOrNull())
+    assertEquals(10u, metadata.first().signCount)
     assertEquals(1, storage.count())
   }
 
