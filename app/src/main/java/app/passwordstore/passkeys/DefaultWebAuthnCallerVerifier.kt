@@ -8,7 +8,7 @@ package app.passwordstore.passkeys
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
-import androidx.credentials.CallingAppInfo
+import androidx.credentials.provider.CallingAppInfo
 import androidx.credentials.provider.ProviderCreateCredentialRequest
 import androidx.credentials.provider.ProviderGetCredentialRequest
 import app.passwordstore.passkeys.crypto.CallerType
@@ -31,7 +31,7 @@ import logcat.logcat
 
 public class DefaultWebAuthnCallerVerifier(
   private val context: Context,
-  private val assetLinksClient: DigitalAssetLinksClient = DigitalAssetLinksClient(),
+  internal val assetLinksClient: DigitalAssetLinksClient = DigitalAssetLinksClient(),
   private val browserAllowlist: List<TrustedBrowserEntry> = BrowserAllowlist.DEFAULT_ALLOWLIST,
   private val diagnosticSink: (CallerVerificationDiagnostic) -> Unit = { diag ->
     logcat(LogPriority.WARN) { "CallerVerification: $diag" }
@@ -162,15 +162,16 @@ public class DefaultWebAuthnCallerVerifier(
       withContext(Dispatchers.IO) { assetLinksClient.fetchAssetLinks(rpId) }
 
     val statements =
-      assetLinksResult.fold(
-        success = { it },
-        failure = { error ->
+      when (assetLinksResult) {
+        is Ok -> assetLinksResult.value
+        is Err -> {
+          val error = assetLinksResult.error
           emitDiagnostic(packageName, null, rpId, stage, "ASSET_LINK_FAILED", error.reason)
           return Err(
             CallerVerificationError.AssetLinkVerificationFailed(rpId, error.reason)
           )
-        },
-      )
+        }
+      }
 
     val matched =
       statements.any { statement ->
