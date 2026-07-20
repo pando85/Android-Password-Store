@@ -32,9 +32,7 @@ import logcat.logcat
 public class DefaultWebAuthnCallerVerifier(
   private val context: Context,
   private val browserAllowlist: List<TrustedBrowserEntry> = BrowserAllowlist.DEFAULT_ALLOWLIST,
-  private val diagnosticSink: (CallerVerificationDiagnostic) -> Unit = { diag ->
-    logcat(LogPriority.WARN) { "CallerVerification: $diag" }
-  },
+  private val diagnosticSink: (CallerVerificationDiagnostic) -> Unit = {},
 ) : WebAuthnCallerVerifier {
 
   private val assetLinksClient = DigitalAssetLinksClient()
@@ -107,7 +105,7 @@ public class DefaultWebAuthnCallerVerifier(
       return Err(CallerVerificationError.BrowserCertificateMismatch(packageName))
     }
 
-    val verifiedOrigin = callingAppInfo.getOrigin()
+    val verifiedOrigin = callingAppInfo.getOrigin(ByteArray(0))
     if (verifiedOrigin.isNullOrBlank()) {
       emitDiagnostic(packageName, null, rpId, stage, "UNTRUSTED_BROWSER", "No verified origin")
       return Err(CallerVerificationError.UntrustedBrowser(packageName, "No verified origin from framework"))
