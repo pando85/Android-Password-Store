@@ -22,6 +22,7 @@ import androidx.credentials.provider.PendingIntentHandler
 import androidx.lifecycle.lifecycleScope
 import app.passwordstore.data.repo.PasswordRepository
 import app.passwordstore.passkeys.crypto.PasskeyCryptoHandler
+import app.passwordstore.passkeys.model.SensitivePasskeyCredential
 import app.passwordstore.passkeys.provider.PasskeyAuthenticator
 import app.passwordstore.passkeys.provider.PasskeyCredentialProviderService
 import app.passwordstore.passkeys.provider.PasskeyProviderUtils
@@ -111,28 +112,29 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
         )
 
       val credentialId = PasskeyProviderUtils.decodeBase64Url(selectedCredentialId)
-      val credential =
+
+      val metadata =
         passkeyStorage
-          .getCredential(credentialId)
+          .listMetadata(parsedRequest.rpId)
           .fold(
-            success = { it },
+            success = { list -> list.firstOrNull { it.credentialId.contentEquals(credentialId) } },
             failure = {
-              logcat(LogPriority.ERROR) { "Failed reading stored passkey: $it" }
+              logcat(LogPriority.ERROR) { "Failed reading passkey metadata: $it" }
               null
             },
           )
-      if (credential == null) {
+      if (metadata == null) {
         finishWithGetError(GetCredentialUnknownException("Selected passkey is unavailable"))
         return
       }
 
-      if (credential.rpId != parsedRequest.rpId) {
+      if (metadata.rpId != parsedRequest.rpId) {
         finishWithGetError(GetCredentialUnknownException("Credential RP ID does not match request"))
         return
       }
 
       if (authenticator.canAuthenticate(this)) {
-        when (val authResult = authenticator.authenticateForPasskey(this, credential.rpId)) {
+        when (val authResult = authenticator.authenticateForPasskey(this, metadata.rpId)) {
           is PasskeyAuthenticator.Result.Success -> {}
           is PasskeyAuthenticator.Result.Canceled -> {
             finishWithGetError(GetCredentialCancellationException("Authentication canceled"))
@@ -156,47 +158,84 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
         return
       }
 
-      val constantSignatureCounter =
-        sharedPrefs.getBoolean(PreferenceKeys.PASSKEY_CONSTANT_SIGNATURE_COUNTER, true)
-      val newSignCount = if (constantSignatureCounter) 0u else credential.signCount + 1u
-      passkeyStorage
-        .updateSignCount(credential.credentialId, newSignCount)
-        .fold(
-          success = {},
-          failure = { logcat(LogPriority.WARN) { "Failed to update sign count: $it" } },
-        )
+      var sensitiveCredential: SensitivePasskeyCredential? = null
+      try {
+        sensitiveCredential =
+          passkeyStorage
+            .loadForSigning(credentialId)
+            .fold(
+              success = { it },
+              failure = {
+                logcat(LogPriority.ERROR) { "Failed loading passkey for signing: $it" }
+                null
+              },
+            )
+        if (sensitiveCredential == null) {
+          finishWithGetError(GetCredentialUnknownException("Selected passkey is unavailable"))
+          return
+        }
 
-      val requestJson = option.requestJson
-      val assertion =
-        cryptoHandler
-          .getAssertion(
-            credential = credential.copy(signCount = newSignCount),
-            rpId = credential.rpId,
-            challenge = PasskeyProviderUtils.decodeBase64Url(parsedRequest.challenge),
-            origin = parsedRequest.origin ?: "https://${credential.rpId}",
+        if (
+          metadata.fileLastModified > 0 &&
+            sensitiveCredential.fileLastModified != metadata.fileLastModified
+        ) {
+          sensitiveCredential.close()
+          finishWithGetError(
+            GetCredentialUnknownException("Credential file changed since selection")
           )
+          return
+        }
+
+        val constantSignatureCounter =
+          sharedPrefs.getBoolean(PreferenceKeys.PASSKEY_CONSTANT_SIGNATURE_COUNTER, true)
+        val newSignCount = if (constantSignatureCounter) 0u else sensitiveCredential.signCount + 1u
+        passkeyStorage
+          .updateSignCount(sensitiveCredential.credentialId, newSignCount)
           .fold(
-            success = { it },
-            failure = {
-              logcat(LogPriority.ERROR) { "Failed building assertion: $it" }
-              null
-            },
+            success = {},
+            failure = { logcat(LogPriority.WARN) { "Failed to update sign count: $it" } },
           )
-      if (assertion == null) {
-        finishWithGetError(GetCredentialUnknownException("Failed generating passkey assertion"))
-        return
-      }
 
-      val responseJson =
-        PasskeyProviderUtils.buildAssertionResponse(assertion, credential, requestJson)
-      val resultIntent = Intent()
-      PendingIntentHandler.setGetCredentialResponse(
-        resultIntent,
-        GetCredentialResponse(PublicKeyCredential(responseJson)),
-      )
-      setResult(Activity.RESULT_OK, resultIntent)
-      maybeSyncToGit()
-      finish()
+        val credentialForSigning =
+          sensitiveCredential.toPasskeyCredential().copy(signCount = newSignCount)
+        val requestJson = option.requestJson
+        val assertion =
+          cryptoHandler
+            .getAssertion(
+              credential = credentialForSigning,
+              rpId = sensitiveCredential.rpId,
+              challenge = PasskeyProviderUtils.decodeBase64Url(parsedRequest.challenge),
+              origin = parsedRequest.origin ?: "https://${sensitiveCredential.rpId}",
+            )
+            .fold(
+              success = { it },
+              failure = {
+                logcat(LogPriority.ERROR) { "Failed building assertion: $it" }
+                null
+              },
+            )
+        if (assertion == null) {
+          finishWithGetError(GetCredentialUnknownException("Failed generating passkey assertion"))
+          return
+        }
+
+        val responseJson =
+          PasskeyProviderUtils.buildAssertionResponse(
+            assertion,
+            credentialForSigning,
+            requestJson,
+          )
+        val resultIntent = Intent()
+        PendingIntentHandler.setGetCredentialResponse(
+          resultIntent,
+          GetCredentialResponse(PublicKeyCredential(responseJson)),
+        )
+        setResult(Activity.RESULT_OK, resultIntent)
+        maybeSyncToGit()
+        finish()
+      } finally {
+        sensitiveCredential?.close()
+      }
     } catch (e: Exception) {
       logcat(LogPriority.ERROR) { "handleGetCredential unexpected error: $e" }
       finishWithGetError(GetCredentialUnknownException("Unexpected error"))

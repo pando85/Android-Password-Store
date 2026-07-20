@@ -11,7 +11,7 @@ import android.service.autofill.FillResponse
 import android.view.autofill.AutofillId
 import android.view.autofill.AutofillValue
 import android.widget.RemoteViews
-import app.passwordstore.passkeys.model.PasskeyCredential
+import app.passwordstore.passkeys.model.PasskeyMetadata
 import app.passwordstore.passkeys.storage.PasskeyStorage
 import com.github.michaelbull.result.fold
 import kotlinx.coroutines.Dispatchers
@@ -32,10 +32,10 @@ public object PasskeyAutofillHelper {
   ): Int {
     if (usernameAutofillId == null) return 0
 
-    val credentials =
+    val metadata =
       runBlocking(Dispatchers.IO) {
         passkeyStorage
-          .listCredentials(rpId)
+          .listMetadata(rpId)
           .fold(
             success = { it },
             failure = {
@@ -45,11 +45,11 @@ public object PasskeyAutofillHelper {
           )
       }
 
-    if (credentials.isEmpty()) return 0
+    if (metadata.isEmpty()) return 0
 
     var datasetCount = 0
-    for (credential in credentials.take(maxDatasets)) {
-      val dataset = makePasskeyDataset(context, usernameAutofillId, credential)
+    for (meta in metadata.take(maxDatasets)) {
+      val dataset = makePasskeyDataset(context, usernameAutofillId, meta)
       if (dataset != null) {
         builder.addDataset(dataset)
         datasetCount++
@@ -63,10 +63,11 @@ public object PasskeyAutofillHelper {
   private fun makePasskeyDataset(
     context: Context,
     usernameAutofillId: AutofillId,
-    credential: PasskeyCredential,
+    metadata: PasskeyMetadata,
   ): Dataset? {
-    val builder = Dataset.Builder(createRemoteViews(context, credential.displayNameOrName()))
-    builder.setValue(usernameAutofillId, AutofillValue.forText(credential.user.name))
+    val displayName = metadata.displayNameOrName().ifBlank { metadata.rpId }
+    val builder = Dataset.Builder(createRemoteViews(context, displayName))
+    builder.setValue(usernameAutofillId, AutofillValue.forText(metadata.userName))
     return builder.build()
   }
 
@@ -80,7 +81,7 @@ public object PasskeyAutofillHelper {
   @Suppress("RawDispatchersUse")
   public fun hasPasskeysForRp(passkeyStorage: PasskeyStorage, rpId: String): Boolean {
     return runBlocking(Dispatchers.IO) {
-      passkeyStorage.listCredentials(rpId).fold(success = { it.isNotEmpty() }, failure = { false })
+      passkeyStorage.listMetadata(rpId).fold(success = { it.isNotEmpty() }, failure = { false })
     }
   }
 

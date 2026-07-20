@@ -29,7 +29,7 @@ import androidx.credentials.provider.CredentialProviderService
 import androidx.credentials.provider.ProviderClearCredentialStateRequest
 import androidx.credentials.provider.PublicKeyCredentialEntry
 import app.passwordstore.passkeys.crypto.PasskeyCryptoHandler
-import app.passwordstore.passkeys.model.PasskeyCredential
+import app.passwordstore.passkeys.model.PasskeyMetadata
 import app.passwordstore.passkeys.storage.PasskeyStorage
 import com.github.michaelbull.result.fold
 import java.time.Instant
@@ -76,13 +76,16 @@ public abstract class PasskeyCredentialProviderService : CredentialProviderServi
             }
 
             @Suppress("RawDispatchersUse")
-            val credentials =
+            val metadata =
               runBlocking(Dispatchers.IO) {
                 passkeyStorage
-                  .listCredentials(rpId)
+                  .listMetadata(rpId)
                   .fold(
                     success = {
-                      PasskeyProviderUtils.selectCredentials(it, parsedRequest.allowCredentials)
+                      PasskeyProviderUtils.selectCredentialsByMetadata(
+                        it,
+                        parsedRequest.allowCredentials,
+                      )
                     },
                     failure = {
                       logcat(LogPriority.ERROR) { "Failed loading passkeys for $rpId: $it" }
@@ -91,7 +94,7 @@ public abstract class PasskeyCredentialProviderService : CredentialProviderServi
                   )
               }
 
-            addAll(credentials.map { credential -> buildCredentialEntry(option, credential) })
+            addAll(metadata.map { meta -> buildCredentialEntry(option, meta) })
           }
         }
 
@@ -164,31 +167,29 @@ public abstract class PasskeyCredentialProviderService : CredentialProviderServi
 
   private fun buildCredentialEntry(
     option: BeginGetPublicKeyCredentialOption,
-    credential: PasskeyCredential,
+    metadata: PasskeyMetadata,
   ): PublicKeyCredentialEntry {
+    val displayName = metadata.displayNameOrName().ifBlank { metadata.rpId }
     return PublicKeyCredentialEntry(
       this,
-      credential.user.name,
-      buildGetPendingIntent(credential),
+      displayName,
+      buildGetPendingIntent(metadata),
       option,
-      credential.user.displayName,
-      Instant.ofEpochMilli(credential.createdAt.toEpochMilliseconds()),
+      metadata.userDisplayName.ifBlank { metadata.userName },
+      Instant.ofEpochMilli(metadata.createdAt.toEpochMilliseconds()),
       providerIcon(),
       true,
     )
   }
 
-  private fun buildGetPendingIntent(credential: PasskeyCredential): PendingIntent {
+  private fun buildGetPendingIntent(metadata: PasskeyMetadata): PendingIntent {
     val intent =
       Intent(this, providerActivity)
         .putExtra(EXTRA_OPERATION, OPERATION_GET)
-        .putExtra(
-          EXTRA_CREDENTIAL_ID,
-          PasskeyProviderUtils.encodeBase64Url(credential.credentialId),
-        )
+        .putExtra(EXTRA_CREDENTIAL_ID, PasskeyProviderUtils.encodeBase64Url(metadata.credentialId))
     return PendingIntent.getActivity(
       this,
-      credential.credentialId.contentHashCode(),
+      metadata.credentialId.contentHashCode(),
       intent,
       PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE,
     )

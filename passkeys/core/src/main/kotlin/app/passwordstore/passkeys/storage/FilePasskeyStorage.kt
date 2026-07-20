@@ -8,6 +8,8 @@ package app.passwordstore.passkeys.storage
 import app.passwordstore.crypto.CryptoHandler
 import app.passwordstore.crypto.CryptoOptions
 import app.passwordstore.passkeys.model.PasskeyCredential
+import app.passwordstore.passkeys.model.PasskeyMetadata
+import app.passwordstore.passkeys.model.SensitivePasskeyCredential
 import app.passwordstore.passkeys.model.StoredCredential
 import com.github.michaelbull.result.Err
 import com.github.michaelbull.result.Ok
@@ -18,6 +20,7 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.datetime.Instant
 import logcat.LogPriority
 import logcat.logcat
 
@@ -41,7 +44,7 @@ public class FilePasskeyStorage<
   private val passkeyDir: File
     get() = File(repositoryRoot, config.passkeyDirectory)
 
-  override suspend fun listCredentials(rpId: String?): Result<List<PasskeyCredential>, Throwable> =
+  override suspend fun listMetadata(rpId: String?): Result<List<PasskeyMetadata>, Throwable> =
     withContext(Dispatchers.IO) {
       try {
         val dir = passkeyDir
@@ -54,41 +57,61 @@ public class FilePasskeyStorage<
           return@withContext Ok(emptyList())
         }
 
-        val credentials = mutableListOf<PasskeyCredential>()
+        val metadata = mutableListOf<PasskeyMetadata>()
         targetDir
           .walkTopDown()
           .filter { it.isFile && it.extension == config.fileExtension.removePrefix(".") }
           .forEach { file ->
-            decryptCredential(file)?.let { credentials.add(it.toPasskeyCredential()) }
+            val credentialId = hexToBytes(file.nameWithoutExtension) ?: return@forEach
+            val fileRpId =
+              if (rpId != null) rpId else unsanitizeRpId(file.parentFile?.name ?: return@forEach)
+            metadata.add(
+              PasskeyMetadata(
+                credentialId = credentialId,
+                rpId = fileRpId,
+                userName = "",
+                userDisplayName = "",
+                createdAt = Instant.fromEpochMilliseconds(file.lastModified()),
+                signCount = 0u,
+                fileLastModified = file.lastModified(),
+              )
+            )
           }
 
-        Ok(credentials)
+        Ok(metadata)
       } catch (e: Exception) {
-        logcat(LogPriority.ERROR) { "Failed to list credentials: ${e.message}" }
+        logcat(LogPriority.ERROR) { "Failed to list metadata: ${e.message}" }
         Err(e)
       }
     }
 
-  override suspend fun getCredential(
+  override suspend fun loadForSigning(
     credentialId: ByteArray
-  ): Result<PasskeyCredential?, Throwable> =
+  ): Result<SensitivePasskeyCredential, Throwable> =
     withContext(Dispatchers.IO) {
       try {
         val hexId = credentialId.joinToString("") { byte -> "%02x".format(byte) }
+
+        val dir = passkeyDir
+        if (!dir.exists() || !dir.isDirectory) {
+          return@withContext Err(IllegalArgumentException("Credential not found"))
+        }
 
         dir
           .walkTopDown()
           .filter { it.isFile && it.nameWithoutExtension == hexId }
           .forEach { file ->
-            val credential = decryptCredential(file)
-            if (credential != null) {
-              return@withContext Ok(credential.toPasskeyCredential())
+            val stored = decryptCredential(file)
+            if (stored != null) {
+              return@withContext Ok(
+                SensitivePasskeyCredential.fromStoredCredential(stored, file.lastModified())
+              )
             }
           }
 
-        Ok(null)
+        Err(IllegalArgumentException("Credential not found"))
       } catch (e: Exception) {
-        logcat(LogPriority.ERROR) { "Failed to get credential: ${e.message}" }
+        logcat(LogPriority.ERROR) { "Failed to load credential for signing: ${e.message}" }
         Err(e)
       }
     }
@@ -129,10 +152,14 @@ public class FilePasskeyStorage<
           .fold(
             success = {
               file.writeBytes(outputStream.toByteArray())
+              plaintext.fill(0)
               logcat { "Saved passkey for ${credential.rpId}/${storedCred.credentialIdHex()}" }
               Ok(Unit)
             },
-            failure = { Err(it) },
+            failure = {
+              plaintext.fill(0)
+              Err(it)
+            },
           )
       } catch (e: Exception) {
         logcat(LogPriority.ERROR) { "Failed to save credential: ${e.message}" }
@@ -194,9 +221,11 @@ public class FilePasskeyStorage<
                 .fold(
                   success = {
                     file.writeBytes(outputStream.toByteArray())
+                    plaintext.fill(0)
                     logcat { "Updated sign count for ${hexId}" }
                   },
                   failure = {
+                    plaintext.fill(0)
                     return@withContext Err(it)
                   },
                 )
@@ -261,5 +290,20 @@ public class FilePasskeyStorage<
 
   private fun sanitizeRpId(rpId: String): String {
     return rpId.replace("/", "_").replace("\\", "_").replace("..", "_")
+  }
+
+  private fun unsanitizeRpId(sanitized: String): String {
+    return sanitized
+  }
+
+  private fun hexToBytes(hex: String): ByteArray? {
+    if (hex.length % 2 != 0) return null
+    return try {
+      ByteArray(hex.length / 2) { i ->
+        hex.substring(i * 2, i * 2 + 2).toInt(16).toByte()
+      }
+    } catch (e: NumberFormatException) {
+      null
+    }
   }
 }

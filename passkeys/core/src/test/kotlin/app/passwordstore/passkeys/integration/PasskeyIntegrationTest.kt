@@ -51,53 +51,57 @@ class PasskeyIntegrationTest {
     val saveResult = storage.saveCredential(credential)
     assertTrue(saveResult.isOk, "Save should succeed")
 
-    val listResult = storage.listCredentials("example.com")
+    val listResult = storage.listMetadata("example.com")
     assertTrue(listResult.isOk)
-    val credentials = listResult.getOrElse { emptyList() }
-    assertEquals(1, credentials.size, "Should have one credential")
+    val metadata = listResult.getOrElse { emptyList() }
+    assertEquals(1, metadata.size, "Should have one credential")
 
-    val getResult = storage.getCredential(credential.credentialId)
-    assertTrue(getResult.isOk)
-    val retrieved = getResult.getOrElse { null }
-    assertTrue(retrieved != null, "Should retrieve credential")
-    assertEquals(credential.credentialIdBase64(), retrieved.credentialIdBase64())
+    val loadResult = storage.loadForSigning(credential.credentialId)
+    assertTrue(loadResult.isOk)
+    loadResult
+      .getOrElse { null }
+      ?.use { sensitive ->
+        assertEquals(
+          credential.credentialIdBase64(),
+          java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(sensitive.credentialId),
+        )
+      }
 
     val deleteResult = storage.deleteCredential(credential.credentialId)
     assertTrue(deleteResult.isOk && deleteResult.getOrElse { false }, "Delete should succeed")
 
-    val afterDelete = storage.getCredential(credential.credentialId)
-    assertTrue(afterDelete.isOk)
-    assertTrue(afterDelete.getOrElse { "not-null" } == null, "Should be null after delete")
+    val afterDelete = storage.loadForSigning(credential.credentialId)
+    assertTrue(afterDelete.isErr, "Should fail after delete")
   }
 
   @Test
   fun `multiple credentials for same rpId`() = runBlocking {
-    val cred1 = createAndSaveCredential("example.com", "user1")
-    val cred2 = createAndSaveCredential("example.com", "user2")
-    val cred3 = createAndSaveCredential("example.com", "user3")
+    createAndSaveCredential("example.com", "user1")
+    createAndSaveCredential("example.com", "user2")
+    createAndSaveCredential("example.com", "user3")
 
-    val listResult = storage.listCredentials("example.com")
+    val listResult = storage.listMetadata("example.com")
     assertTrue(listResult.isOk)
-    val credentials = listResult.getOrElse { emptyList() }
-    assertEquals(3, credentials.size, "Should have three credentials")
+    val metadata = listResult.getOrElse { emptyList() }
+    assertEquals(3, metadata.size, "Should have three credentials")
 
-    val allResult = storage.listCredentials(null)
+    val allResult = storage.listMetadata(null)
     assertTrue(allResult.isOk)
     assertEquals(3, allResult.getOrElse { emptyList() }.size, "Should list all without rpId filter")
   }
 
   @Test
   fun `credentials isolated by rpId`() = runBlocking {
-    val exampleCred = createAndSaveCredential("example.com", "user1")
-    val otherCred = createAndSaveCredential("other.com", "user2")
+    createAndSaveCredential("example.com", "user1")
+    createAndSaveCredential("other.com", "user2")
 
-    val exampleResult = storage.listCredentials("example.com")
+    val exampleResult = storage.listMetadata("example.com")
     assertTrue(exampleResult.isOk)
     val exampleCreds = exampleResult.getOrElse { emptyList() }
     assertEquals(1, exampleCreds.size)
     assertEquals("example.com", exampleCreds[0].rpId)
 
-    val otherResult = storage.listCredentials("other.com")
+    val otherResult = storage.listMetadata("other.com")
     assertTrue(otherResult.isOk)
     val otherCreds = otherResult.getOrElse { emptyList() }
     assertEquals(1, otherCreds.size)
@@ -110,11 +114,11 @@ class PasskeyIntegrationTest {
     assertEquals(0u, credential.signCount)
 
     storage.updateSignCount(credential.credentialId, 1u)
-    val afterOne = storage.getCredential(credential.credentialId).getOrElse { null }!!
+    val afterOne = storage.listMetadata("example.com").getOrElse { emptyList() }.first()
     assertEquals(1u, afterOne.signCount)
 
     storage.updateSignCount(credential.credentialId, 42u)
-    val afterFortyTwo = storage.getCredential(credential.credentialId).getOrElse { null }!!
+    val afterFortyTwo = storage.listMetadata("example.com").getOrElse { emptyList() }.first()
     assertEquals(42u, afterFortyTwo.signCount)
   }
 
@@ -123,25 +127,31 @@ class PasskeyIntegrationTest {
     val credential = createAndSaveCredential("example.com", "testuser")
     val challenge = ByteArray(32) { it.toByte() }
 
-    val assertion =
-      cryptoHandler
-        .getAssertion(
-          credential = credential,
-          rpId = "example.com",
-          challenge = challenge,
-          origin = "https://example.com",
-        )
-        .getOrElse { throw AssertionError("Assertion failed") }
+    storage
+      .loadForSigning(credential.credentialId)
+      .getOrElse { throw AssertionError("Load failed") }
+      .use { sensitive ->
+        val credForSigning = sensitive.toPasskeyCredential()
+        val assertion =
+          cryptoHandler
+            .getAssertion(
+              credential = credForSigning,
+              rpId = "example.com",
+              challenge = challenge,
+              origin = "https://example.com",
+            )
+            .getOrElse { throw AssertionError("Assertion failed") }
 
-    assertEquals(
-      credential.credentialIdBase64(),
-      java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(assertion.credentialId),
-    )
-    assertTrue(
-      assertion.signature.size in 70..72,
-      "Signature should be DER-encoded (typically 70-72 bytes)",
-    )
-    assertEquals(37, assertion.authenticatorData.size, "Auth data should be 37 bytes")
+        assertEquals(
+          credential.credentialIdBase64(),
+          java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(assertion.credentialId),
+        )
+        assertTrue(
+          assertion.signature.size in 70..72,
+          "Signature should be DER-encoded (typically 70-72 bytes)",
+        )
+        assertEquals(37, assertion.authenticatorData.size, "Auth data should be 37 bytes")
+      }
   }
 
   @Test
@@ -150,7 +160,7 @@ class PasskeyIntegrationTest {
       createAndSaveCredential("example.com", "user$i")
     }
 
-    val duration = measureTimeMillis { repeat(1000) { storage.listCredentials("example.com") } }
+    val duration = measureTimeMillis { repeat(1000) { storage.listMetadata("example.com") } }
 
     assertTrue(
       duration < 1000,
@@ -180,20 +190,20 @@ class PasskeyIntegrationTest {
 
     storage.deleteCredential(oldCred.credentialId)
 
-    val newCred = createAndSaveCredential("example.com", "new-user")
+    createAndSaveCredential("example.com", "new-user")
 
-    val listResult = storage.listCredentials("example.com")
+    val listResult = storage.listMetadata("example.com")
     assertTrue(listResult.isOk)
-    val credentials = listResult.getOrElse { emptyList() }
-    assertEquals(1, credentials.size)
-    assertEquals("new-user", credentials[0].user.name)
+    val metadata = listResult.getOrElse { emptyList() }
+    assertEquals(1, metadata.size)
+    assertEquals("new-user", metadata[0].userName)
   }
 
   @Test
   fun `concurrent access safety`() = runBlocking {
     repeat(10) { i -> createAndSaveCredential("example.com", "user$i") }
 
-    val listResult = storage.listCredentials("example.com")
+    val listResult = storage.listMetadata("example.com")
     assertTrue(listResult.isOk)
     assertEquals(10, listResult.getOrElse { emptyList() }.size)
   }
