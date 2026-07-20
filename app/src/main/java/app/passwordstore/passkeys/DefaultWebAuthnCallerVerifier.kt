@@ -31,13 +31,13 @@ import logcat.logcat
 
 public class DefaultWebAuthnCallerVerifier(
   private val context: Context,
-  internal val assetLinksClient: DigitalAssetLinksClient = DigitalAssetLinksClient(),
   private val browserAllowlist: List<TrustedBrowserEntry> = BrowserAllowlist.DEFAULT_ALLOWLIST,
   private val diagnosticSink: (CallerVerificationDiagnostic) -> Unit = { diag ->
     logcat(LogPriority.WARN) { "CallerVerification: $diag" }
   },
 ) : WebAuthnCallerVerifier {
 
+  private val assetLinksClient = DigitalAssetLinksClient()
   private val assetLinkCache = AssetLinkCache(maxEntries = 64, ttlMs = 5 * 60 * 1_000L)
 
   override suspend fun verifyGetRequest(
@@ -107,7 +107,7 @@ public class DefaultWebAuthnCallerVerifier(
       return Err(CallerVerificationError.BrowserCertificateMismatch(packageName))
     }
 
-    val verifiedOrigin = callingAppInfo.origin
+    val verifiedOrigin = callingAppInfo.getOrigin()
     if (verifiedOrigin.isNullOrBlank()) {
       emitDiagnostic(packageName, null, rpId, stage, "UNTRUSTED_BROWSER", "No verified origin")
       return Err(CallerVerificationError.UntrustedBrowser(packageName, "No verified origin from framework"))
@@ -162,9 +162,9 @@ public class DefaultWebAuthnCallerVerifier(
       withContext(Dispatchers.IO) { assetLinksClient.fetchAssetLinks(rpId) }
 
     val statements =
-      try {
+      if (assetLinksResult.isOk) {
         assetLinksResult.value
-      } catch (e: Exception) {
+      } else {
         val error = assetLinksResult.error
         emitDiagnostic(packageName, null, rpId, stage, "ASSET_LINK_FAILED", error.reason)
         return Err(
