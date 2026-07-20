@@ -163,9 +163,9 @@ public class DefaultWebAuthnCallerVerifier(
 
     val statements =
       when (assetLinksResult) {
-        is Ok -> assetLinksResult.value
-        is Err -> {
-          val error = assetLinksResult.error
+        is Ok<*> -> assetLinksResult.value as List<AssetLinkStatement>
+        is Err<*> -> {
+          val error = assetLinksResult.error as AssetLinkFetchError
           emitDiagnostic(packageName, null, rpId, stage, "ASSET_LINK_FAILED", error.reason)
           return Err(
             CallerVerificationError.AssetLinkVerificationFailed(rpId, error.reason)
@@ -239,7 +239,13 @@ public class DefaultWebAuthnCallerVerifier(
 
       signingCerts
         ?.map { cert ->
-          val digest = MessageDigest.getInstance("SHA-256").digest(cert.encoded)
+          val encoded =
+            when (cert) {
+              is android.content.pm.Signature -> cert.encoded
+              is android.content.pm.AndroidContentSigner -> cert.toByteArray()
+              else -> throw IllegalStateException("Unknown certificate type: ${cert::class}")
+            }
+          val digest = MessageDigest.getInstance("SHA-256").digest(encoded)
           Base64.getUrlEncoder().withoutPadding().encodeToString(digest)
         }
         ?.toSet() ?: emptySet()
