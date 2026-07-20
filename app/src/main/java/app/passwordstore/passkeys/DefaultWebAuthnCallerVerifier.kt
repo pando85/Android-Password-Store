@@ -29,7 +29,7 @@ import kotlinx.coroutines.withContext
 import logcat.LogPriority
 import logcat.logcat
 
-public class DefaultWebAuthnCallerVerifier(
+internal class DefaultWebAuthnCallerVerifier(
   private val context: Context,
   private val browserAllowlist: List<TrustedBrowserEntry> = BrowserAllowlist.DEFAULT_ALLOWLIST,
   private val diagnosticSink: (CallerVerificationDiagnostic) -> Unit = {},
@@ -159,18 +159,16 @@ public class DefaultWebAuthnCallerVerifier(
     val assetLinksResult =
       withContext(Dispatchers.IO) { assetLinksClient.fetchAssetLinks(rpId) }
 
-    @Suppress("UnsafeResultAccess")
     val statements =
-      if (assetLinksResult.isOk) {
-        assetLinksResult.value
-      } else {
-        @Suppress("UnsafeResultAccess")
-        val error = assetLinksResult.error
-        emitDiagnostic(packageName, null, rpId, stage, "ASSET_LINK_FAILED", error.reason)
-        return Err(
-          CallerVerificationError.AssetLinkVerificationFailed(rpId, error.reason)
-        )
-      }
+      assetLinksResult.fold(
+        success = { it },
+        failure = { error ->
+          emitDiagnostic(packageName, null, rpId, stage, "ASSET_LINK_FAILED", error.reason)
+          return Err(
+            CallerVerificationError.AssetLinkVerificationFailed(rpId, error.reason)
+          )
+        },
+      )
 
     val matched =
       statements.any { statement ->
