@@ -238,7 +238,7 @@ public class DefaultWebAuthnCallerVerifier(
 
       signingCerts
         ?.map { cert ->
-          val encoded = (cert as android.content.pm.Signature).encoded
+          val encoded = (cert as android.content.pm.Signature).toByteArray()
           val digest = MessageDigest.getInstance("SHA-256").digest(encoded)
           Base64.getUrlEncoder().withoutPadding().encodeToString(digest)
         }
