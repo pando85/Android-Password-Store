@@ -9,13 +9,14 @@ import app.passwordstore.passkeys.model.FidoUser
 import app.passwordstore.passkeys.model.PasskeyCredential
 import app.passwordstore.passkeys.model.SensitivePasskeyCredential
 import com.github.michaelbull.result.getOrElse
-import kotlinx.coroutines.runBlocking
-import kotlinx.datetime.Clock
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import kotlinx.coroutines.runBlocking
+import kotlinx.datetime.Clock
 
 class PasskeySecurityRegressionTest {
 
@@ -42,8 +43,12 @@ class PasskeySecurityRegressionTest {
     val countingStorage = CountingPasskeyStorage()
     val indexed = IndexedPasskeyStorage(countingStorage)
 
-    countingStorage.saveCredential(createTestCredential(rpId = "a.example", credentialId = "c1".toByteArray()))
-    countingStorage.saveCredential(createTestCredential(rpId = "b.example", credentialId = "c2".toByteArray()))
+    countingStorage.saveCredential(
+      createTestCredential(rpId = "a.example", credentialId = "c1".toByteArray())
+    )
+    countingStorage.saveCredential(
+      createTestCredential(rpId = "b.example", credentialId = "c2".toByteArray())
+    )
     indexed.clearIndex()
 
     val result = indexed.listMetadata("a.example")
@@ -56,8 +61,12 @@ class PasskeySecurityRegressionTest {
     val countingStorage = CountingPasskeyStorage()
     val indexed = IndexedPasskeyStorage(countingStorage)
 
-    countingStorage.saveCredential(createTestCredential(rpId = "a.example", credentialId = "c1".toByteArray()))
-    countingStorage.saveCredential(createTestCredential(rpId = "b.example", credentialId = "c2".toByteArray()))
+    countingStorage.saveCredential(
+      createTestCredential(rpId = "a.example", credentialId = "c1".toByteArray())
+    )
+    countingStorage.saveCredential(
+      createTestCredential(rpId = "b.example", credentialId = "c2".toByteArray())
+    )
     indexed.clearIndex()
     countingStorage.resetCounters()
 
@@ -82,7 +91,9 @@ class PasskeySecurityRegressionTest {
 
     val loadResult = indexed.loadForSigning(cred.credentialId)
     assertTrue(loadResult.isOk)
-    loadResult.getOrElse { null }?.use { sensitive ->
+    val sensitive = loadResult.getOrElse { null }
+    assertNotNull(sensitive)
+    sensitive.use {
       assertEquals(1, countingStorage.decryptCount.get())
     }
   }
@@ -115,18 +126,21 @@ class PasskeySecurityRegressionTest {
     val storage = InMemoryPasskeyStorage()
     val indexed = IndexedPasskeyStorage(storage)
 
-    val cred1 = createTestCredential(
-      rpId = "example.com",
-      credentialId = "c1".toByteArray(),
-    )
-    val cred2 = createTestCredential(
-      rpId = "example.com",
-      credentialId = "c2".toByteArray(),
-    )
+    val cred1 =
+      createTestCredential(
+        rpId = "example.com",
+        credentialId = "c1".toByteArray(),
+      )
+    val cred2 =
+      createTestCredential(
+        rpId = "example.com",
+        credentialId = "c2".toByteArray(),
+      )
     storage.saveCredential(cred1)
     storage.saveCredential(cred2)
 
-    val loaded1 = indexed.loadForSigning(cred1.credentialId).getOrElse { throw AssertionError("Load failed") }
+    val loaded1 =
+      indexed.loadForSigning(cred1.credentialId).getOrElse { throw AssertionError("Load failed") }
     var keyRef: ByteArray? = null
     loaded1.use { sensitive ->
       assertContentEquals(cred1.privateKey, sensitive.usePrivateKey { it.copyOf() })
@@ -135,7 +149,8 @@ class PasskeySecurityRegressionTest {
 
     assertTrue(keyRef!!.all { it == 0.toByte() }, "Private key should be zeroized after close")
 
-    val loaded2 = indexed.loadForSigning(cred2.credentialId).getOrElse { throw AssertionError("Load failed") }
+    val loaded2 =
+      indexed.loadForSigning(cred2.credentialId).getOrElse { throw AssertionError("Load failed") }
     loaded2.use { sensitive ->
       assertContentEquals(cred2.privateKey, sensitive.usePrivateKey { it.copyOf() })
     }
@@ -144,18 +159,19 @@ class PasskeySecurityRegressionTest {
   @Test
   fun `sensitive credential zeroizes on close`() {
     val privateKey = ByteArray(32) { it.toByte() }
-    val sensitive = SensitivePasskeyCredential(
-      credentialId = "test-id".toByteArray(),
-      publicKey = ByteArray(65),
-      rpId = "example.com",
-      user = FidoUser(id = "uid".toByteArray(), name = "user", displayName = "User"),
-      signCount = 0u,
-      createdAt = Clock.System.now(),
-      transports = listOf("internal"),
-      uvInitialized = true,
-      fileLastModified = 0L,
-      privateKey = privateKey,
-    )
+    val sensitive =
+      SensitivePasskeyCredential(
+        credentialId = "test-id".toByteArray(),
+        publicKey = ByteArray(65),
+        rpId = "example.com",
+        user = FidoUser(id = "uid".toByteArray(), name = "user", displayName = "User"),
+        signCount = 0u,
+        createdAt = Clock.System.now(),
+        transports = listOf("internal"),
+        uvInitialized = true,
+        fileLastModified = 0L,
+        privateKey = privateKey,
+      )
 
     val keyCopy = sensitive.usePrivateKey { it.copyOf() }
     assertContentEquals(privateKey, keyCopy)
@@ -179,7 +195,8 @@ class PasskeySecurityRegressionTest {
     assertEquals(1, metadata.size)
     assertEquals(0L, metadata[0].fileLastModified)
 
-    val loaded = indexed.loadForSigning(cred.credentialId).getOrElse { throw AssertionError("Load failed") }
+    val loaded =
+      indexed.loadForSigning(cred.credentialId).getOrElse { throw AssertionError("Load failed") }
     loaded.use { sensitive ->
       assertEquals(0L, sensitive.fileLastModified)
     }

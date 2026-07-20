@@ -15,7 +15,6 @@ import com.github.michaelbull.result.Result
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.Clock
-import kotlinx.datetime.Instant
 
 public class InMemoryPasskeyStorage : PasskeyStorage {
 
@@ -37,7 +36,7 @@ public class InMemoryPasskeyStorage : PasskeyStorage {
     }
 
   override suspend fun loadForSigning(
-    credentialId: ByteArray,
+    credentialId: ByteArray
   ): Result<SensitivePasskeyCredential, Throwable> =
     withContext(Dispatchers.Default) {
       val credential = credentials[credentialIdKey(credentialId)]

@@ -12,12 +12,10 @@ import com.github.michaelbull.result.Result
 
 public interface PasskeyStorage {
 
-  public suspend fun listMetadata(
-    rpId: String? = null,
-  ): Result<List<PasskeyMetadata>, Throwable>
+  public suspend fun listMetadata(rpId: String? = null): Result<List<PasskeyMetadata>, Throwable>
 
   public suspend fun loadForSigning(
-    credentialId: ByteArray,
+    credentialId: ByteArray
   ): Result<SensitivePasskeyCredential, Throwable>
 
   public suspend fun saveCredential(credential: PasskeyCredential): Result<Unit, Throwable>

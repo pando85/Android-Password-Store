@@ -86,7 +86,7 @@ public class FilePasskeyStorage<
     }
 
   override suspend fun loadForSigning(
-    credentialId: ByteArray,
+    credentialId: ByteArray
   ): Result<SensitivePasskeyCredential, Throwable> =
     withContext(Dispatchers.IO) {
       try {

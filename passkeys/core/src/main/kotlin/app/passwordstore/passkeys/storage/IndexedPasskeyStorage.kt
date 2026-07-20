@@ -87,7 +87,7 @@ public class IndexedPasskeyStorage(private val delegate: PasskeyStorage) : Passk
   }
 
   override suspend fun loadForSigning(
-    credentialId: ByteArray,
+    credentialId: ByteArray
   ): Result<SensitivePasskeyCredential, Throwable> {
     return delegate.loadForSigning(credentialId)
   }

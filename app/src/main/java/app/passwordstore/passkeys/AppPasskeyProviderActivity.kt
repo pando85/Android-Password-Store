@@ -175,7 +175,10 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
           return
         }
 
-        if (metadata.fileLastModified > 0 && sensitiveCredential.fileLastModified != metadata.fileLastModified) {
+        if (
+          metadata.fileLastModified > 0 &&
+            sensitiveCredential.fileLastModified != metadata.fileLastModified
+        ) {
           sensitiveCredential.close()
           finishWithGetError(
             GetCredentialUnknownException("Credential file changed since selection")
@@ -185,8 +188,7 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
 
         val constantSignatureCounter =
           sharedPrefs.getBoolean(PreferenceKeys.PASSKEY_CONSTANT_SIGNATURE_COUNTER, true)
-        val newSignCount =
-          if (constantSignatureCounter) 0u else sensitiveCredential.signCount + 1u
+        val newSignCount = if (constantSignatureCounter) 0u else sensitiveCredential.signCount + 1u
         passkeyStorage
           .updateSignCount(sensitiveCredential.credentialId, newSignCount)
           .fold(
@@ -194,7 +196,8 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
             failure = { logcat(LogPriority.WARN) { "Failed to update sign count: $it" } },
           )
 
-        val credentialForSigning = sensitiveCredential.toPasskeyCredential().copy(signCount = newSignCount)
+        val credentialForSigning =
+          sensitiveCredential.toPasskeyCredential().copy(signCount = newSignCount)
         val requestJson = option.requestJson
         val assertion =
           cryptoHandler

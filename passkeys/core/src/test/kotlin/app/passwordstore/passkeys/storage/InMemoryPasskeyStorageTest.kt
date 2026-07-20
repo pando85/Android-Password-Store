@@ -14,7 +14,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.Clock
@@ -50,7 +49,9 @@ class InMemoryPasskeyStorageTest {
 
     val loadResult = storage.loadForSigning(credential.credentialId)
     assertTrue(loadResult.isOk)
-    loadResult.getOrElse { null }?.use { sensitive ->
+    val sensitive = loadResult.getOrElse { null }
+    assertNotNull(sensitive)
+    sensitive.use {
       assertEquals(credential.rpId, sensitive.rpId)
       assertEquals(credential.user.name, sensitive.user.name)
     }

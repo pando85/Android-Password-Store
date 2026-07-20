@@ -13,6 +13,7 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.Clock
@@ -59,10 +60,15 @@ class IndexedPasskeyStorageTest {
     val result = indexedStorage.loadForSigning(credential.credentialId)
 
     assertTrue(result.isOk)
-    result.getOrElse { null }?.use { sensitive ->
-      assertEquals(credential.credentialIdBase64(), sensitive.credentialId.let {
-        java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(it)
-      })
+    val sensitive = result.getOrElse { null }
+    assertNotNull(sensitive)
+    sensitive.use {
+      assertEquals(
+        credential.credentialIdBase64(),
+        sensitive.credentialId.let {
+          java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(it)
+        },
+      )
     }
   }
 

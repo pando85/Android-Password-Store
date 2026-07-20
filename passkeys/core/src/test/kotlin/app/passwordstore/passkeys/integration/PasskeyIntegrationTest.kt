@@ -58,12 +58,14 @@ class PasskeyIntegrationTest {
 
     val loadResult = storage.loadForSigning(credential.credentialId)
     assertTrue(loadResult.isOk)
-    loadResult.getOrElse { null }?.use { sensitive ->
-      assertEquals(
-        credential.credentialIdBase64(),
-        java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(sensitive.credentialId),
-      )
-    }
+    loadResult
+      .getOrElse { null }
+      ?.use { sensitive ->
+        assertEquals(
+          credential.credentialIdBase64(),
+          java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(sensitive.credentialId),
+        )
+      }
 
     val deleteResult = storage.deleteCredential(credential.credentialId)
     assertTrue(deleteResult.isOk && deleteResult.getOrElse { false }, "Delete should succeed")
@@ -125,7 +127,9 @@ class PasskeyIntegrationTest {
     val credential = createAndSaveCredential("example.com", "testuser")
     val challenge = ByteArray(32) { it.toByte() }
 
-    storage.loadForSigning(credential.credentialId).getOrElse { throw AssertionError("Load failed") }
+    storage
+      .loadForSigning(credential.credentialId)
+      .getOrElse { throw AssertionError("Load failed") }
       .use { sensitive ->
         val credForSigning = sensitive.toPasskeyCredential()
         val assertion =

@@ -33,7 +33,9 @@ class CountingPasskeyStorage : PasskeyStorage {
     return delegate.listMetadata(rpId)
   }
 
-  override suspend fun loadForSigning(credentialId: ByteArray): Result<SensitivePasskeyCredential, Throwable> {
+  override suspend fun loadForSigning(
+    credentialId: ByteArray
+  ): Result<SensitivePasskeyCredential, Throwable> {
     decryptCount.incrementAndGet()
     return delegate.loadForSigning(credentialId)
   }
@@ -46,7 +48,10 @@ class CountingPasskeyStorage : PasskeyStorage {
     return delegate.deleteCredential(credentialId)
   }
 
-  override suspend fun updateSignCount(credentialId: ByteArray, newSignCount: ULong): Result<Unit, Throwable> {
+  override suspend fun updateSignCount(
+    credentialId: ByteArray,
+    newSignCount: ULong,
+  ): Result<Unit, Throwable> {
     return delegate.updateSignCount(credentialId, newSignCount)
   }
 
