@@ -53,6 +53,7 @@ dependencies {
   implementation(libs.androidx.constraintlayout)
   implementation(libs.androidx.core.ktx)
   implementation(libs.androidx.credentials)
+  implementation(libs.androidx.credentials.provider)
   implementation(libs.androidx.documentfile)
   implementation(libs.androidx.fragment.ktx)
   implementation(libs.androidx.work.runtime.ktx)
