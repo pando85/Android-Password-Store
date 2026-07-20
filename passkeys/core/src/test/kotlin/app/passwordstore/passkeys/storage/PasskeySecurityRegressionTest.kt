@@ -9,13 +9,11 @@ import app.passwordstore.passkeys.model.FidoUser
 import app.passwordstore.passkeys.model.PasskeyCredential
 import app.passwordstore.passkeys.model.PasskeyMetadata
 import app.passwordstore.passkeys.model.SensitivePasskeyCredential
-import com.github.michaelbull.result.Err
-import com.github.michaelbull.result.Ok
 import com.github.michaelbull.result.Result
+import com.github.michaelbull.result.getOrElse
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.Clock
-import kotlinx.datetime.Instant
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -132,13 +130,13 @@ class PasskeySecurityRegressionTest {
     storage.saveCredential(cred2)
 
     val loaded1 = indexed.loadForSigning(cred1.credentialId).getOrElse { throw AssertionError("Load failed") }
+    var keyRef: ByteArray? = null
     loaded1.use { sensitive ->
       assertContentEquals(cred1.privateKey, sensitive.usePrivateKey { it.copyOf() })
+      keyRef = sensitive.usePrivateKey { it }
     }
 
-    loaded1.usePrivateKey { key ->
-      assertTrue(key.all { it == 0.toByte() }, "Private key should be zeroized after close")
-    }
+    assertTrue(keyRef!!.all { it == 0.toByte() }, "Private key should be zeroized after close")
 
     val loaded2 = indexed.loadForSigning(cred2.credentialId).getOrElse { throw AssertionError("Load failed") }
     loaded2.use { sensitive ->
