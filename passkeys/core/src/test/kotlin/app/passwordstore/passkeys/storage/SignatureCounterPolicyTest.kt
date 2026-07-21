@@ -83,7 +83,7 @@ class SignatureCounterPolicyTest {
       }
     }
 
-    assertEquals(0, countingStorage.decryptCount.get(), "Syncable policy should not call updateSignCount")
+    assertEquals(0, countingStorage.updateSignCountCount.get(), "Syncable policy should not call updateSignCount")
   }
 
   @Test

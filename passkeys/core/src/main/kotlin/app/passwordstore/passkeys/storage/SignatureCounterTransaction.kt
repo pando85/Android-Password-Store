@@ -37,15 +37,11 @@ public class SignatureCounterTransaction(
     lockTimeoutMs: Long = 5_000L,
   ): Result<ULong, SignatureCounterError> {
     val mutex = mutexFor(credentialId)
-    val acquired = withTimeoutOrNull(lockTimeoutMs) { mutex.withLock { return@withLock true } }
-    if (acquired == null) {
-      return Err(SignatureCounterError.LockAcquisitionFailed)
-    }
-
-    return try {
-      executeMonotonicAssertionLocked(credentialId, sensitiveCredential, preSignVersion)
-    } finally {
-    }
+    return withTimeoutOrNull(lockTimeoutMs) {
+      mutex.withLock {
+        executeMonotonicAssertionLocked(credentialId, sensitiveCredential, preSignVersion)
+      }
+    } ?: Err(SignatureCounterError.LockAcquisitionFailed)
   }
 
   private suspend fun executeMonotonicAssertionLocked(

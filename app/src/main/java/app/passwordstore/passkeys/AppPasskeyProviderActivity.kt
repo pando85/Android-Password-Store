@@ -61,6 +61,7 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
   @Inject lateinit var passkeyRepositoryState: PasskeyRepositoryState
   @Inject lateinit var generationProvider: RepositoryGenerationProvider
   @Inject lateinit var highWaterMark: SignatureCounterHighWaterMark
+  @Inject lateinit var signatureCounterTransaction: SignatureCounterTransaction
 
   private fun maybeSyncToGit() {
     if (!sharedPrefs.getBoolean(PreferenceKeys.PASSKEY_AUTO_GIT_SYNC, true)) return
@@ -276,10 +277,8 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
           when (policy) {
             SignatureCounterPolicy.ZERO_FOR_SYNCABLE -> 0u
             SignatureCounterPolicy.MONOTONIC_LOCAL -> {
-              val transaction =
-                SignatureCounterTransaction(passkeyStorage, highWaterMark, passkeyRepositoryState)
               val monotonicResult =
-                transaction.executeMonotonicAssertion(
+                signatureCounterTransaction.executeMonotonicAssertion(
                   credentialId = sensitiveCredential.credentialId,
                   sensitiveCredential = sensitiveCredential,
                   preSignVersion = preSignVersion,

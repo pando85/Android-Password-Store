@@ -15,6 +15,7 @@ class CountingPasskeyStorage : PasskeyStorage {
 
   val decryptCount = AtomicInteger(0)
   val metadataCount = AtomicInteger(0)
+  val updateSignCountCount = AtomicInteger(0)
   val touchedRpIds = mutableSetOf<String>()
 
   private val delegate = InMemoryPasskeyStorage()
@@ -22,6 +23,7 @@ class CountingPasskeyStorage : PasskeyStorage {
   fun resetCounters() {
     decryptCount.set(0)
     metadataCount.set(0)
+    updateSignCountCount.set(0)
     touchedRpIds.clear()
   }
 
@@ -52,6 +54,7 @@ class CountingPasskeyStorage : PasskeyStorage {
     credentialId: ByteArray,
     newSignCount: ULong,
   ): Result<Unit, Throwable> {
+    updateSignCountCount.incrementAndGet()
     return delegate.updateSignCount(credentialId, newSignCount)
   }
 

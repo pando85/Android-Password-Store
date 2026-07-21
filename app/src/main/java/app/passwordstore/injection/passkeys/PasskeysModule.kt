@@ -26,6 +26,7 @@ import app.passwordstore.passkeys.storage.PasskeyStorage
 import app.passwordstore.passkeys.storage.PasskeyStorageConfig
 import app.passwordstore.passkeys.storage.RepositoryGenerationProvider
 import app.passwordstore.passkeys.storage.SignatureCounterHighWaterMark
+import app.passwordstore.passkeys.storage.SignatureCounterTransaction
 import com.github.michaelbull.result.get
 import dagger.Module
 import dagger.Provides
@@ -103,4 +104,13 @@ object PasskeysModule {
   @Singleton
   fun provideSignatureCounterHighWaterMark(): SignatureCounterHighWaterMark =
     SignatureCounterHighWaterMark()
+
+  @Provides
+  @Singleton
+  fun provideSignatureCounterTransaction(
+    passkeyStorage: PasskeyStorage,
+    highWaterMark: SignatureCounterHighWaterMark,
+    repositoryState: PasskeyRepositoryState,
+  ): SignatureCounterTransaction =
+    SignatureCounterTransaction(passkeyStorage, highWaterMark, repositoryState)
 }
