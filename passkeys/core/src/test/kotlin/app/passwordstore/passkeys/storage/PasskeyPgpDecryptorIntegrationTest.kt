@@ -8,8 +8,6 @@ package app.passwordstore.passkeys.storage
 import app.passwordstore.passkeys.crypto.PasskeyDecryptionError
 import app.passwordstore.passkeys.crypto.PasskeyPgpDecryptor
 import app.passwordstore.passkeys.crypto.PgpUnlockContext
-import app.passwordstore.passkeys.model.FidoUser
-import app.passwordstore.passkeys.model.PasskeyCredential
 import com.github.michaelbull.result.Err
 import com.github.michaelbull.result.Ok
 import com.github.michaelbull.result.Result
@@ -20,27 +18,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
-import kotlinx.datetime.Clock
 
 class PasskeyPgpDecryptorIntegrationTest {
-
-  private fun createTestCredential(
-    rpId: String = "example.com",
-    userName: String = "testuser",
-    credentialId: ByteArray = "test-cred-id".toByteArray(),
-  ): PasskeyCredential {
-    return PasskeyCredential(
-      credentialId = credentialId,
-      privateKey = ByteArray(32) { it.toByte() },
-      publicKey = ByteArray(65) { if (it == 0) 0x04.toByte() else it.toByte() },
-      rpId = rpId,
-      user = FidoUser(id = "user-id".toByteArray(), name = userName, displayName = "Test User"),
-      signCount = 0u,
-      createdAt = Clock.System.now(),
-      transports = listOf("internal"),
-      uvInitialized = true,
-    )
-  }
 
   @Test
   fun `decryption no longer uses first key only`() = runBlocking {
