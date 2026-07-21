@@ -9,13 +9,11 @@ import app.passwordstore.passkeys.model.FidoUser
 import app.passwordstore.passkeys.model.PasskeyCredential
 import app.passwordstore.passkeys.model.PasskeyMetadata
 import com.github.michaelbull.result.getOrElse
-import java.util.concurrent.atomic.AtomicLong
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -35,6 +33,7 @@ class PasskeyGenerationInvalidationTest {
 
     override suspend fun currentGitHead(): String? = head
     override fun currentWorktreeGeneration(): Long = worktreeGen
+    override fun bumpWorktreeGeneration() { worktreeGen++ }
     override fun repositoryIdentity(): String = identity
     override fun isInMergeOrRebaseState(): Boolean = isMerging
   }

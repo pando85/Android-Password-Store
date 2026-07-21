@@ -29,9 +29,7 @@ import app.passwordstore.passkeys.provider.PasskeyAuthenticator
 import app.passwordstore.passkeys.provider.PasskeyCredentialProviderService
 import app.passwordstore.passkeys.provider.PasskeyProviderUtils
 import app.passwordstore.passkeys.provider.caller.WebAuthnCallerVerifier
-import app.passwordstore.passkeys.storage.CredentialSourceVersion
 import app.passwordstore.passkeys.storage.GitSyncResult
-import app.passwordstore.passkeys.storage.InvalidationReason
 import app.passwordstore.passkeys.storage.PasskeyRepositoryState
 import app.passwordstore.passkeys.storage.PasskeyStorage
 import app.passwordstore.passkeys.storage.RepositoryGenerationProvider
@@ -76,10 +74,7 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
                   conflicts = emptyList(),
                 )
               passkeyRepositoryState.onGitSyncCompleted(syncResult)
-              if (generationProvider is DefaultRepositoryGenerationProvider) {
-                (generationProvider as DefaultRepositoryGenerationProvider)
-                  .bumpWorktreeGeneration()
-              }
+              generationProvider.bumpWorktreeGeneration()
               logcat { "Passkey auto-sync completed" }
             },
             failure = { logcat(LogPriority.WARN) { "Passkey auto-sync failed: $it" } },
@@ -280,10 +275,7 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
           .fold(
             success = {
               passkeyRepositoryState.onCredentialUpdated()
-              if (generationProvider is DefaultRepositoryGenerationProvider) {
-                (generationProvider as DefaultRepositoryGenerationProvider)
-                  .bumpWorktreeGeneration()
-              }
+              generationProvider.bumpWorktreeGeneration()
             },
             failure = { logcat(LogPriority.WARN) { "Failed to update sign count: $it" } },
           )
@@ -457,9 +449,7 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
       }
 
       passkeyRepositoryState.onCredentialSaved()
-      if (generationProvider is DefaultRepositoryGenerationProvider) {
-        (generationProvider as DefaultRepositoryGenerationProvider).bumpWorktreeGeneration()
-      }
+      generationProvider.bumpWorktreeGeneration()
 
       val responseJson =
         PasskeyProviderUtils.buildAttestationResponse(

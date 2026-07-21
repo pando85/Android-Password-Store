@@ -39,7 +39,7 @@ class DefaultRepositoryGenerationProvider(
     return worktreeGenerationCounter.get()
   }
 
-  fun bumpWorktreeGeneration() {
+  override fun bumpWorktreeGeneration() {
     worktreeGenerationCounter.incrementAndGet()
   }
 

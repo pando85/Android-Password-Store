@@ -11,6 +11,8 @@ public interface RepositoryGenerationProvider {
 
   public fun currentWorktreeGeneration(): Long
 
+  public fun bumpWorktreeGeneration()
+
   public fun repositoryIdentity(): String
 
   public fun isInMergeOrRebaseState(): Boolean
