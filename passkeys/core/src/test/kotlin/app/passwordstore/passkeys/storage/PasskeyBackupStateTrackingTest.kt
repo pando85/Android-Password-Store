@@ -232,6 +232,25 @@ class PasskeyBackupStateTrackingTest {
   }
 
   @Test
+  fun `gpg id change resets backup state`() = runBlocking {
+    val storage = IndexedPasskeyStorage(InMemoryPasskeyStorage())
+    storage.setHasRemote(true)
+
+    storage.onGitSyncCompleted(
+      GitSyncResult(
+        oldHead = "abc123",
+        newHead = "def456",
+        worktreeChanged = true,
+        conflicts = emptyList(),
+      )
+    )
+    assertTrue(storage.isRepositoryBackedUp())
+
+    storage.onGpgIdChanged()
+    assertFalse(storage.isRepositoryBackedUp())
+  }
+
+  @Test
   fun `full lifecycle - create, push, assert, modify, push again`() = runBlocking {
     val innerStorage = InMemoryPasskeyStorage()
     val storage = IndexedPasskeyStorage(innerStorage)
