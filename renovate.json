@@ -1,0 +1,40 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "separateMajorMinor": false,
+  "configMigration": true,
+  "forkProcessing": "enabled",
+  "dependencyDashboard": true,
+  "labels": ["area/dependency"],
+  "commitMessagePrefix": "build(deps): ",
+  "branchPrefix": "renovate/",
+  "pre-commit": {
+    "enabled": true,
+    "commitMessagePrefix": "chore(pre-commit): ",
+    "branchPrefix": "pre-commit-"
+  },
+  "packageRules": [
+    {
+      "matchUpdateTypes": ["patch", "minor"],
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": true,
+      "ignoreTests": false
+    },
+    {
+      "matchManagers": ["github-actions"],
+      "groupName": "github actions",
+      "groupSlug": "github-actions"
+    },
+    {
+      "matchManagers": ["gradle"],
+      "groupName": "gradle dependencies",
+      "groupSlug": "gradle-dependencies"
+    },
+    {
+      "matchManagers": ["gradle-wrapper"],
+      "groupName": "gradle wrapper",
+      "groupSlug": "gradle-wrapper"
+    }
+  ]
+}
