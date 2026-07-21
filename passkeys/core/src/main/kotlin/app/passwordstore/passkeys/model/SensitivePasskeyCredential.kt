@@ -16,6 +16,8 @@ public class SensitivePasskeyCredential(
   public val createdAt: Instant,
   public val transports: List<String>,
   public val uvInitialized: Boolean,
+  public val backupEligible: Boolean,
+  public val backupState: Boolean,
   public val fileLastModified: Long,
   privateKey: ByteArray,
 ) : AutoCloseable {
@@ -39,6 +41,8 @@ public class SensitivePasskeyCredential(
       createdAt = createdAt,
       transports = transports,
       uvInitialized = uvInitialized,
+      backupEligible = backupEligible,
+      backupState = backupState,
     )
   }
 
@@ -67,6 +71,8 @@ public class SensitivePasskeyCredential(
         createdAt = Instant.fromEpochSeconds(stored.created),
         transports = listOf("internal"),
         uvInitialized = true,
+        backupEligible = stored.backupEligible,
+        backupState = stored.backupState,
         fileLastModified = fileLastModified,
         privateKey = stored.privateKey.copyOf(),
       )
