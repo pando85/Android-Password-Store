@@ -33,6 +33,10 @@ import app.passwordstore.passkeys.storage.GitSyncResult
 import app.passwordstore.passkeys.storage.PasskeyRepositoryState
 import app.passwordstore.passkeys.storage.PasskeyStorage
 import app.passwordstore.passkeys.storage.RepositoryGenerationProvider
+import app.passwordstore.passkeys.storage.SignatureCounterError
+import app.passwordstore.passkeys.storage.SignatureCounterHighWaterMark
+import app.passwordstore.passkeys.storage.SignatureCounterPolicy
+import app.passwordstore.passkeys.storage.SignatureCounterTransaction
 import app.passwordstore.ui.git.base.BaseGitActivity
 import app.passwordstore.ui.git.base.BaseGitActivity.GitOp
 import app.passwordstore.util.extensions.sharedPrefs
@@ -54,6 +58,8 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
   @Inject lateinit var callerVerifier: WebAuthnCallerVerifier
   @Inject lateinit var passkeyRepositoryState: PasskeyRepositoryState
   @Inject lateinit var generationProvider: RepositoryGenerationProvider
+  @Inject lateinit var highWaterMark: SignatureCounterHighWaterMark
+  @Inject lateinit var signatureCounterTransaction: SignatureCounterTransaction
 
   private fun maybeSyncToGit() {
     if (!sharedPrefs.getBoolean(PreferenceKeys.PASSKEY_AUTO_GIT_SYNC, true)) return
@@ -264,18 +270,49 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
           return
         }
 
-        val constantSignatureCounter =
-          sharedPrefs.getBoolean(PreferenceKeys.PASSKEY_CONSTANT_SIGNATURE_COUNTER, true)
-        val newSignCount = if (constantSignatureCounter) 0u else sensitiveCredential.signCount + 1u
-        passkeyStorage
-          .updateSignCount(sensitiveCredential.credentialId, newSignCount)
-          .fold(
-            success = {
-              passkeyRepositoryState.onCredentialUpdated()
-              generationProvider.bumpWorktreeGeneration()
-            },
-            failure = { logcat(LogPriority.WARN) { "Failed to update sign count: $it" } },
-          )
+        val policy = resolveCounterPolicy()
+        val newSignCount: ULong =
+          when (policy) {
+            SignatureCounterPolicy.ZERO_FOR_SYNCABLE -> 0u
+            SignatureCounterPolicy.MONOTONIC_LOCAL -> {
+              signatureCounterTransaction
+                .executeMonotonicAssertion(
+                  credentialId = sensitiveCredential.credentialId,
+                  sensitiveCredential = sensitiveCredential,
+                  preSignVersion = preSignVersion,
+                )
+                .fold(
+                  success = { it },
+                  failure = { error ->
+                    sensitiveCredential.close()
+                    val errorMsg =
+                      when (error) {
+                        is SignatureCounterError.CounterOverflow -> "Signature counter overflow"
+                        is SignatureCounterError.PersistenceFailed -> "Counter persistence failed"
+                        is SignatureCounterError.RollbackDetected ->
+                          "Rollback detected: disk=${error.diskCounter}, highWaterMark=${error.highWaterMark}"
+                        is SignatureCounterError.MergeConflict ->
+                          "Repository is in merge conflict; signing disabled"
+                        is SignatureCounterError.FileChangedSinceSelection ->
+                          "Credential file changed during transaction"
+                        is SignatureCounterError.LockAcquisitionFailed ->
+                          "Could not acquire counter lock"
+                        is SignatureCounterError.MonotonicNotAllowed ->
+                          "Monotonic mode not allowed: ${error.reason}"
+                      }
+                    logcat(LogPriority.ERROR) { "Monotonic assertion failed: $errorMsg" }
+                    finishWithGetError(GetCredentialUnknownException(errorMsg))
+                    return
+                  },
+                )
+            }
+          }
+
+        if (policy == SignatureCounterPolicy.ZERO_FOR_SYNCABLE) {
+          passkeyRepositoryState.onCredentialUpdated()
+        } else {
+          generationProvider.bumpWorktreeGeneration()
+        }
 
         val effectiveBackupState =
           passkeyRepositoryState.effectiveBackupState(sensitiveCredential.backupEligible)
@@ -469,6 +506,20 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
     } catch (e: Exception) {
       logcat(LogPriority.ERROR) { "handleCreateCredential unexpected error: $e" }
       finishWithCreateError(CreateCredentialUnknownException("Unexpected error"))
+    }
+  }
+
+  private fun resolveCounterPolicy(): SignatureCounterPolicy {
+    val hasRemote = passkeyRepositoryState.hasRemote()
+    if (hasRemote) {
+      return SignatureCounterPolicy.ZERO_FOR_SYNCABLE
+    }
+    val legacyConstant =
+      sharedPrefs.getBoolean(PreferenceKeys.PASSKEY_CONSTANT_SIGNATURE_COUNTER, true)
+    return if (legacyConstant) {
+      SignatureCounterPolicy.ZERO_FOR_SYNCABLE
+    } else {
+      SignatureCounterPolicy.MONOTONIC_LOCAL
     }
   }
 
