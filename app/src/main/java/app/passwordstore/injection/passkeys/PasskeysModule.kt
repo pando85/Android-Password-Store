@@ -8,10 +8,14 @@ package app.passwordstore.injection.passkeys
 import android.content.Context
 import app.passwordstore.crypto.PGPKeyManager
 import app.passwordstore.crypto.PGPainlessCryptoHandler
+import app.passwordstore.crypto.PgpainlessPasskeyDecryptor
 import app.passwordstore.passkeys.BiometricPasskeyAuthenticator
+import app.passwordstore.passkeys.DefaultPgpUnlockContext
 import app.passwordstore.passkeys.DefaultWebAuthnCallerVerifier
 import app.passwordstore.passkeys.crypto.ES256CryptoHandler
 import app.passwordstore.passkeys.crypto.PasskeyCryptoHandler
+import app.passwordstore.passkeys.crypto.PasskeyPgpDecryptor
+import app.passwordstore.passkeys.crypto.PgpUnlockContext
 import app.passwordstore.passkeys.provider.PasskeyAuthenticator
 import app.passwordstore.passkeys.provider.caller.WebAuthnCallerVerifier
 import app.passwordstore.passkeys.storage.FilePasskeyStorage
@@ -44,11 +48,22 @@ object PasskeysModule {
   fun provideCallerVerifier(@ApplicationContext context: Context): WebAuthnCallerVerifier =
     DefaultWebAuthnCallerVerifier(context)
 
+  @Provides @Singleton fun providePgpUnlockContext(): PgpUnlockContext = DefaultPgpUnlockContext()
+
+  @Provides
+  @Singleton
+  fun providePasskeyPgpDecryptor(
+    cryptoHandler: PGPainlessCryptoHandler,
+    keyManager: PGPKeyManager,
+  ): PasskeyPgpDecryptor = PgpainlessPasskeyDecryptor(cryptoHandler, keyManager)
+
   @Provides
   @Singleton
   fun providePasskeyStorage(
     @ApplicationContext context: Context,
     cryptoHandler: PGPainlessCryptoHandler,
+    passkeyPgpDecryptor: PasskeyPgpDecryptor,
+    pgpUnlockContext: PgpUnlockContext,
     keyManager: PGPKeyManager,
   ): PasskeyStorage {
     val repositoryRoot = File(context.filesDir, "store")
@@ -57,10 +72,9 @@ object PasskeysModule {
       FilePasskeyStorage(
         repositoryRoot = repositoryRoot,
         cryptoHandler = cryptoHandler,
-        decryptionKeys = { keyManager.getAllKeys().get() ?: emptyList() },
-        decryptionPassphrase = { null },
+        passkeyPgpDecryptor = passkeyPgpDecryptor,
+        pgpUnlockContext = pgpUnlockContext,
         encryptionKeys = { keyManager.getAllKeys().get() ?: emptyList() },
-        decryptionOptions = app.passwordstore.crypto.PGPDecryptOptions.Builder().build(),
         encryptionOptions = app.passwordstore.crypto.PGPEncryptOptions.Builder().build(),
         config = passkeyConfig,
       )

@@ -7,6 +7,9 @@ package app.passwordstore.passkeys.storage
 
 import app.passwordstore.crypto.CryptoHandler
 import app.passwordstore.crypto.CryptoOptions
+import app.passwordstore.passkeys.crypto.PasskeyDecryptionError
+import app.passwordstore.passkeys.crypto.PasskeyPgpDecryptor
+import app.passwordstore.passkeys.crypto.PgpUnlockContext
 import app.passwordstore.passkeys.model.PasskeyCredential
 import app.passwordstore.passkeys.model.PasskeyMetadata
 import app.passwordstore.passkeys.model.SensitivePasskeyCredential
@@ -33,10 +36,9 @@ public class FilePasskeyStorage<
 >(
   private val repositoryRoot: File,
   private val cryptoHandler: CryptoHandler<Key, Identifier, KeyPair, EncOpts, DecryptOpts>,
-  private val decryptionKeys: () -> List<Key>,
-  private val decryptionPassphrase: () -> CharArray?,
+  private val passkeyPgpDecryptor: PasskeyPgpDecryptor,
+  private val pgpUnlockContext: PgpUnlockContext,
   private val encryptionKeys: () -> List<Key>,
-  private val decryptionOptions: DecryptOpts,
   private val encryptionOptions: EncOpts,
   private val config: PasskeyStorageConfig = PasskeyStorageConfig(),
 ) : PasskeyStorage {
@@ -172,7 +174,7 @@ public class FilePasskeyStorage<
       try {
         val hexId = credentialId.joinToString("") { byte -> "%02x".format(byte) }
 
-        dir
+        passkeyDir
           .walkTopDown()
           .filter { it.isFile && it.nameWithoutExtension == hexId }
           .forEach { file ->
@@ -199,7 +201,7 @@ public class FilePasskeyStorage<
       try {
         val hexId = credentialId.joinToString("") { byte -> "%02x".format(byte) }
 
-        dir
+        passkeyDir
           .walkTopDown()
           .filter { it.isFile && it.nameWithoutExtension == hexId }
           .forEach { file ->
@@ -240,39 +242,41 @@ public class FilePasskeyStorage<
       }
     }
 
-  private val dir: File
-    get() = passkeyDir
-
-  private fun decryptCredential(file: File): StoredCredential? {
+  private suspend fun decryptCredential(file: File): StoredCredential? {
     return try {
-      val ciphertext = file.readBytes()
-      val ciphertextStream = ByteArrayInputStream(ciphertext)
-      val outputStream = ByteArrayOutputStream()
-
-      val key = decryptionKeys().firstOrNull()
-      if (key == null) {
-        logcat(LogPriority.WARN) { "No decryption key available for ${file.name}" }
-        return null
-      }
-
-      cryptoHandler
-        .decrypt(
-          key = key,
-          passphrase = decryptionPassphrase(),
-          ciphertextStream = ciphertextStream,
-          outputStream = outputStream,
-          options = decryptionOptions,
-        )
+      passkeyPgpDecryptor
+        .decrypt(file, pgpUnlockContext)
         .fold(
-          success = { StoredCredential.fromCbor(outputStream.toByteArray()) },
-          failure = {
-            logcat(LogPriority.WARN) { "Failed to decrypt ${file.name}: ${it.message}" }
+          success = { plaintext ->
+            try {
+              StoredCredential.fromCbor(plaintext)
+            } finally {
+              plaintext.fill(0)
+            }
+          },
+          failure = { error ->
+            logcat(LogPriority.WARN) {
+              "Failed to decrypt ${file.name}: ${formatDecryptionError(error)}"
+            }
             null
           },
         )
     } catch (e: Exception) {
       logcat(LogPriority.WARN) { "Error decrypting ${file.name}: ${e.message}" }
       null
+    }
+  }
+
+  private fun formatDecryptionError(error: PasskeyDecryptionError): String {
+    return when (error) {
+      is PasskeyDecryptionError.NoRecipientPackets -> "No recipient packets found"
+      is PasskeyDecryptionError.MissingSecretKey ->
+        "No matching secret key for recipients: ${error.recipientIds.joinToString()}"
+      is PasskeyDecryptionError.KeyLocked -> "Key ${error.keyId} is locked"
+      is PasskeyDecryptionError.IncorrectPassphrase -> "Incorrect passphrase for key ${error.keyId}"
+      is PasskeyDecryptionError.IntegrityCheckFailed -> "Integrity check failed"
+      is PasskeyDecryptionError.MalformedCiphertext -> "Malformed ciphertext"
+      is PasskeyDecryptionError.UnsupportedFormat -> "Unsupported format: ${error.reason}"
     }
   }
 
