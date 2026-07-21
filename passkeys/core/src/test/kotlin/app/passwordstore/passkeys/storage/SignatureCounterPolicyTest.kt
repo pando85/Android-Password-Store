@@ -388,10 +388,93 @@ class SignatureCounterPolicyTest {
     return credential
   }
 
+  @Test
+  fun `file changes between selection and transaction are rejected`() = runBlocking<Unit> {
+    val credential = createAndSaveCredential("example.com", "user1")
+    val mutatingStorage = VersionMutatingPasskeyStorage(storage)
+    val transaction = SignatureCounterTransaction(mutatingStorage, highWaterMark, repositoryState)
+
+    val preSignVersion = mutatingStorage.resolveSourceVersion(credential.credentialId).getOrElse { null }
+    assertTrue(preSignVersion != null)
+
+    val sensitive = loadSensitive(credential)
+    val result =
+      transaction.executeMonotonicAssertion(
+        credentialId = credential.credentialId,
+        sensitiveCredential = sensitive,
+        preSignVersion = preSignVersion,
+      )
+    sensitive.close()
+
+    assertTrue(result.isErr)
+    val error = result.unwrapError()
+    assertIs<SignatureCounterError.FileChangedSinceSelection>(error)
+  }
+
+  @Test
+  fun `monotonic mode not allowed for syncable repository with remote`() = runBlocking {
+    val credential = createAndSaveCredential("example.com", "user1")
+    val hasRemote = true
+    val policy =
+      if (hasRemote) {
+        SignatureCounterPolicy.ZERO_FOR_SYNCABLE
+      } else {
+        SignatureCounterPolicy.MONOTONIC_LOCAL
+      }
+    assertEquals(
+      SignatureCounterPolicy.ZERO_FOR_SYNCABLE,
+      policy,
+      "Syncable repository must use zero-counter policy",
+    )
+
+    val signCount =
+      when (policy) {
+        SignatureCounterPolicy.ZERO_FOR_SYNCABLE -> 0u
+        SignatureCounterPolicy.MONOTONIC_LOCAL -> credential.signCount + 1u
+      }
+    assertEquals(0u, signCount)
+
+    val metaResult = storage.listMetadata("example.com")
+    assertTrue(metaResult.isOk)
+    val metadata = metaResult.getOrElse { emptyList() }.first()
+    assertEquals(0u, metadata.signCount)
+  }
+
   private suspend fun loadSensitive(credential: PasskeyCredential): SensitivePasskeyCredential {
     val result = storage.loadForSigning(credential.credentialId)
     assertTrue(result.isOk)
     return result.getOrElse { _: Throwable -> fail("should be ok") as SensitivePasskeyCredential }
+  }
+}
+
+private class VersionMutatingPasskeyStorage(
+  private val delegate: InMemoryPasskeyStorage
+) : PasskeyStorage {
+  private var versionCounter = 0L
+
+  override suspend fun listMetadata(rpId: String?): com.github.michaelbull.result.Result<List<app.passwordstore.passkeys.model.PasskeyMetadata>, Throwable> =
+    delegate.listMetadata(rpId)
+
+  override suspend fun loadForSigning(credentialId: ByteArray): com.github.michaelbull.result.Result<SensitivePasskeyCredential, Throwable> =
+    delegate.loadForSigning(credentialId)
+
+  override suspend fun saveCredential(credential: app.passwordstore.passkeys.model.PasskeyCredential): com.github.michaelbull.result.Result<Unit, Throwable> =
+    delegate.saveCredential(credential)
+
+  override suspend fun deleteCredential(credentialId: ByteArray): com.github.michaelbull.result.Result<Boolean, Throwable> =
+    delegate.deleteCredential(credentialId)
+
+  override suspend fun updateSignCount(credentialId: ByteArray, newSignCount: ULong): com.github.michaelbull.result.Result<Unit, Throwable> =
+    delegate.updateSignCount(credentialId, newSignCount)
+
+  override suspend fun resolveSourceVersion(credentialId: ByteArray): com.github.michaelbull.result.Result<CredentialSourceVersion?, Throwable> {
+    versionCounter++
+    val base = delegate.resolveSourceVersion(credentialId).getOrElse { null } ?: return com.github.michaelbull.result.Ok(null)
+    return com.github.michaelbull.result.Ok(
+      base.copy(
+        repositoryGeneration = base.repositoryGeneration.copy(worktreeGeneration = versionCounter)
+      )
+    )
   }
 }
 
