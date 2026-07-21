@@ -30,6 +30,8 @@ import androidx.credentials.provider.ProviderClearCredentialStateRequest
 import androidx.credentials.provider.PublicKeyCredentialEntry
 import app.passwordstore.passkeys.crypto.PasskeyCryptoHandler
 import app.passwordstore.passkeys.model.PasskeyMetadata
+import app.passwordstore.passkeys.storage.InvalidationReason
+import app.passwordstore.passkeys.storage.PasskeyRepositoryState
 import app.passwordstore.passkeys.storage.PasskeyStorage
 import com.github.michaelbull.result.fold
 import java.time.Instant
@@ -162,6 +164,11 @@ public abstract class PasskeyCredentialProviderService : CredentialProviderServi
     cancellationSignal: CancellationSignal,
     callback: OutcomeReceiver<Void?, ClearCredentialException>,
   ) {
+    val repositoryState = passkeyStorage as? PasskeyRepositoryState
+    if (repositoryState != null) {
+      @Suppress("BlockingMethodInNonBlockingContext")
+      runBlocking { repositoryState.invalidate(InvalidationReason.CLEAR_CREDENTIAL_STATE) }
+    }
     callback.onResult(null)
   }
 
