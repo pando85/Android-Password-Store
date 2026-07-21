@@ -37,6 +37,9 @@ public class IndexedPasskeyStorage(
   @Volatile private var indexLoaded = false
   @Volatile private var trackedGeneration: RepositoryGeneration? = null
   @Volatile private var inMergeConflict = false
+  @Volatile private var repositoryBackedUp = false
+  @Volatile private var lastBackedUpGeneration: RepositoryGeneration? = null
+  @Volatile private var hasRemoteConfigured = false
   private val indexLoadMutex = Mutex()
 
   private fun credentialKey(id: ByteArray): String {
@@ -231,8 +234,21 @@ public class IndexedPasskeyStorage(
       syncResult.conflicts.filter { it.startsWith("fido2/") || it == ".gpg-id" }
     if (passkeyConflicts.isNotEmpty()) {
       inMergeConflict = true
+      repositoryBackedUp = false
+      lastBackedUpGeneration = null
       invalidate(InvalidationReason.MERGE_CONFLICT)
       return
+    }
+    if (syncResult.headChanged && syncResult.newHead != null && hasRemoteConfigured) {
+      repositoryBackedUp = true
+      lastBackedUpGeneration =
+        generationProvider?.let {
+          RepositoryGeneration(
+            repositoryIdentity = it.repositoryIdentity(),
+            gitHead = it.currentGitHead(),
+            worktreeGeneration = it.currentWorktreeGeneration(),
+          )
+        }
     }
     if (syncResult.affectsPasskeys()) {
       invalidate(InvalidationReason.GIT_SYNC_COMPLETED)
@@ -240,18 +256,26 @@ public class IndexedPasskeyStorage(
   }
 
   override suspend fun onCredentialSaved() {
+    repositoryBackedUp = false
+    lastBackedUpGeneration = null
     invalidate(InvalidationReason.LOCAL_SAVE)
   }
 
   override suspend fun onCredentialUpdated() {
+    repositoryBackedUp = false
+    lastBackedUpGeneration = null
     invalidate(InvalidationReason.LOCAL_UPDATE)
   }
 
   override suspend fun onCredentialDeleted() {
+    repositoryBackedUp = false
+    lastBackedUpGeneration = null
     invalidate(InvalidationReason.LOCAL_DELETE)
   }
 
   override suspend fun onRepositoryReinitialized() {
+    repositoryBackedUp = false
+    lastBackedUpGeneration = null
     invalidate(InvalidationReason.REPOSITORY_REINITIALIZED)
   }
 
@@ -261,12 +285,28 @@ public class IndexedPasskeyStorage(
 
   override fun isInMergeConflict(): Boolean = inMergeConflict
 
+  public fun isRepositoryBackedUp(): Boolean = repositoryBackedUp && !inMergeConflict
+
+  public fun hasRemote(): Boolean = hasRemoteConfigured
+
+  public fun setHasRemote(hasRemote: Boolean) {
+    hasRemoteConfigured = hasRemote
+  }
+
+  public fun effectiveBackupState(credentialBackupEligible: Boolean): Boolean {
+    if (!credentialBackupEligible) return false
+    if (inMergeConflict) return false
+    return repositoryBackedUp
+  }
+
   public fun clearIndex() {
     metadataIndex.clear()
     rpIdIndex.clear()
     indexLoaded = false
     trackedGeneration = null
     inMergeConflict = false
+    repositoryBackedUp = false
+    lastBackedUpGeneration = null
   }
 
   public fun indexedCredentialCount(): Int = metadataIndex.size
