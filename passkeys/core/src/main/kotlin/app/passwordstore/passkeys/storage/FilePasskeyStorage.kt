@@ -174,7 +174,7 @@ public class FilePasskeyStorage<
       try {
         val hexId = credentialId.joinToString("") { byte -> "%02x".format(byte) }
 
-        dir
+        passkeyDir
           .walkTopDown()
           .filter { it.isFile && it.nameWithoutExtension == hexId }
           .forEach { file ->
@@ -201,7 +201,7 @@ public class FilePasskeyStorage<
       try {
         val hexId = credentialId.joinToString("") { byte -> "%02x".format(byte) }
 
-        dir
+        passkeyDir
           .walkTopDown()
           .filter { it.isFile && it.nameWithoutExtension == hexId }
           .forEach { file ->
@@ -241,9 +241,6 @@ public class FilePasskeyStorage<
         Err(e)
       }
     }
-
-  private val dir: File
-    get() = passkeyDir
 
   private suspend fun decryptCredential(file: File): StoredCredential? {
     return try {

@@ -177,8 +177,8 @@ public class PgpainlessPasskeyDecryptor(
 
   private fun mapExceptionToError(e: Exception): PasskeyDecryptionError {
     return when (e) {
-      is WrongPassphraseException -> PasskeyDecryptionError.IncorrectPassphrase("unknown")
-      is IncorrectPassphraseException -> PasskeyDecryptionError.IncorrectPassphrase("unknown")
+      is WrongPassphraseException, is IncorrectPassphraseException ->
+        PasskeyDecryptionError.IncorrectPassphrase("unknown")
       is org.pgpainless.exception.MessageNotIntegrityProtectedException ->
         PasskeyDecryptionError.IntegrityCheckFailed
       is org.bouncycastle.openpgp.PGPException -> {
