@@ -89,6 +89,7 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
     super.onCreate(savedInstanceState)
+    passkeyRepositoryState.setHasRemote(gitSettings.url != null)
     lifecycleScope.launch(dispatcherProvider.mainImmediate()) { handleProviderRequest() }
   }
 
@@ -276,8 +277,12 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
             failure = { logcat(LogPriority.WARN) { "Failed to update sign count: $it" } },
           )
 
+        val effectiveBackupState =
+          passkeyRepositoryState.effectiveBackupState(sensitiveCredential.backupEligible)
         val credentialForSigning =
-          sensitiveCredential.toPasskeyCredential().copy(signCount = newSignCount)
+          sensitiveCredential
+            .toPasskeyCredential()
+            .copy(signCount = newSignCount, backupState = effectiveBackupState)
         val requestJson = option.requestJson
         val assertion =
           cryptoHandler
