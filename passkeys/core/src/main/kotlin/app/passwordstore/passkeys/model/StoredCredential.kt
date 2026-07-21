@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
+@file:OptIn(kotlin.time.ExperimentalTime::class)
+
 package app.passwordstore.passkeys.model
 
 import app.passwordstore.passkeys.cbor.Cbor
@@ -11,7 +13,7 @@ import app.passwordstore.passkeys.cbor.CborValue
 import app.passwordstore.passkeys.cbor.toCborIntegerArray
 import app.passwordstore.passkeys.crypto.CallerType
 import java.math.BigInteger
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 import org.bouncycastle.crypto.ec.CustomNamedCurves
 
 public data class StoredCredential(

@@ -3,9 +3,11 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
+@file:OptIn(kotlin.time.ExperimentalTime::class)
+
 package app.passwordstore.passkeys.model
 
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 public class SensitivePasskeyCredential(
   public val credentialId: ByteArray,

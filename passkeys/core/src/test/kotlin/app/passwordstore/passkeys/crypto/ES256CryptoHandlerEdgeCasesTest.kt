@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
+@file:OptIn(kotlin.time.ExperimentalTime::class)
+
 package app.passwordstore.passkeys.crypto
 
 import app.passwordstore.passkeys.model.FidoUser
@@ -281,7 +283,7 @@ class ES256CryptoHandlerEdgeCasesTest {
           displayName = "Test User",
         ),
       signCount = 0u,
-      createdAt = kotlinx.datetime.Clock.System.now(),
+      createdAt = kotlin.time.Clock.System.now(),
       transports = listOf("internal"),
       uvInitialized = true,
     )

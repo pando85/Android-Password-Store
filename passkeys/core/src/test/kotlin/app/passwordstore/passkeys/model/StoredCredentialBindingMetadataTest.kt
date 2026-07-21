@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
+@file:OptIn(kotlin.time.ExperimentalTime::class)
+
 package app.passwordstore.passkeys.model
 
 import app.passwordstore.passkeys.crypto.CallerType
@@ -104,7 +106,7 @@ class StoredCredentialBindingMetadataTest {
         publicKey = ByteArray(65).also { it[0] = 0x04 },
         rpId = "example.com",
         user = FidoUser(id = ByteArray(4), name = "user", displayName = "User"),
-        createdAt = kotlinx.datetime.Instant.fromEpochSeconds(1700000000L),
+        createdAt = kotlin.time.Instant.fromEpochSeconds(1700000000L),
         createdByCallerType = CallerType.PRIVILEGED_BROWSER,
         createdByPackage = "com.brave.browser",
         createdByCertificateDigest = "bravedigest",

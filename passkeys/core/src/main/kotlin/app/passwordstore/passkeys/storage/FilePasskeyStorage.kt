@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
+@file:OptIn(kotlin.time.ExperimentalTime::class)
+
 package app.passwordstore.passkeys.storage
 
 import app.passwordstore.crypto.CryptoHandler
@@ -21,9 +23,9 @@ import com.github.michaelbull.result.fold
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.security.MessageDigest
+import kotlin.time.Instant
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.datetime.Instant
 import logcat.LogPriority
 import logcat.logcat
 
