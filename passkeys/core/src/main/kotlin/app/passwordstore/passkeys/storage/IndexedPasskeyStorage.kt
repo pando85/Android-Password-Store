@@ -25,8 +25,7 @@ import logcat.logcat
 public class IndexedPasskeyStorage(
   private val delegate: PasskeyStorage,
   private val generationProvider: RepositoryGenerationProvider? = null,
-) : PasskeyStorage,
-  PasskeyRepositoryState {
+) : PasskeyStorage, PasskeyRepositoryState {
 
   private data class IndexedEntry(
     val metadata: PasskeyMetadata,
@@ -91,10 +90,7 @@ public class IndexedPasskeyStorage(
         .fold(
           success = { metadataList ->
             metadataList.forEach { metadata ->
-              val version =
-                delegate
-                  .resolveSourceVersion(metadata.credentialId)
-                  .getOrElse { null }
+              val version = delegate.resolveSourceVersion(metadata.credentialId).getOrElse { null }
               indexMetadata(metadata, version)
             }
             indexLoaded = true
@@ -152,8 +148,7 @@ public class IndexedPasskeyStorage(
     return delegate.saveCredential(credential).also { result ->
       if (result.isOk) {
         val metadata = PasskeyMetadata.fromPasskeyCredential(credential)
-        val version =
-          delegate.resolveSourceVersion(credential.credentialId).getOrElse { null }
+        val version = delegate.resolveSourceVersion(credential.credentialId).getOrElse { null }
         indexMetadata(metadata, version)
         if (generationProvider != null) {
           trackedGeneration = resolveCurrentGeneration()
@@ -207,9 +202,7 @@ public class IndexedPasskeyStorage(
     return delegate.resolveSourceVersion(credentialId)
   }
 
-  public suspend fun getSourceVersion(
-    credentialId: ByteArray
-  ): CredentialSourceVersion? {
+  public suspend fun getSourceVersion(credentialId: ByteArray): CredentialSourceVersion? {
     val key = credentialKey(credentialId)
     return metadataIndex[key]?.sourceVersion
   }

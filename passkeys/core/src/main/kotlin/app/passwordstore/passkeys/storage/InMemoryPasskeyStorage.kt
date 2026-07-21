@@ -12,10 +12,10 @@ import app.passwordstore.passkeys.model.SensitivePasskeyCredential
 import com.github.michaelbull.result.Err
 import com.github.michaelbull.result.Ok
 import com.github.michaelbull.result.Result
+import java.security.MessageDigest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.Clock
-import java.security.MessageDigest
 
 public class InMemoryPasskeyStorage : PasskeyStorage {
 

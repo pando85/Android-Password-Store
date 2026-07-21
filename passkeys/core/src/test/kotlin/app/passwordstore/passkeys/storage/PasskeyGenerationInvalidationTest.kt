@@ -24,17 +24,22 @@ import kotlinx.datetime.Clock
 
 class PasskeyGenerationInvalidationTest {
 
-  private class TestGenerationProvider(
-    private val identity: String = "test-repo",
-  ) : RepositoryGenerationProvider {
+  private class TestGenerationProvider(private val identity: String = "test-repo") :
+    RepositoryGenerationProvider {
     var head: String? = "abc123"
     var worktreeGen: Long = 1L
     var isMerging: Boolean = false
 
     override suspend fun currentGitHead(): String? = head
+
     override fun currentWorktreeGeneration(): Long = worktreeGen
-    override fun bumpWorktreeGeneration() { worktreeGen++ }
+
+    override fun bumpWorktreeGeneration() {
+      worktreeGen++
+    }
+
     override fun repositoryIdentity(): String = identity
+
     override fun isInMergeOrRebaseState(): Boolean = isMerging
   }
 
@@ -113,20 +118,22 @@ class PasskeyGenerationInvalidationTest {
     val delegate = InMemoryPasskeyStorage()
     val indexed = IndexedPasskeyStorage(delegate)
 
-    val cred = createTestCredential(
-      credentialId = "c1".toByteArray(),
-      privateKey = ByteArray(32) { it.toByte() },
-    )
+    val cred =
+      createTestCredential(
+        credentialId = "c1".toByteArray(),
+        privateKey = ByteArray(32) { it.toByte() },
+      )
     delegate.saveCredential(cred)
 
     val version1 = delegate.resolveSourceVersion(cred.credentialId).getOrElse { null }
     assertNotNull(version1)
 
     delegate.deleteCredential(cred.credentialId)
-    val cred2 = createTestCredential(
-      credentialId = "c1".toByteArray(),
-      privateKey = ByteArray(32) { (it + 100).toByte() },
-    )
+    val cred2 =
+      createTestCredential(
+        credentialId = "c1".toByteArray(),
+        privateKey = ByteArray(32) { (it + 100).toByte() },
+      )
     delegate.saveCredential(cred2)
 
     val version2 = delegate.resolveSourceVersion(cred.credentialId).getOrElse { null }
@@ -250,7 +257,8 @@ class PasskeyGenerationInvalidationTest {
       }
       val results = awaitAll(assertionJob, syncJob)
       @Suppress("UNCHECKED_CAST")
-      val metadataResult = results[0] as com.github.michaelbull.result.Result<List<PasskeyMetadata>, Throwable>
+      val metadataResult =
+        results[0] as com.github.michaelbull.result.Result<List<PasskeyMetadata>, Throwable>
       assertTrue(metadataResult.isOk)
     }
   }

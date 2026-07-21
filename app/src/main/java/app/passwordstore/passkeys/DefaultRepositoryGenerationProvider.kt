@@ -14,9 +14,8 @@ import logcat.logcat
 import org.eclipse.jgit.lib.Constants
 import org.eclipse.jgit.lib.RepositoryState
 
-class DefaultRepositoryGenerationProvider(
-  private val repositoryRoot: File,
-) : RepositoryGenerationProvider {
+class DefaultRepositoryGenerationProvider(private val repositoryRoot: File) :
+  RepositoryGenerationProvider {
 
   private val worktreeGenerationCounter = AtomicLong(System.nanoTime())
 

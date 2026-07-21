@@ -192,8 +192,7 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
         return
       }
 
-      val pickerVersion =
-        passkeyStorage.resolveSourceVersion(credentialId).getOrElse { null }
+      val pickerVersion = passkeyStorage.resolveSourceVersion(credentialId).getOrElse { null }
 
       if (authenticator.canAuthenticate(this)) {
         when (val authResult = authenticator.authenticateForPasskey(this, metadata.rpId)) {
@@ -229,13 +228,10 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
         return
       }
 
-      val preSignVersion =
-        passkeyStorage.resolveSourceVersion(credentialId).getOrElse { null }
+      val preSignVersion = passkeyStorage.resolveSourceVersion(credentialId).getOrElse { null }
 
       if (pickerVersion != null && preSignVersion != null && pickerVersion != preSignVersion) {
-        finishWithGetError(
-          GetCredentialUnknownException("Credential file changed since selection")
-        )
+        finishWithGetError(GetCredentialUnknownException("Credential file changed since selection"))
         return
       }
 

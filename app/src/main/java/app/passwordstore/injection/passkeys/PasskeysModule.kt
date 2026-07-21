@@ -63,7 +63,7 @@ object PasskeysModule {
   @Provides
   @Singleton
   fun provideRepositoryGenerationProvider(
-    @ApplicationContext context: Context,
+    @ApplicationContext context: Context
   ): RepositoryGenerationProvider =
     DefaultRepositoryGenerationProvider(File(context.filesDir, "store"))
 
@@ -94,9 +94,7 @@ object PasskeysModule {
 
   @Provides
   @Singleton
-  fun providePasskeyRepositoryState(
-    passkeyStorage: PasskeyStorage,
-  ): PasskeyRepositoryState {
+  fun providePasskeyRepositoryState(passkeyStorage: PasskeyStorage): PasskeyRepositoryState {
     return passkeyStorage as PasskeyRepositoryState
   }
 }
