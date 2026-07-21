@@ -41,8 +41,6 @@ import app.passwordstore.ui.git.base.BaseGitActivity
 import app.passwordstore.ui.git.base.BaseGitActivity.GitOp
 import app.passwordstore.util.extensions.sharedPrefs
 import app.passwordstore.util.settings.PreferenceKeys
-import com.github.michaelbull.result.Err
-import com.github.michaelbull.result.Ok
 import com.github.michaelbull.result.fold
 import com.github.michaelbull.result.getOrElse
 import dagger.hilt.android.AndroidEntryPoint
@@ -283,29 +281,28 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
                   sensitiveCredential = sensitiveCredential,
                   preSignVersion = preSignVersion,
                 )
-              when (monotonicResult) {
-                is Ok -> monotonicResult.value
-                is Err -> {
-                  sensitiveCredential.close()
-                  val errorMsg =
-                    when (val error = monotonicResult.error) {
-                      is SignatureCounterError.CounterOverflow -> "Signature counter overflow"
-                      is SignatureCounterError.PersistenceFailed -> "Counter persistence failed"
-                      is SignatureCounterError.RollbackDetected ->
-                        "Rollback detected: disk=${error.diskCounter}, highWaterMark=${error.highWaterMark}"
-                      is SignatureCounterError.MergeConflict ->
-                        "Repository is in merge conflict; signing disabled"
-                      is SignatureCounterError.FileChangedSinceSelection ->
-                        "Credential file changed during transaction"
-                      is SignatureCounterError.LockAcquisitionFailed ->
-                        "Could not acquire counter lock"
-                      is SignatureCounterError.MonotonicNotAllowed ->
-                        "Monotonic mode not allowed: ${error.reason}"
-                    }
-                  logcat(LogPriority.ERROR) { "Monotonic assertion failed: $errorMsg" }
-                  finishWithGetError(GetCredentialUnknownException(errorMsg))
-                  return
-                }
+              if (monotonicResult.isOk) {
+                monotonicResult.value
+              } else {
+                sensitiveCredential.close()
+                val errorMsg =
+                  when (val error = monotonicResult.error) {
+                    is SignatureCounterError.CounterOverflow -> "Signature counter overflow"
+                    is SignatureCounterError.PersistenceFailed -> "Counter persistence failed"
+                    is SignatureCounterError.RollbackDetected ->
+                      "Rollback detected: disk=${error.diskCounter}, highWaterMark=${error.highWaterMark}"
+                    is SignatureCounterError.MergeConflict ->
+                      "Repository is in merge conflict; signing disabled"
+                    is SignatureCounterError.FileChangedSinceSelection ->
+                      "Credential file changed during transaction"
+                    is SignatureCounterError.LockAcquisitionFailed ->
+                      "Could not acquire counter lock"
+                    is SignatureCounterError.MonotonicNotAllowed ->
+                      "Monotonic mode not allowed: ${error.reason}"
+                  }
+                logcat(LogPriority.ERROR) { "Monotonic assertion failed: $errorMsg" }
+                finishWithGetError(GetCredentialUnknownException(errorMsg))
+                return
               }
             }
           }
