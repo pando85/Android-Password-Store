@@ -9,8 +9,8 @@ package app.passwordstore.passkeys
  * # WebAuthn Caller Verification — Trust Model
  *
  * This package implements the security boundary that verifies which Android application is
- * requesting a WebAuthn credential operation and whether it is authorized for the requested
- * Relying Party (RP).
+ * requesting a WebAuthn credential operation and whether it is authorized for the requested Relying
+ * Party (RP).
  *
  * ## Native Application Trust Model
  *
@@ -21,10 +21,11 @@ package app.passwordstore.passkeys
  *    framework-provided `CallingAppInfo`.
  * 2. The provider fetches `https://<rpId>/.well-known/assetlinks.json` over HTTPS.
  * 3. The response is parsed and checked for a statement with:
- *    - `relation`: `delegate_permission/common_handle` or `delegate_permission/common_get_login_creds`
- *    - `target.namespace`: `android_app`
- *    - `target.package_name`: matching the calling package
- *    - `target.sha256_cert_fingerprint`: matching the calling app's signing certificate digest
+ *     - `relation`: `delegate_permission/common_handle` or
+ *       `delegate_permission/common_get_login_creds`
+ *     - `target.namespace`: `android_app`
+ *     - `target.package_name`: matching the calling package
+ *     - `target.sha256_cert_fingerprint`: matching the calling app's signing certificate digest
  * 4. The Android app origin is derived as `android:apk-key-hash:<base64url_sha256>`.
  *
  * **No fabricated `https://` origin is ever used for native callers.**
@@ -40,8 +41,8 @@ package app.passwordstore.passkeys
  * ### Asset Link Caching
  *
  * Successful asset link verifications are cached for 5 minutes, keyed by (RP ID, package name,
- * certificate digests). The cache is in-memory only and does not survive process death. This
- * limits the window where a revoked asset link statement might still be accepted.
+ * certificate digests). The cache is in-memory only and does not survive process death. This limits
+ * the window where a revoked asset link statement might still be accepted.
  *
  * ### Offline / Fail-Closed Behavior
  *
@@ -52,41 +53,40 @@ package app.passwordstore.passkeys
  *
  * ## Privileged Browser Trust Model
  *
- * Browsers may represent web origins on behalf of web pages. A browser is trusted only when ALL
- * of the following are true:
+ * Browsers may represent web origins on behalf of web pages. A browser is trusted only when ALL of
+ * the following are true:
  *
  * 1. **Package name** is on the explicit allowlist (see `BrowserAllowlist`).
  * 2. **Signing certificate** SHA-256 digest matches a pinned value in the allowlist entry.
  * 3. **Verified origin** is provided by the Android framework via `CallingAppInfo.getOrigin()`.
- *    This origin is populated by the framework for privileged browsers and cannot be spoofed
- *    by the browser app itself.
- * 4. **RP ID matches origin**: The requested RP ID is the exact host or a registrable suffix
- *    of the verified origin's host (e.g., origin `https://login.example.com` permits RP ID
- *    `example.com`).
+ *    This origin is populated by the framework for privileged browsers and cannot be spoofed by the
+ *    browser app itself.
+ * 4. **RP ID matches origin**: The requested RP ID is the exact host or a registrable suffix of the
+ *    verified origin's host (e.g., origin `https://login.example.com` permits RP ID `example.com`).
  *
- * The allowlist is data-driven (`BrowserAllowlist.DEFAULT_ALLOWLIST`), not hardcoded logic.
- * Adding or removing browsers requires updating the allowlist entries with both package name
- * and certificate pin.
+ * The allowlist is data-driven (`BrowserAllowlist.DEFAULT_ALLOWLIST`), not hardcoded logic. Adding
+ * or removing browsers requires updating the allowlist entries with both package name and
+ * certificate pin.
  *
  * ### Browser Certificate Pins
  *
  * Each `TrustedBrowserEntry` contains one or more SHA-256 certificate digests. These must be
  * updated when a browser rotates its signing certificate. The framework's
- * `CallingAppInfo.getOrigin()` mechanism ensures that even if a browser is compromised, it
- * cannot claim arbitrary origins without the correct signing certificate.
+ * `CallingAppInfo.getOrigin()` mechanism ensures that even if a browser is compromised, it cannot
+ * claim arbitrary origins without the correct signing certificate.
  *
  * ### Certificate Rotation for Browsers
  *
- * When a browser rotates its signing certificate, the allowlist must be updated to include
- * the new certificate digest. Until the allowlist is updated, the browser with the new
- * certificate will be rejected. This is a deliberate security trade-off: it is better to
- * temporarily break passkey support for a browser than to accept an unverified certificate.
+ * When a browser rotates its signing certificate, the allowlist must be updated to include the new
+ * certificate digest. Until the allowlist is updated, the browser with the new certificate will be
+ * rejected. This is a deliberate security trade-off: it is better to temporarily break passkey
+ * support for a browser than to accept an unverified certificate.
  *
  * ## Request JSON Origin — Never Trusted
  *
- * The `origin` field in `WebAuthnGetRequest` JSON is **never used** for security decisions.
- * It is retained only for deserialization compatibility but is marked `@Deprecated`. The actual
- * origin used in assertions and attestations always comes from the `VerifiedWebAuthnContext`.
+ * The `origin` field in `WebAuthnGetRequest` JSON is **never used** for security decisions. It is
+ * retained only for deserialization compatibility but is marked `@Deprecated`. The actual origin
+ * used in assertions and attestations always comes from the `VerifiedWebAuthnContext`.
  *
  * ## RP ID Validation
  *
@@ -102,8 +102,8 @@ package app.passwordstore.passkeys
  *
  * ## Algorithm Validation
  *
- * Create requests must include ES256 (`alg = -7`) in `pubKeyCredParams`. Requests without
- * ES256 support are rejected before any biometric prompt or key generation.
+ * Create requests must include ES256 (`alg = -7`) in `pubKeyCredParams`. Requests without ES256
+ * support are rejected before any biometric prompt or key generation.
  *
  * ## Error Handling
  *

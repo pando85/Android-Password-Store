@@ -49,28 +49,43 @@ public data class VerifiedWebAuthnContext(
 
 public sealed class CallerVerificationError {
   public data class MissingCallingAppInfo(val stage: String) : CallerVerificationError()
-  public data class MissingPackageName(val stage: String) : CallerVerificationError()
-  public data class MissingSigningCertificate(val stage: String) : CallerVerificationError()
-  public data class InvalidRpId(val rpId: String, val reason: String) : CallerVerificationError()
-  public data class OriginRpIdMismatch(val origin: String, val rpId: String) : CallerVerificationError()
-  public data class AssetLinkVerificationFailed(val rpId: String, val reason: String) : CallerVerificationError()
-  public data class UntrustedBrowser(val packageName: String, val reason: String) : CallerVerificationError()
-  public data class BrowserCertificateMismatch(val packageName: String) : CallerVerificationError()
-  public data class UnsupportedAlgorithm(val requestedAlgorithms: List<Long>) : CallerVerificationError()
-  public data class MalformedRequest(val field: String, val reason: String) : CallerVerificationError()
 
-  public fun errorCode(): String = when (this) {
-    is MissingCallingAppInfo -> "CALLER_INFO_MISSING"
-    is MissingPackageName -> "PACKAGE_NAME_MISSING"
-    is MissingSigningCertificate -> "SIGNING_CERT_MISSING"
-    is InvalidRpId -> "INVALID_RP_ID"
-    is OriginRpIdMismatch -> "ORIGIN_RP_MISMATCH"
-    is AssetLinkVerificationFailed -> "ASSET_LINK_FAILED"
-    is UntrustedBrowser -> "UNTRUSTED_BROWSER"
-    is BrowserCertificateMismatch -> "BROWSER_CERT_MISMATCH"
-    is UnsupportedAlgorithm -> "UNSUPPORTED_ALGORITHM"
-    is MalformedRequest -> "MALFORMED_REQUEST"
-  }
+  public data class MissingPackageName(val stage: String) : CallerVerificationError()
+
+  public data class MissingSigningCertificate(val stage: String) : CallerVerificationError()
+
+  public data class InvalidRpId(val rpId: String, val reason: String) : CallerVerificationError()
+
+  public data class OriginRpIdMismatch(val origin: String, val rpId: String) :
+    CallerVerificationError()
+
+  public data class AssetLinkVerificationFailed(val rpId: String, val reason: String) :
+    CallerVerificationError()
+
+  public data class UntrustedBrowser(val packageName: String, val reason: String) :
+    CallerVerificationError()
+
+  public data class BrowserCertificateMismatch(val packageName: String) : CallerVerificationError()
+
+  public data class UnsupportedAlgorithm(val requestedAlgorithms: List<Long>) :
+    CallerVerificationError()
+
+  public data class MalformedRequest(val field: String, val reason: String) :
+    CallerVerificationError()
+
+  public fun errorCode(): String =
+    when (this) {
+      is MissingCallingAppInfo -> "CALLER_INFO_MISSING"
+      is MissingPackageName -> "PACKAGE_NAME_MISSING"
+      is MissingSigningCertificate -> "SIGNING_CERT_MISSING"
+      is InvalidRpId -> "INVALID_RP_ID"
+      is OriginRpIdMismatch -> "ORIGIN_RP_MISMATCH"
+      is AssetLinkVerificationFailed -> "ASSET_LINK_FAILED"
+      is UntrustedBrowser -> "UNTRUSTED_BROWSER"
+      is BrowserCertificateMismatch -> "BROWSER_CERT_MISMATCH"
+      is UnsupportedAlgorithm -> "UNSUPPORTED_ALGORITHM"
+      is MalformedRequest -> "MALFORMED_REQUEST"
+    }
 }
 
 public data class CallerVerificationDiagnostic(

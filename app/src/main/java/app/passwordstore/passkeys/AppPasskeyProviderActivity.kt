@@ -122,18 +122,18 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
       }
 
       val verifiedContext =
-        callerVerifier.verifyGetRequest(request, rpId).fold(
-          success = { it },
-          failure = { error ->
-            logcat(LogPriority.WARN) {
-              "Caller verification failed for get: ${error.errorCode()}"
-            }
-            finishWithGetError(
-              GetCredentialUnknownException("Caller verification failed")
-            )
-            return
-          },
-        )
+        callerVerifier
+          .verifyGetRequest(request, rpId)
+          .fold(
+            success = { it },
+            failure = { error ->
+              logcat(LogPriority.WARN) {
+                "Caller verification failed for get: ${error.errorCode()}"
+              }
+              finishWithGetError(GetCredentialUnknownException("Caller verification failed"))
+              return
+            },
+          )
 
       if (verifiedContext.callerType != CallerType.NATIVE_APP) {
         if (!RpIdValidator.isValidOriginForRpId(verifiedContext.origin, rpId)) {
@@ -307,18 +307,18 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
       }
 
       val verifiedContext =
-        callerVerifier.verifyCreateRequest(request, rpId).fold(
-          success = { it },
-          failure = { error ->
-            logcat(LogPriority.WARN) {
-              "Caller verification failed for create: ${error.errorCode()}"
-            }
-            finishWithCreateError(
-              CreateCredentialUnknownException("Caller verification failed")
-            )
-            return
-          },
-        )
+        callerVerifier
+          .verifyCreateRequest(request, rpId)
+          .fold(
+            success = { it },
+            failure = { error ->
+              logcat(LogPriority.WARN) {
+                "Caller verification failed for create: ${error.errorCode()}"
+              }
+              finishWithCreateError(CreateCredentialUnknownException("Caller verification failed"))
+              return
+            },
+          )
 
       if (verifiedContext.callerType != CallerType.NATIVE_APP) {
         if (!RpIdValidator.isValidOriginForRpId(verifiedContext.origin, rpId)) {
@@ -377,12 +377,13 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
         return
       }
 
-      val credentialWithBinding = createdCredential.copy(
-        createdByCallerType = verifiedContext.callerType,
-        createdByPackage = verifiedContext.callingPackage,
-        createdByCertificateDigest = verifiedContext.signingCertificateDigests.firstOrNull(),
-        verifiedOrigin = verifiedContext.origin,
-      )
+      val credentialWithBinding =
+        createdCredential.copy(
+          createdByCallerType = verifiedContext.callerType,
+          createdByPackage = verifiedContext.callingPackage,
+          createdByCertificateDigest = verifiedContext.signingCertificateDigests.firstOrNull(),
+          verifiedOrigin = verifiedContext.origin,
+        )
 
       val saveResult = passkeyStorage.saveCredential(credentialWithBinding)
       if (saveResult.isErr) {
@@ -394,11 +395,12 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
         return
       }
 
-      val responseJson = PasskeyProviderUtils.buildAttestationResponse(
-        credentialWithBinding,
-        createRequest.requestJson,
-        verifiedContext,
-      )
+      val responseJson =
+        PasskeyProviderUtils.buildAttestationResponse(
+          credentialWithBinding,
+          createRequest.requestJson,
+          verifiedContext,
+        )
       val resultIntent = Intent()
       PendingIntentHandler.setCreateCredentialResponse(
         resultIntent,

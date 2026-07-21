@@ -59,7 +59,10 @@ internal class DigitalAssetLinksClient(
         return Err(AssetLinkFetchError.HttpError(responseCode, "HTTP $responseCode from $rpId"))
       }
 
-      val body = BufferedReader(InputStreamReader(connection.inputStream, Charsets.UTF_8)).use { it.readText() }
+      val body =
+        BufferedReader(InputStreamReader(connection.inputStream, Charsets.UTF_8)).use {
+          it.readText()
+        }
 
       val statements =
         try {
@@ -85,9 +88,14 @@ internal class DigitalAssetLinksClient(
 
 internal sealed class AssetLinkFetchError(val reason: String) {
   class Timeout(reason: String) : AssetLinkFetchError(reason)
+
   class TlsError(reason: String) : AssetLinkFetchError(reason)
+
   class HttpError(val statusCode: Int, reason: String) : AssetLinkFetchError(reason)
+
   class ParseError(reason: String) : AssetLinkFetchError(reason)
+
   class DnsError(reason: String) : AssetLinkFetchError(reason)
+
   class NetworkError(reason: String) : AssetLinkFetchError(reason)
 }

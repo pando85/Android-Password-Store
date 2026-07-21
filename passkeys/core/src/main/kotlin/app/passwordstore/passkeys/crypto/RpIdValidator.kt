@@ -33,17 +33,18 @@ public object RpIdValidator {
 
   public fun isValidOriginForRpId(origin: String, rpId: String): Boolean {
     if (!validateRpIdSyntax(rpId)) return false
-    val host = try {
-      val uri = URI(origin)
-      if (uri.scheme != "https") return false
-      if (uri.port != -1 && uri.port != 443) return false
-      if (uri.path.isNotEmpty() && uri.path != "/") return false
-      if (uri.query != null) return false
-      if (uri.fragment != null) return false
-      uri.host?.lowercase() ?: return false
-    } catch (_: Exception) {
-      return false
-    }
+    val host =
+      try {
+        val uri = URI(origin)
+        if (uri.scheme != "https") return false
+        if (uri.port != -1 && uri.port != 443) return false
+        if (uri.path.isNotEmpty() && uri.path != "/") return false
+        if (uri.query != null) return false
+        if (uri.fragment != null) return false
+        uri.host?.lowercase() ?: return false
+      } catch (_: Exception) {
+        return false
+      }
     if (host == rpId) return true
     if (host.endsWith(".$rpId")) return true
     return false

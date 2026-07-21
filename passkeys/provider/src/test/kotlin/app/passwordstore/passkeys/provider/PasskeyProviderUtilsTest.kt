@@ -102,13 +102,14 @@ class PasskeyProviderUtilsTest {
   @Test
   fun `buildAttestationResponse encodes none attestation with auth data`() {
     val credential = sampleCredential("alice")
-    val verifiedContext = VerifiedWebAuthnContext(
-      callingPackage = "com.test.app",
-      origin = "https://example.com",
-      clientDataHash = null,
-      callerType = CallerType.NATIVE_APP,
-      signingCertificateDigests = setOf("testdigest"),
-    )
+    val verifiedContext =
+      VerifiedWebAuthnContext(
+        callingPackage = "com.test.app",
+        origin = "https://example.com",
+        clientDataHash = null,
+        callerType = CallerType.NATIVE_APP,
+        signingCertificateDigests = setOf("testdigest"),
+      )
 
     val responseJson =
       PasskeyProviderUtils.buildAttestationResponse(

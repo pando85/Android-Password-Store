@@ -63,13 +63,27 @@ internal class DefaultWebAuthnCallerVerifier(
     }
 
     if (callingAppInfo == null) {
-      emitDiagnostic(null, null, normalizedRpId, stage, "CALLER_INFO_MISSING", "No calling app info")
+      emitDiagnostic(
+        null,
+        null,
+        normalizedRpId,
+        stage,
+        "CALLER_INFO_MISSING",
+        "No calling app info",
+      )
       return Err(CallerVerificationError.MissingCallingAppInfo(stage))
     }
 
     val packageName = callingAppInfo.packageName
     if (packageName.isNullOrBlank()) {
-      emitDiagnostic(null, null, normalizedRpId, stage, "PACKAGE_NAME_MISSING", "Blank package name")
+      emitDiagnostic(
+        null,
+        null,
+        normalizedRpId,
+        stage,
+        "PACKAGE_NAME_MISSING",
+        "Blank package name",
+      )
       return Err(CallerVerificationError.MissingPackageName(stage))
     }
 
@@ -95,11 +109,10 @@ internal class DefaultWebAuthnCallerVerifier(
       return Err(CallerVerificationError.BrowserCertificateMismatch(packageName))
     }
 
-    val certMatchesPinned =
-      certDigests.any { digest ->
-        val hexDigest = normalizeBase64UrlToHex(digest)
-        hexDigest != null && BrowserAllowlist.isCertificateAcceptedHex(browserEntry, hexDigest)
-      }
+    val certMatchesPinned = certDigests.any { digest ->
+      val hexDigest = normalizeBase64UrlToHex(digest)
+      hexDigest != null && BrowserAllowlist.isCertificateAcceptedHex(browserEntry, hexDigest)
+    }
     if (!certMatchesPinned) {
       emitDiagnostic(packageName, null, rpId, stage, "BROWSER_CERT_MISMATCH", "Cert not pinned")
       return Err(CallerVerificationError.BrowserCertificateMismatch(packageName))
@@ -108,7 +121,9 @@ internal class DefaultWebAuthnCallerVerifier(
     val verifiedOrigin = callingAppInfo.getOrigin("")
     if (verifiedOrigin.isNullOrBlank()) {
       emitDiagnostic(packageName, null, rpId, stage, "UNTRUSTED_BROWSER", "No verified origin")
-      return Err(CallerVerificationError.UntrustedBrowser(packageName, "No verified origin from framework"))
+      return Err(
+        CallerVerificationError.UntrustedBrowser(packageName, "No verified origin from framework")
+      )
     }
 
     if (!RpIdValidator.isValidOriginForRpId(verifiedOrigin, rpId)) {
@@ -156,42 +171,38 @@ internal class DefaultWebAuthnCallerVerifier(
       )
     }
 
-    val assetLinksResult =
-      withContext(Dispatchers.IO) { assetLinksClient.fetchAssetLinks(rpId) }
+    val assetLinksResult = withContext(Dispatchers.IO) { assetLinksClient.fetchAssetLinks(rpId) }
 
     val statements =
       assetLinksResult.fold(
         success = { it },
         failure = { error ->
           emitDiagnostic(packageName, null, rpId, stage, "ASSET_LINK_FAILED", error.reason)
-          return Err(
-            CallerVerificationError.AssetLinkVerificationFailed(rpId, error.reason)
-          )
+          return Err(CallerVerificationError.AssetLinkVerificationFailed(rpId, error.reason))
         },
       )
 
-    val matched =
-      statements.any { statement ->
-        val target = statement.target ?: return@any false
-        val isDelegatePermissionRelation =
-          statement.relation?.any { rel ->
-            rel == "delegate_permission/common_handle" ||
-              rel == "delegate_permission/common_get_login_creds"
-          } ?: false
-        val isAndroidNamespace = target.namespace == "android_app"
-        val packageMatches = target.packageName == packageName
-        val certMatches =
-          target.sha256CertFingerprint?.let { fingerprint ->
-            val normalizedFingerprint = normalizeCertFingerprint(fingerprint)
-            certDigests.any { digest ->
-              val normalizedDigest = normalizeBase64UrlToHex(digest)
-              normalizedFingerprint != null &&
-                normalizedDigest != null &&
-                normalizedFingerprint == normalizedDigest
-            }
-          } ?: false
-        isDelegatePermissionRelation && isAndroidNamespace && packageMatches && certMatches
-      }
+    val matched = statements.any { statement ->
+      val target = statement.target ?: return@any false
+      val isDelegatePermissionRelation =
+        statement.relation?.any { rel ->
+          rel == "delegate_permission/common_handle" ||
+            rel == "delegate_permission/common_get_login_creds"
+        } ?: false
+      val isAndroidNamespace = target.namespace == "android_app"
+      val packageMatches = target.packageName == packageName
+      val certMatches =
+        target.sha256CertFingerprint?.let { fingerprint ->
+          val normalizedFingerprint = normalizeCertFingerprint(fingerprint)
+          certDigests.any { digest ->
+            val normalizedDigest = normalizeBase64UrlToHex(digest)
+            normalizedFingerprint != null &&
+              normalizedDigest != null &&
+              normalizedFingerprint == normalizedDigest
+          }
+        } ?: false
+      isDelegatePermissionRelation && isAndroidNamespace && packageMatches && certMatches
+    }
 
     if (!matched) {
       emitDiagnostic(packageName, null, rpId, stage, "ASSET_LINK_FAILED", "No matching statement")
@@ -221,7 +232,10 @@ internal class DefaultWebAuthnCallerVerifier(
     return try {
       val packageInfo =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-          context.packageManager.getPackageInfo(packageName, PackageManager.GET_SIGNING_CERTIFICATES)
+          context.packageManager.getPackageInfo(
+            packageName,
+            PackageManager.GET_SIGNING_CERTIFICATES,
+          )
         } else {
           @Suppress("DEPRECATION")
           context.packageManager.getPackageInfo(packageName, PackageManager.GET_SIGNATURES)

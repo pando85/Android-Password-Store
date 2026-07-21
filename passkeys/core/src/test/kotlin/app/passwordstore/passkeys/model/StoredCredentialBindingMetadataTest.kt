@@ -8,31 +8,33 @@ package app.passwordstore.passkeys.model
 import app.passwordstore.passkeys.crypto.CallerType
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Test
 
 class StoredCredentialBindingMetadataTest {
 
-  private fun baseCredential(): StoredCredential = StoredCredential(
-    id = ByteArray(32) { it.toByte() },
-    rp = RelyingParty(id = "example.com", name = "Example"),
-    user = User(id = "user1".toByteArray(), name = "testuser", displayName = "Test User"),
-    signCount = 0u,
-    alg = StoredCredential.ALG_ES256,
-    privateKey = ByteArray(32) { (it + 1).toByte() },
-    publicKey = ByteArray(65).also { it[0] = 0x04 },
-    created = 1700000000L,
-  )
+  private fun baseCredential(): StoredCredential =
+    StoredCredential(
+      id = ByteArray(32) { it.toByte() },
+      rp = RelyingParty(id = "example.com", name = "Example"),
+      user = User(id = "user1".toByteArray(), name = "testuser", displayName = "Test User"),
+      signCount = 0u,
+      alg = StoredCredential.ALG_ES256,
+      privateKey = ByteArray(32) { (it + 1).toByte() },
+      publicKey = ByteArray(65).also { it[0] = 0x04 },
+      created = 1700000000L,
+    )
 
   @Test
   fun `binding metadata round-trips through CBOR`() {
-    val original = baseCredential().copy(
-      createdByCallerType = CallerType.NATIVE_APP,
-      createdByPackage = "com.example.app",
-      createdByCertificateDigest = "abc123digest",
-      verifiedOrigin = "android:apk-key-hash:xyz",
-    )
+    val original =
+      baseCredential()
+        .copy(
+          createdByCallerType = CallerType.NATIVE_APP,
+          createdByPackage = "com.example.app",
+          createdByCertificateDigest = "abc123digest",
+          verifiedOrigin = "android:apk-key-hash:xyz",
+        )
 
     val cbor = original.toCbor()
     val restored = StoredCredential.fromCbor(cbor)
@@ -57,12 +59,14 @@ class StoredCredentialBindingMetadataTest {
 
   @Test
   fun `browser caller type round-trips`() {
-    val original = baseCredential().copy(
-      createdByCallerType = CallerType.PRIVILEGED_BROWSER,
-      createdByPackage = "com.android.chrome",
-      createdByCertificateDigest = "browserdigest",
-      verifiedOrigin = "https://example.com",
-    )
+    val original =
+      baseCredential()
+        .copy(
+          createdByCallerType = CallerType.PRIVILEGED_BROWSER,
+          createdByPackage = "com.android.chrome",
+          createdByCertificateDigest = "browserdigest",
+          verifiedOrigin = "https://example.com",
+        )
 
     val cbor = original.toCbor()
     val restored = StoredCredential.fromCbor(cbor)
@@ -74,12 +78,14 @@ class StoredCredentialBindingMetadataTest {
 
   @Test
   fun `toPasskeyCredential preserves binding metadata`() {
-    val stored = baseCredential().copy(
-      createdByCallerType = CallerType.NATIVE_APP,
-      createdByPackage = "com.example",
-      createdByCertificateDigest = "digest",
-      verifiedOrigin = "android:apk-key-hash:abc",
-    )
+    val stored =
+      baseCredential()
+        .copy(
+          createdByCallerType = CallerType.NATIVE_APP,
+          createdByPackage = "com.example",
+          createdByCertificateDigest = "digest",
+          verifiedOrigin = "android:apk-key-hash:abc",
+        )
 
     val passkey = stored.toPasskeyCredential()
 
@@ -91,18 +97,19 @@ class StoredCredentialBindingMetadataTest {
 
   @Test
   fun `fromPasskeyCredential preserves binding metadata`() {
-    val passkey = app.passwordstore.passkeys.model.PasskeyCredential(
-      credentialId = ByteArray(32),
-      privateKey = ByteArray(32),
-      publicKey = ByteArray(65).also { it[0] = 0x04 },
-      rpId = "example.com",
-      user = FidoUser(id = ByteArray(4), name = "user", displayName = "User"),
-      createdAt = kotlinx.datetime.Instant.fromEpochSeconds(1700000000L),
-      createdByCallerType = CallerType.PRIVILEGED_BROWSER,
-      createdByPackage = "com.brave.browser",
-      createdByCertificateDigest = "bravedigest",
-      verifiedOrigin = "https://example.com",
-    )
+    val passkey =
+      app.passwordstore.passkeys.model.PasskeyCredential(
+        credentialId = ByteArray(32),
+        privateKey = ByteArray(32),
+        publicKey = ByteArray(65).also { it[0] = 0x04 },
+        rpId = "example.com",
+        user = FidoUser(id = ByteArray(4), name = "user", displayName = "User"),
+        createdAt = kotlinx.datetime.Instant.fromEpochSeconds(1700000000L),
+        createdByCallerType = CallerType.PRIVILEGED_BROWSER,
+        createdByPackage = "com.brave.browser",
+        createdByCertificateDigest = "bravedigest",
+        verifiedOrigin = "https://example.com",
+      )
 
     val stored = StoredCredential.fromPasskeyCredential(passkey)
 

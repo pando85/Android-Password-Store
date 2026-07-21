@@ -61,15 +61,17 @@ class WebAuthnProtocolTest {
       }
     """
         .trimIndent()
-    val verifiedContext = VerifiedWebAuthnContext(
-      callingPackage = "com.test",
-      origin = "https://${credential.rpId}",
-      clientDataHash = null,
-      callerType = CallerType.NATIVE_APP,
-      signingCertificateDigests = setOf("test"),
-    )
+    val verifiedContext =
+      VerifiedWebAuthnContext(
+        callingPackage = "com.test",
+        origin = "https://${credential.rpId}",
+        clientDataHash = null,
+        callerType = CallerType.NATIVE_APP,
+        signingCertificateDigests = setOf("test"),
+      )
 
-    val responseJson = PasskeyProviderUtils.buildAttestationResponse(credential, requestJson, verifiedContext)
+    val responseJson =
+      PasskeyProviderUtils.buildAttestationResponse(credential, requestJson, verifiedContext)
     val response =
       PasskeyProviderUtils.json.decodeFromString(AttestationResponseJson.serializer(), responseJson)
 
@@ -102,15 +104,17 @@ class WebAuthnProtocolTest {
       }
     """
         .trimIndent()
-    val verifiedContext = VerifiedWebAuthnContext(
-      callingPackage = "com.test",
-      origin = "https://${credential.rpId}",
-      clientDataHash = null,
-      callerType = CallerType.NATIVE_APP,
-      signingCertificateDigests = setOf("test"),
-    )
+    val verifiedContext =
+      VerifiedWebAuthnContext(
+        callingPackage = "com.test",
+        origin = "https://${credential.rpId}",
+        clientDataHash = null,
+        callerType = CallerType.NATIVE_APP,
+        signingCertificateDigests = setOf("test"),
+      )
 
-    val responseJson = PasskeyProviderUtils.buildAttestationResponse(credential, requestJson, verifiedContext)
+    val responseJson =
+      PasskeyProviderUtils.buildAttestationResponse(credential, requestJson, verifiedContext)
     val response =
       PasskeyProviderUtils.json.decodeFromString(AttestationResponseJson.serializer(), responseJson)
 
@@ -136,15 +140,17 @@ class WebAuthnProtocolTest {
       }
     """
         .trimIndent()
-    val verifiedContext = VerifiedWebAuthnContext(
-      callingPackage = "com.test",
-      origin = "https://${credential.rpId}",
-      clientDataHash = null,
-      callerType = CallerType.NATIVE_APP,
-      signingCertificateDigests = setOf("test"),
-    )
+    val verifiedContext =
+      VerifiedWebAuthnContext(
+        callingPackage = "com.test",
+        origin = "https://${credential.rpId}",
+        clientDataHash = null,
+        callerType = CallerType.NATIVE_APP,
+        signingCertificateDigests = setOf("test"),
+      )
 
-    val responseJson = PasskeyProviderUtils.buildAttestationResponse(credential, requestJson, verifiedContext)
+    val responseJson =
+      PasskeyProviderUtils.buildAttestationResponse(credential, requestJson, verifiedContext)
     val response =
       PasskeyProviderUtils.json.decodeFromString(AttestationResponseJson.serializer(), responseJson)
 

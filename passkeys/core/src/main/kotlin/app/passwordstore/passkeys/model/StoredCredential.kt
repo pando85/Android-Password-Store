@@ -154,16 +154,22 @@ public data class StoredCredential(
         map.getLong("created") ?: throw IllegalArgumentException("Missing 'created' field")
       val discoverable = map.getBoolean("discoverable") ?: true
       val extensionsMap = map.getMap("extensions")
-      val createdByCallerType = if (map.isNull("created_by_caller_type")) null
-        else map.getString("created_by_caller_type")?.let {
-          try { CallerType.valueOf(it) } catch (_: Exception) { null }
-        }
-      val createdByPackage = if (map.isNull("created_by_package")) null
-        else map.getString("created_by_package")
-      val createdByCertificateDigest = if (map.isNull("created_by_cert_digest")) null
-        else map.getString("created_by_cert_digest")
-      val verifiedOrigin = if (map.isNull("verified_origin")) null
-        else map.getString("verified_origin")
+      val createdByCallerType =
+        if (map.isNull("created_by_caller_type")) null
+        else
+          map.getString("created_by_caller_type")?.let {
+            try {
+              CallerType.valueOf(it)
+            } catch (_: Exception) {
+              null
+            }
+          }
+      val createdByPackage =
+        if (map.isNull("created_by_package")) null else map.getString("created_by_package")
+      val createdByCertificateDigest =
+        if (map.isNull("created_by_cert_digest")) null else map.getString("created_by_cert_digest")
+      val verifiedOrigin =
+        if (map.isNull("verified_origin")) null else map.getString("verified_origin")
 
       return StoredCredential(
         id = id,

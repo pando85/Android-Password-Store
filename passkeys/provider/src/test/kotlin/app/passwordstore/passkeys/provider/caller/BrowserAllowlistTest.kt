@@ -7,10 +7,10 @@ package app.passwordstore.passkeys.provider.caller
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import kotlin.test.assertFalse
 
 class BrowserAllowlistTest {
 
@@ -39,29 +39,32 @@ class BrowserAllowlistTest {
 
   @Test
   fun `isCertificateAccepted returns true for matching digest`() {
-    val entry = TrustedBrowserEntry(
-      packageName = "com.test",
-      signingCertificateDigestSha256 = setOf("AABB", "CCDD"),
-    )
+    val entry =
+      TrustedBrowserEntry(
+        packageName = "com.test",
+        signingCertificateDigestSha256 = setOf("AABB", "CCDD"),
+      )
     assertTrue(BrowserAllowlist.isCertificateAccepted(entry, "aabb"))
     assertTrue(BrowserAllowlist.isCertificateAccepted(entry, "CCDD"))
   }
 
   @Test
   fun `isCertificateAccepted returns false for non-matching digest`() {
-    val entry = TrustedBrowserEntry(
-      packageName = "com.test",
-      signingCertificateDigestSha256 = setOf("AABB"),
-    )
+    val entry =
+      TrustedBrowserEntry(
+        packageName = "com.test",
+        signingCertificateDigestSha256 = setOf("AABB"),
+      )
     assertFalse(BrowserAllowlist.isCertificateAccepted(entry, "ZZZZ"))
   }
 
   @Test
   fun `isCertificateAccepted is case insensitive`() {
-    val entry = TrustedBrowserEntry(
-      packageName = "com.test",
-      signingCertificateDigestSha256 = setOf("aaBBccDD"),
-    )
+    val entry =
+      TrustedBrowserEntry(
+        packageName = "com.test",
+        signingCertificateDigestSha256 = setOf("aaBBccDD"),
+      )
     assertTrue(BrowserAllowlist.isCertificateAccepted(entry, "AABBCCDD"))
     assertTrue(BrowserAllowlist.isCertificateAccepted(entry, "aabbccdd"))
   }
