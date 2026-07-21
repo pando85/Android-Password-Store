@@ -1,0 +1,53 @@
+#!/usr/bin/env rash
+
+- name: Install system dependencies
+  become: true
+  become_method: sudo
+  apt:
+    name:
+      - pre-commit
+      - openjdk-21-jdk
+      - unzip
+      - curl
+    state: present
+    update_cache: true
+
+- name: Install Android SDK
+  when: env.ANDROID_HOME is not defined
+  become: true
+  shell: |
+    set -e
+    SDK_ROOT="/opt/android-sdk"
+
+    if [ -d "$SDK_ROOT/platforms/android-36" ] && [ -d "$SDK_ROOT/cmdline-tools/latest" ]; then
+      echo "Android SDK already installed"
+      exit 0
+    fi
+
+    TOOLS_URL="https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip"
+    mkdir -p "$SDK_ROOT"
+    curl -fsSL -o /tmp/cmdline-tools.zip "$TOOLS_URL"
+    unzip -q /tmp/cmdline-tools.zip -d /tmp/android-tmp
+    mkdir -p "$SDK_ROOT/cmdline-tools"
+    mv /tmp/android-tmp/cmdline-tools "$SDK_ROOT/cmdline-tools/latest"
+    rm -rf /tmp/android-tmp /tmp/cmdline-tools.zip
+
+    yes | "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses
+    "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" \
+      "platforms;android-36" \
+      "build-tools;36.0.0" \
+      "platform-tools"
+
+- name: Write local.properties
+  copy:
+    content: |
+      sdk.dir={{ env.ANDROID_HOME | default("/opt/android-sdk") }}
+    dest: local.properties
+
+- name: Configure pre-commit hooks
+  command:
+    cmd: pre-commit install
+
+- name: Configure pre-push hooks
+  command:
+    cmd: ./gradlew installGitHooks

@@ -1,0 +1,9 @@
+repos:
+  - repo: local
+    hooks:
+      - id: spotlessCheck
+        name: spotlessCheck
+        description: Check code formatting with spotless (ktfmt)
+        entry: ./gradlew spotlessCheck
+        language: system
+        pass_filenames: false
