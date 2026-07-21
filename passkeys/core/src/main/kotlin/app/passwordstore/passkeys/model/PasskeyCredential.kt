@@ -20,11 +20,19 @@ public data class PasskeyCredential(
   public val createdAt: Instant,
   public val transports: List<String> = listOf("internal"),
   public val uvInitialized: Boolean = true,
+  public val backupEligible: Boolean = true,
+  public val backupState: Boolean = false,
   public val createdByCallerType: CallerType? = null,
   public val createdByPackage: String? = null,
   public val createdByCertificateDigest: String? = null,
   public val verifiedOrigin: String? = null,
 ) {
+
+  init {
+    require(!backupState || backupEligible) {
+      "backupState=true is invalid when backupEligible=false"
+    }
+  }
 
   override fun toString(): String =
     "PasskeyCredential(credentialId=${'$'}{credentialId.contentToString()}, rpId=$'$'{rpId}, privateKey=<REDACTED>, publicKey=${'$'}{publicKey.contentToString()})"
@@ -41,6 +49,8 @@ public data class PasskeyCredential(
     if (createdAt != other.createdAt) return false
     if (transports != other.transports) return false
     if (uvInitialized != other.uvInitialized) return false
+    if (backupEligible != other.backupEligible) return false
+    if (backupState != other.backupState) return false
     if (createdByCallerType != other.createdByCallerType) return false
     if (createdByPackage != other.createdByPackage) return false
     if (createdByCertificateDigest != other.createdByCertificateDigest) return false
@@ -58,6 +68,8 @@ public data class PasskeyCredential(
     result = 31 * result + createdAt.hashCode()
     result = 31 * result + transports.hashCode()
     result = 31 * result + uvInitialized.hashCode()
+    result = 31 * result + backupEligible.hashCode()
+    result = 31 * result + backupState.hashCode()
     result = 31 * result + (createdByCallerType?.hashCode() ?: 0)
     result = 31 * result + (createdByPackage?.hashCode() ?: 0)
     result = 31 * result + (createdByCertificateDigest?.hashCode() ?: 0)

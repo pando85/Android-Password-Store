@@ -37,7 +37,13 @@ public class IndexedPasskeyStorage(
   @Volatile private var indexLoaded = false
   @Volatile private var trackedGeneration: RepositoryGeneration? = null
   @Volatile private var inMergeConflict = false
+  @Volatile private var repositoryBackedUp = false
+  @Volatile private var hasRemoteConfigured = false
   private val indexLoadMutex = Mutex()
+
+  private fun resetBackupState() {
+    repositoryBackedUp = false
+  }
 
   private fun credentialKey(id: ByteArray): String {
     return Base64.getUrlEncoder().withoutPadding().encodeToString(id)
@@ -231,8 +237,12 @@ public class IndexedPasskeyStorage(
       syncResult.conflicts.filter { it.startsWith("fido2/") || it == ".gpg-id" }
     if (passkeyConflicts.isNotEmpty()) {
       inMergeConflict = true
+      resetBackupState()
       invalidate(InvalidationReason.MERGE_CONFLICT)
       return
+    }
+    if (syncResult.headChanged && syncResult.newHead != null && hasRemoteConfigured) {
+      repositoryBackedUp = true
     }
     if (syncResult.affectsPasskeys()) {
       invalidate(InvalidationReason.GIT_SYNC_COMPLETED)
@@ -240,26 +250,45 @@ public class IndexedPasskeyStorage(
   }
 
   override suspend fun onCredentialSaved() {
+    resetBackupState()
     invalidate(InvalidationReason.LOCAL_SAVE)
   }
 
   override suspend fun onCredentialUpdated() {
+    resetBackupState()
     invalidate(InvalidationReason.LOCAL_UPDATE)
   }
 
   override suspend fun onCredentialDeleted() {
+    resetBackupState()
     invalidate(InvalidationReason.LOCAL_DELETE)
   }
 
   override suspend fun onRepositoryReinitialized() {
+    resetBackupState()
     invalidate(InvalidationReason.REPOSITORY_REINITIALIZED)
   }
 
   override suspend fun onGpgIdChanged() {
+    resetBackupState()
     invalidate(InvalidationReason.GPG_ID_CHANGED)
   }
 
   override fun isInMergeConflict(): Boolean = inMergeConflict
+
+  override fun isRepositoryBackedUp(): Boolean = repositoryBackedUp && !inMergeConflict
+
+  override fun hasRemote(): Boolean = hasRemoteConfigured
+
+  override fun setHasRemote(hasRemote: Boolean) {
+    hasRemoteConfigured = hasRemote
+  }
+
+  override fun effectiveBackupState(credentialBackupEligible: Boolean): Boolean {
+    if (!credentialBackupEligible) return false
+    if (inMergeConflict) return false
+    return repositoryBackedUp
+  }
 
   public fun clearIndex() {
     metadataIndex.clear()
@@ -267,6 +296,7 @@ public class IndexedPasskeyStorage(
     indexLoaded = false
     trackedGeneration = null
     inMergeConflict = false
+    repositoryBackedUp = false
   }
 
   public fun indexedCredentialCount(): Int = metadataIndex.size

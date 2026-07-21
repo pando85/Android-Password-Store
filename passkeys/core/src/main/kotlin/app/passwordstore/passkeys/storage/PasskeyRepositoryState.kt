@@ -24,4 +24,12 @@ public interface PasskeyRepositoryState {
   public suspend fun onGpgIdChanged()
 
   public fun isInMergeConflict(): Boolean
+
+  public fun isRepositoryBackedUp(): Boolean = false
+
+  public fun hasRemote(): Boolean = false
+
+  public fun setHasRemote(hasRemote: Boolean) {}
+
+  public fun effectiveBackupState(credentialBackupEligible: Boolean): Boolean = false
 }

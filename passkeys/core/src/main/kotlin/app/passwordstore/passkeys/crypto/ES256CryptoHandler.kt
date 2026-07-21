@@ -180,7 +180,13 @@ public class ES256CryptoHandler : PasskeyCryptoHandler {
       return Err(IllegalArgumentException("Credential has no private key"))
 
     return try {
-      val authenticatorData = buildAuthenticatorData(rpId, credential.signCount)
+      val authenticatorData =
+        buildAuthenticatorData(
+          rpId,
+          credential.signCount,
+          credential.backupEligible,
+          credential.backupState,
+        )
       val (clientDataJson, clientDataHash) = buildClientData(challenge, origin, "webauthn.get")
 
       sign(credential.privateKey, authenticatorData, clientDataHash)
@@ -221,9 +227,20 @@ public class ES256CryptoHandler : PasskeyCryptoHandler {
     return idBytes
   }
 
-  private fun buildAuthenticatorData(rpId: String, signCount: ULong): ByteArray {
+  private fun buildAuthenticatorData(
+    rpId: String,
+    signCount: ULong,
+    backupEligible: Boolean,
+    backupState: Boolean,
+  ): ByteArray {
     val rpIdHash = MessageDigest.getInstance("SHA-256").digest(rpId.toByteArray())
-    val flags = (FLAG_USER_PRESENT.toInt() or FLAG_USER_VERIFIED.toInt()).toByte()
+    val flags =
+      AuthenticatorFlags.build(
+        userPresent = true,
+        userVerified = true,
+        backupEligible = backupEligible,
+        backupState = backupState,
+      )
     val signCountBytes =
       byteArrayOf(
         ((signCount shr 24) and 0xFFu).toByte(),
@@ -266,9 +283,10 @@ public class ES256CryptoHandler : PasskeyCryptoHandler {
   }
 
   public companion object {
-    public const val FLAG_USER_PRESENT: Byte = 0x01
-    public const val FLAG_USER_VERIFIED: Byte = 0x04
-    public const val FLAG_ATTESTED_CREDENTIAL_DATA: Byte = 0x40
+    public const val FLAG_USER_PRESENT: Byte = AuthenticatorFlags.FLAG_USER_PRESENT
+    public const val FLAG_USER_VERIFIED: Byte = AuthenticatorFlags.FLAG_USER_VERIFIED
+    public const val FLAG_ATTESTED_CREDENTIAL_DATA: Byte =
+      AuthenticatorFlags.FLAG_ATTESTED_CREDENTIAL_DATA
 
     private val P256_EC_OID_PREFIX =
       byteArrayOf(

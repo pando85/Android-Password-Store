@@ -52,6 +52,8 @@ public class InMemoryPasskeyStorage : PasskeyStorage {
             createdAt = credential.createdAt,
             transports = credential.transports,
             uvInitialized = credential.uvInitialized,
+            backupEligible = credential.backupEligible,
+            backupState = credential.backupState,
             fileLastModified = 0L,
             privateKey = credential.privateKey.copyOf(),
           )

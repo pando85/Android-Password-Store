@@ -6,7 +6,7 @@
 package app.passwordstore.passkeys.provider
 
 import app.passwordstore.passkeys.crypto.AssertionResult
-import app.passwordstore.passkeys.crypto.ES256CryptoHandler
+import app.passwordstore.passkeys.crypto.AuthenticatorFlags
 import app.passwordstore.passkeys.crypto.VerifiedWebAuthnContext
 import app.passwordstore.passkeys.model.PasskeyCredential
 import app.passwordstore.passkeys.model.PasskeyMetadata
@@ -206,10 +206,13 @@ public object PasskeyProviderUtils {
     }
     val rpIdHash = MessageDigest.getInstance("SHA-256").digest(credential.rpId.toByteArray())
     val flags =
-      (ES256CryptoHandler.FLAG_USER_PRESENT.toInt() or
-          ES256CryptoHandler.FLAG_USER_VERIFIED.toInt() or
-          ES256CryptoHandler.FLAG_ATTESTED_CREDENTIAL_DATA.toInt())
-        .toByte()
+      AuthenticatorFlags.build(
+        userPresent = true,
+        userVerified = true,
+        backupEligible = credential.backupEligible,
+        backupState = credential.backupState,
+        attestedCredentialData = true,
+      )
     val signCountBytes =
       byteArrayOf(
         ((credential.signCount shr 24) and 0xFFu).toByte(),
