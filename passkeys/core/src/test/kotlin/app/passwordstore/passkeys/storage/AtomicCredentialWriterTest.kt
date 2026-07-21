@@ -6,24 +6,22 @@
 package app.passwordstore.passkeys.storage
 
 import com.github.michaelbull.result.getOrElse
+import com.github.michaelbull.result.unwrapError
 import java.io.File
-import java.io.OutputStream
 import java.nio.file.Files
 import java.nio.file.attribute.PosixFilePermissions
-import kotlin.io.path.createSymbolicLinkToPoint
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertNotNull
+import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withContext
 
 class AtomicCredentialWriterTest {
 
@@ -50,8 +48,11 @@ class AtomicCredentialWriterTest {
       outputStream.write(content)
     }
 
-    assertTrue(result.isOk)
-    val version = result.getOrElse { error("Should not fail") }
+    if (result.isErr) {
+      val error = result.unwrapError()
+      throw IllegalStateException("Write failed with error: $error")
+    }
+    val version = result.getOrElse { throw IllegalStateException("Should not fail") }
     assertEquals(target.canonicalPath, version.canonicalPath)
     assertEquals(content.size.toLong(), version.fileSize)
     assertTrue(target.exists())
@@ -70,6 +71,8 @@ class AtomicCredentialWriterTest {
     }
 
     assertTrue(result.isErr)
+    val error = result.unwrapError()
+    assertIs<AtomicWriteError.EncryptionFailed>(error)
     assertTrue(target.exists())
     assertContentEquals(originalContent, target.readBytes())
     val tempFiles = target.parentFile.listFiles { f -> f.name.startsWith(".") && f.name.contains(".tmp-") }
@@ -100,11 +103,12 @@ class AtomicCredentialWriterTest {
       }
 
       assertTrue(result.isErr)
-      val error = (result as com.github.michaelbull.result.Err).error
-      assertTrue(error is AtomicWriteError.TargetOutsideRepository)
+      val error = result.unwrapError()
+      assertIs<AtomicWriteError.TargetOutsideRepository>(error)
     } finally {
       outsideDir.deleteRecursively()
     }
+    Unit
   }
 
   @Test
@@ -124,8 +128,8 @@ class AtomicCredentialWriterTest {
     }
 
     assertTrue(result.isErr)
-    val error = (result as com.github.michaelbull.result.Err).error
-    assertTrue(error is AtomicWriteError.SymlinkRejected)
+    val error = result.unwrapError()
+    assertIs<AtomicWriteError.SymlinkRejected>(error)
     assertContentEquals("real-content".toByteArray(), realFile.readBytes())
   }
 
@@ -146,14 +150,15 @@ class AtomicCredentialWriterTest {
     }
 
     assertTrue(result.isErr)
-    val error = (result as com.github.michaelbull.result.Err).error
-    assertTrue(error is AtomicWriteError.SymlinkRejected)
+    val error = result.unwrapError()
+    assertIs<AtomicWriteError.SymlinkRejected>(error)
+    Unit
   }
 
   @Test
   fun `concurrent writes are serialized`() = runBlocking {
     val target = File(tempDir, "fido2/example/abcd1234.gpg")
-    val results = mutableListOf<Result<DurableFileVersion, AtomicWriteError>>()
+    val results = mutableListOf<com.github.michaelbull.result.Result<DurableFileVersion, AtomicWriteError>>()
     val writeOrder = mutableListOf<Int>()
     val lock = Any()
 
@@ -186,7 +191,7 @@ class AtomicCredentialWriterTest {
     val result = writer.deleteAtomic(target)
 
     assertTrue(result.isOk)
-    assertTrue(result.getOrElse { error("Should not fail") })
+    assertTrue(result.getOrElse { throw IllegalStateException("Should not fail") })
     assertFalse(target.exists())
   }
 
@@ -197,7 +202,7 @@ class AtomicCredentialWriterTest {
     val result = writer.deleteAtomic(target)
 
     assertTrue(result.isOk)
-    assertFalse(result.getOrElse { error("Should not fail") })
+    assertFalse(result.getOrElse { throw IllegalStateException("Should not fail") })
   }
 
   @Test

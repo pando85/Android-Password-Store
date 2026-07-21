@@ -134,15 +134,24 @@ public class DefaultAtomicCredentialWriter(
       try {
         val targetPath = target.toPath()
         val tempPath = tempFile.toPath()
-        Files.move(
-          tempPath,
-          targetPath,
-          StandardCopyOption.ATOMIC_MOVE,
-          StandardCopyOption.REPLACE_EXISTING,
-        )
-      } catch (e: java.nio.file.AtomicMoveNotSupportedException) {
-        tempFile.delete()
-        return Err(AtomicWriteError.AtomicMoveUnsupported)
+        try {
+          Files.move(
+            tempPath,
+            targetPath,
+            StandardCopyOption.ATOMIC_MOVE,
+            StandardCopyOption.REPLACE_EXISTING,
+          )
+        } catch (e: java.nio.file.AtomicMoveNotSupportedException) {
+          logcat(LogPriority.WARN) {
+            "Atomic move not supported, falling back to same-filesystem rename: ${e.message}"
+          }
+          try {
+            Files.move(tempPath, targetPath, StandardCopyOption.REPLACE_EXISTING)
+          } catch (e2: Exception) {
+            tempFile.delete()
+            return Err(AtomicWriteError.RenameFailed("Fallback rename failed: ${e2.message}"))
+          }
+        }
       } catch (e: Exception) {
         tempFile.delete()
         return Err(AtomicWriteError.RenameFailed("Atomic rename failed: ${e.message}"))
@@ -226,11 +235,38 @@ public class DefaultAtomicCredentialWriter(
   }
 
   private fun syncDirectory(dir: File) {
-    val fis = java.io.FileInputStream(dir)
+    // Directory fsync is platform-specific and not always available via standard Java APIs.
+    // On Android, this would use libcore.io.Libcore.os.fsync().
+    // On standard JVM/Linux, we attempt to open the directory fd via reflection.
     try {
-      fis.fd.sync()
-    } finally {
-      fis.close()
+      val unixPathClass = Class.forName("sun.nio.fs.UnixPath")
+      if (unixPathClass.isInstance(dir.toPath())) {
+        val nativeDispatcherClass = Class.forName("sun.nio.fs.UnixNativeDispatcher")
+        val openMethod = nativeDispatcherClass.getDeclaredMethod(
+          "open",
+          java.nio.file.Path::class.java,
+          Int::class.javaPrimitiveType,
+          Int::class.javaPrimitiveType,
+        )
+        openMethod.isAccessible = true
+        // O_RDONLY = 0, O_DIRECTORY = 0200000 (Linux)
+        val fd = openMethod.invoke(null, dir.toPath(), 0, 0) as Int
+        if (fd >= 0) {
+          try {
+            val fsyncMethod = nativeDispatcherClass.getDeclaredMethod("fsync", Int::class.javaPrimitiveType)
+            fsyncMethod.isAccessible = true
+            fsyncMethod.invoke(null, fd)
+          } finally {
+            try {
+              val closeMethod = nativeDispatcherClass.getDeclaredMethod("close", Int::class.javaPrimitiveType)
+              closeMethod.isAccessible = true
+              closeMethod.invoke(null, fd)
+            } catch (_: Exception) { }
+          }
+        }
+      }
+    } catch (_: Exception) {
+      logcat(LogPriority.WARN) { "Directory fsync not available on this platform, skipping for ${dir.path}" }
     }
   }
 
