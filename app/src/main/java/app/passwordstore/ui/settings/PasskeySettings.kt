@@ -17,8 +17,8 @@ class PasskeySettings(private val activity: FragmentActivity) : SettingsProvider
     builder.apply {
       switch(PreferenceKeys.PASSKEY_CONSTANT_SIGNATURE_COUNTER) {
         defaultValue = true
-        titleRes = R.string.pref_passkey_constant_signature_counter_title
-        summaryRes = R.string.pref_passkey_constant_signature_counter_summary
+        titleRes = R.string.pref_passkey_signature_counter_policy_title
+        summaryRes = R.string.pref_passkey_signature_counter_policy_summary
       }
       switch(PreferenceKeys.PASSKEY_AUTO_GIT_SYNC) {
         defaultValue = true
