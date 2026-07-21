@@ -13,10 +13,15 @@ import app.passwordstore.passkeys.crypto.ES256CryptoHandler
 import app.passwordstore.passkeys.crypto.VerifiedWebAuthnContext
 import app.passwordstore.passkeys.model.FidoUser
 import app.passwordstore.passkeys.model.PasskeyCredential
+import app.passwordstore.passkeys.model.PasskeyMetadata
+import app.passwordstore.passkeys.storage.InMemoryPasskeyStorage
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 import kotlin.time.Clock
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 
 class PasskeyProviderUtilsTest {
@@ -31,6 +36,44 @@ class PasskeyProviderUtilsTest {
     val selected = PasskeyProviderUtils.selectCredentials(credentials, emptyList())
 
     assertEquals(credentials, selected)
+  }
+
+  @Test
+  fun `discoverable accounts retain distinct usernames when display names match`() {
+    val first = sampleMetadata("pando85", "Same Person", byteArrayOf(1))
+    val second = sampleMetadata("forkline", "Same Person", byteArrayOf(2))
+
+    assertEquals("pando85", PasskeyProviderUtils.credentialEntryIdentity(first).username)
+    assertEquals("forkline", PasskeyProviderUtils.credentialEntryIdentity(second).username)
+  }
+
+  @Test
+  fun `multiple discoverable accounts cannot be auto selected`() {
+    assertTrue(PasskeyProviderUtils.isAutoSelectAllowed(1))
+    assertFalse(PasskeyProviderUtils.isAutoSelectAllowed(0))
+    assertFalse(PasskeyProviderUtils.isAutoSelectAllowed(2))
+  }
+
+  @Test
+  fun `each credential has a unique pending intent identity`() {
+    assertNotEquals(
+      PasskeyProviderUtils.credentialIntentUri(byteArrayOf(1)),
+      PasskeyProviderUtils.credentialIntentUri(byteArrayOf(2)),
+    )
+  }
+
+  @Test
+  fun `file-only metadata loads account identity without changing credential`() = runBlocking {
+    val storage = InMemoryPasskeyStorage()
+    val credential = sampleCredential("forkline")
+    assertTrue(storage.saveCredential(credential).isOk)
+    val fileOnlyMetadata = sampleMetadata("", "", credential.credentialId)
+
+    val hydrated = PasskeyProviderUtils.loadStoredIdentity(storage, fileOnlyMetadata)
+
+    assertEquals("forkline", hydrated.userName)
+    assertEquals("forkline", hydrated.userDisplayName)
+    assertEquals(fileOnlyMetadata.credentialId.toList(), hydrated.credentialId.toList())
   }
 
   @Test
@@ -154,6 +197,19 @@ class PasskeyProviderUtilsTest {
       createdAt = Clock.System.now(),
     )
   }
+
+  private fun sampleMetadata(
+    userName: String,
+    displayName: String,
+    credentialId: ByteArray,
+  ): PasskeyMetadata =
+    PasskeyMetadata(
+      credentialId = credentialId,
+      rpId = "github.com",
+      userName = userName,
+      userDisplayName = displayName,
+      createdAt = Clock.System.now(),
+    )
 
   private fun ByteArray.indexOfSubsequence(other: ByteArray): Int {
     if (other.isEmpty() || other.size > size) return -1

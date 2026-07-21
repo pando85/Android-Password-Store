@@ -65,6 +65,22 @@ class PGPainlessCryptoHandlerTest {
   }
 
   @Test
+  fun inspectRecipientFromBinaryCiphertext() {
+    val ciphertextStream = ByteArrayOutputStream()
+    val encryptResult =
+      cryptoHandler.encrypt(
+        listOf(PGPKey(TestUtils.getArmoredPublicKey())),
+        null,
+        PLAIN_TEXT.byteInputStream(Charsets.UTF_8),
+        ciphertextStream,
+        PGPEncryptOptions.Builder().build(),
+      )
+
+    assertTrue(encryptResult.isOk)
+    assertTrue(inspectRecipientKeyIds(ciphertextStream.toByteArray()).isNotEmpty())
+  }
+
+  @Test
   fun encryptAndDecryptSymmetrically() {
     val ciphertextStream = ByteArrayOutputStream()
     val encryptRes =

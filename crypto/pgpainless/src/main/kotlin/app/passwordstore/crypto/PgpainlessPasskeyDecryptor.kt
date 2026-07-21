@@ -38,7 +38,7 @@ public class PgpainlessPasskeyDecryptor(
       try {
         val ciphertext = file.readBytes()
 
-        val recipientKeyIds = extractRecipientKeyIds(ciphertext)
+        val recipientKeyIds = inspectRecipientKeyIds(ciphertext)
         if (recipientKeyIds.isEmpty()) {
           return@withContext Err(PasskeyDecryptionError.NoRecipientPackets)
         }
@@ -91,17 +91,6 @@ public class PgpainlessPasskeyDecryptor(
         Err(mapExceptionToError(e))
       }
     }
-
-  private fun extractRecipientKeyIds(ciphertext: ByteArray): Set<Long> {
-    return try {
-      val message = ciphertext.decodeToString()
-      val info = MessageInspector().determineEncryptionInfoForMessage(message)
-      info.keyIds.toSet()
-    } catch (e: Exception) {
-      logcat(LogPriority.WARN) { "Failed to extract recipient key IDs: ${e.message}" }
-      emptySet()
-    }
-  }
 
   private fun findMatchingSecretKeys(
     allKeys: List<PGPKey>,
@@ -169,5 +158,18 @@ public class PgpainlessPasskeyDecryptor(
       }
       else -> PasskeyDecryptionError.MalformedCiphertext
     }
+  }
+}
+
+internal fun inspectRecipientKeyIds(ciphertext: ByteArray): Set<Long> {
+  return try {
+    val info =
+      MessageInspector().determineEncryptionInfoForMessage(ByteArrayInputStream(ciphertext))
+    info.keyIds.toSet()
+  } catch (e: Exception) {
+    logcat("PgpainlessPasskeyDecryptor", LogPriority.WARN) {
+      "Failed to extract recipient key IDs: ${e.message}"
+    }
+    emptySet()
   }
 }

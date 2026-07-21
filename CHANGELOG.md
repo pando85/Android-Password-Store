@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file
 
 ## [Unreleased]
 
+### Fixed
+
+- Restored passkey login with binary OpenPGP credentials created by 1.17.3 and passless
+- Fixed native app and pinned Chrome/Firefox caller verification
+- Fixed usernameless login origin canonicalization and multi-account selection
+
+### Testing
+
+- Added a dedicated passkey compatibility CI suite and implementation guidance
+
 ## [1.17.3] - 2026-07-12
 
 ### Fixed

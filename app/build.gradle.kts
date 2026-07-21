@@ -12,6 +12,7 @@ plugins {
   id("com.github.android-password-store.assemble-alias")
   alias(libs.plugins.hilt)
   alias(libs.plugins.kotlin.composeCompiler)
+  alias(libs.plugins.kotlin.serialization)
   alias(libs.plugins.ksp)
 }
 

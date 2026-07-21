@@ -33,21 +33,26 @@ public object RpIdValidator {
 
   public fun isValidOriginForRpId(origin: String, rpId: String): Boolean {
     if (!validateRpIdSyntax(rpId)) return false
-    val host =
-      try {
-        val uri = URI(origin)
-        if (uri.scheme != "https") return false
-        if (uri.port != -1 && uri.port != 443) return false
-        if (uri.path.isNotEmpty() && uri.path != "/") return false
-        if (uri.query != null) return false
-        if (uri.fragment != null) return false
-        uri.host?.lowercase() ?: return false
-      } catch (_: Exception) {
-        return false
-      }
+    val canonicalOrigin = canonicalizeWebOrigin(origin) ?: return false
+    val host = URI(canonicalOrigin).host
     if (host == rpId) return true
     if (host.endsWith(".$rpId")) return true
     return false
+  }
+
+  public fun canonicalizeWebOrigin(origin: String): String? {
+    return try {
+      val uri = URI(origin)
+      if (uri.scheme.lowercase() != "https") return null
+      if (uri.userInfo != null) return null
+      if (uri.port != -1 && uri.port != 443) return null
+      if (uri.path.isNotEmpty() && uri.path != "/") return null
+      if (uri.query != null || uri.fragment != null) return null
+      val host = uri.host?.lowercase() ?: return null
+      "https://$host"
+    } catch (_: Exception) {
+      null
+    }
   }
 
   public fun isRegistrableSuffix(parent: String, child: String): Boolean {

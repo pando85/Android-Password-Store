@@ -5,6 +5,11 @@
 
 package app.passwordstore.passkeys.provider.caller
 
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
+import kotlinx.serialization.json.putJsonObject
+
 public data class TrustedBrowserEntry(
   val packageName: String,
   val signingCertificateDigestSha256: Set<String>,
@@ -17,32 +22,17 @@ public object BrowserAllowlist {
       TrustedBrowserEntry(
         packageName = "com.android.chrome",
         signingCertificateDigestSha256 =
-          setOf("7B2EB2B261E68E28F2627C5E1478C44B7E5B4A3A1C5D6E7F8A9B0C1D2E3F4A5B"),
+          setOf("F0FD6C5B410F25CB25C3B53346C8972FAE30F8EE7411DF910480AD6B2D60DB83"),
+      ),
+      TrustedBrowserEntry(
+        packageName = "org.mozilla.fenix",
+        signingCertificateDigestSha256 =
+          setOf("5004779088E7F988D5BC5CC5F8798FEBF4F8CD084A1B2A46EFD4C8EE4AEAF211"),
       ),
       TrustedBrowserEntry(
         packageName = "org.mozilla.firefox",
         signingCertificateDigestSha256 =
-          setOf("A72B0C08E4C2C4F3D1E0F9A8B7C6D5E4F3A2B1C0D9E8F7A6B5C4D3E2F1A0B9C8"),
-      ),
-      TrustedBrowserEntry(
-        packageName = "com.microsoft.emmx",
-        signingCertificateDigestSha256 =
-          setOf("B83C1D19F0D3D5E4F2A1B0C9D8E7F6A5B4C3D2E1F0A9B8C7D6E5F4A3B2C1D0E9"),
-      ),
-      TrustedBrowserEntry(
-        packageName = "com.brave.browser",
-        signingCertificateDigestSha256 =
-          setOf("C94D2E20A1E4E6F5A3B2C1D0E9F8A7B6C5D4E3F2A1B0C9D8E7F6A5B4C3D2E1F0"),
-      ),
-      TrustedBrowserEntry(
-        packageName = "com.opera.browser",
-        signingCertificateDigestSha256 =
-          setOf("D05E3F31B2F5F7A6B4C3D2E1F0A9B8C7D6E5F4A3B2C1D0E9F8A7B6C5D4E3F2A1"),
-      ),
-      TrustedBrowserEntry(
-        packageName = "com.vivaldi.browser",
-        signingCertificateDigestSha256 =
-          setOf("E16F4042C3A6A8B7C5D4E3F2A1B0C9D8E7F6A5B4C3D2E1F0A9B8C7D6E5F4A3B2"),
+          setOf("5004779088E7F988D5BC5CC5F8798FEBF4F8CD084A1B2A46EFD4C8EE4AEAF211"),
       ),
     )
 
@@ -70,4 +60,31 @@ public object BrowserAllowlist {
       pinned.replace(":", "").lowercase() == hexDigest.lowercase()
     }
   }
+
+  public fun toPrivilegedAllowlistJson(entry: TrustedBrowserEntry): String = buildJsonObject {
+    putJsonArray("apps") {
+      add(
+        buildJsonObject {
+          put("type", "android")
+          putJsonObject("info") {
+            put("package_name", entry.packageName)
+            putJsonArray("signatures") {
+              entry.signingCertificateDigestSha256.forEach { digest ->
+                add(
+                  buildJsonObject {
+                    put("build", "release")
+                    put(
+                      "cert_fingerprint_sha256",
+                      digest.replace(":", "").chunked(2).joinToString(":"),
+                    )
+                  }
+                )
+              }
+            }
+          }
+        }
+      )
+    }
+  }
+    .toString()
 }

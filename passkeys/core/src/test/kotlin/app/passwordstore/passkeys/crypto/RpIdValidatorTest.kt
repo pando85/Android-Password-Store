@@ -6,7 +6,9 @@
 package app.passwordstore.passkeys.crypto
 
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class RpIdValidatorTest {
@@ -77,6 +79,20 @@ class RpIdValidatorTest {
   @Test
   fun `exact origin match is valid`() {
     assertTrue(RpIdValidator.isValidOriginForRpId("https://example.com", "example.com"))
+  }
+
+  @Test
+  fun `web origin is canonicalized before signing`() {
+    assertEquals("https://example.com", RpIdValidator.canonicalizeWebOrigin("https://EXAMPLE.com/"))
+    assertEquals(
+      "https://example.com",
+      RpIdValidator.canonicalizeWebOrigin("https://example.com:443"),
+    )
+  }
+
+  @Test
+  fun `origin with user info cannot be canonicalized`() {
+    assertNull(RpIdValidator.canonicalizeWebOrigin("https://attacker@example.com"))
   }
 
   @Test
