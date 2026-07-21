@@ -65,7 +65,11 @@ class SignatureCounterPolicyTest {
     val metaResult = storage.listMetadata("example.com")
     assertTrue(metaResult.isOk)
     val metadata = metaResult.getOrElse { emptyList() }.first()
-    assertEquals(0u, metadata.signCount, "Storage sign count should remain 0 after syncable assertions")
+    assertEquals(
+      0u,
+      metadata.signCount,
+      "Storage sign count should remain 0 after syncable assertions",
+    )
   }
 
   @Test
@@ -83,7 +87,11 @@ class SignatureCounterPolicyTest {
       }
     }
 
-    assertEquals(0, countingStorage.updateSignCountCount.get(), "Syncable policy should not call updateSignCount")
+    assertEquals(
+      0,
+      countingStorage.updateSignCountCount.get(),
+      "Syncable policy should not call updateSignCount",
+    )
   }
 
   @Test
@@ -109,24 +117,25 @@ class SignatureCounterPolicyTest {
   }
 
   @Test
-  fun `injected write failure returns no assertion response`() = runBlocking<Unit> {
-    val credential = createAndSaveCredential("example.com", "user1")
-    val failingStorage = FailingUpdateSignCountStorage(storage)
-    val transaction = SignatureCounterTransaction(failingStorage, highWaterMark, repositoryState)
+  fun `injected write failure returns no assertion response`() =
+    runBlocking<Unit> {
+      val credential = createAndSaveCredential("example.com", "user1")
+      val failingStorage = FailingUpdateSignCountStorage(storage)
+      val transaction = SignatureCounterTransaction(failingStorage, highWaterMark, repositoryState)
 
-    val sensitive = loadSensitive(credential)
-    val result =
-      transaction.executeMonotonicAssertion(
-        credentialId = credential.credentialId,
-        sensitiveCredential = sensitive,
-        preSignVersion = null,
-      )
-    sensitive.close()
+      val sensitive = loadSensitive(credential)
+      val result =
+        transaction.executeMonotonicAssertion(
+          credentialId = credential.credentialId,
+          sensitiveCredential = sensitive,
+          preSignVersion = null,
+        )
+      sensitive.close()
 
-    assertTrue(result.isErr)
-    val error = result.unwrapError()
-    assertIs<SignatureCounterError.PersistenceFailed>(error)
-  }
+      assertTrue(result.isErr)
+      val error = result.unwrapError()
+      assertIs<SignatureCounterError.PersistenceFailed>(error)
+    }
 
   @Test
   fun `two concurrent assertions produce distinct ordered counters`() = runBlocking {
@@ -160,23 +169,24 @@ class SignatureCounterPolicyTest {
   }
 
   @Test
-  fun `counter at maximum value produces overflow failure`() = runBlocking<Unit> {
-    val credential = createAndSaveCredentialWithSignCount("example.com", "user1", ULong.MAX_VALUE)
-    val transaction = SignatureCounterTransaction(storage, highWaterMark, repositoryState)
+  fun `counter at maximum value produces overflow failure`() =
+    runBlocking<Unit> {
+      val credential = createAndSaveCredentialWithSignCount("example.com", "user1", ULong.MAX_VALUE)
+      val transaction = SignatureCounterTransaction(storage, highWaterMark, repositoryState)
 
-    val sensitive = loadSensitive(credential)
-    val result =
-      transaction.executeMonotonicAssertion(
-        credentialId = credential.credentialId,
-        sensitiveCredential = sensitive,
-        preSignVersion = null,
-      )
-    sensitive.close()
+      val sensitive = loadSensitive(credential)
+      val result =
+        transaction.executeMonotonicAssertion(
+          credentialId = credential.credentialId,
+          sensitiveCredential = sensitive,
+          preSignVersion = null,
+        )
+      sensitive.close()
 
-    assertTrue(result.isErr)
-    val error = result.unwrapError()
-    assertIs<SignatureCounterError.CounterOverflow>(error)
-  }
+      assertTrue(result.isErr)
+      val error = result.unwrapError()
+      assertIs<SignatureCounterError.CounterOverflow>(error)
+    }
 
   @Test
   fun `disk counter below high-water mark produces rollback failure`() = runBlocking {
@@ -203,32 +213,33 @@ class SignatureCounterPolicyTest {
   }
 
   @Test
-  fun `merge conflict prevents monotonic assertion`() = runBlocking<Unit> {
-    val credential = createAndSaveCredential("example.com", "user1")
-    val transaction = SignatureCounterTransaction(storage, highWaterMark, repositoryState)
+  fun `merge conflict prevents monotonic assertion`() =
+    runBlocking<Unit> {
+      val credential = createAndSaveCredential("example.com", "user1")
+      val transaction = SignatureCounterTransaction(storage, highWaterMark, repositoryState)
 
-    indexedStorage.onGitSyncCompleted(
-      GitSyncResult(
-        oldHead = "abc",
-        newHead = "def",
-        worktreeChanged = true,
-        conflicts = listOf("fido2/example.com/somefile.gpg"),
+      indexedStorage.onGitSyncCompleted(
+        GitSyncResult(
+          oldHead = "abc",
+          newHead = "def",
+          worktreeChanged = true,
+          conflicts = listOf("fido2/example.com/somefile.gpg"),
+        )
       )
-    )
 
-    val sensitive = loadSensitive(credential)
-    val result =
-      transaction.executeMonotonicAssertion(
-        credentialId = credential.credentialId,
-        sensitiveCredential = sensitive,
-        preSignVersion = null,
-      )
-    sensitive.close()
+      val sensitive = loadSensitive(credential)
+      val result =
+        transaction.executeMonotonicAssertion(
+          credentialId = credential.credentialId,
+          sensitiveCredential = sensitive,
+          preSignVersion = null,
+        )
+      sensitive.close()
 
-    assertTrue(result.isErr)
-    val error = result.unwrapError()
-    assertIs<SignatureCounterError.MergeConflict>(error)
-  }
+      assertTrue(result.isErr)
+      val error = result.unwrapError()
+      assertIs<SignatureCounterError.MergeConflict>(error)
+    }
 
   @Test
   fun `process restart resumes from durable disk state`() = runBlocking {
@@ -262,34 +273,40 @@ class SignatureCounterPolicyTest {
   }
 
   @Test
-  fun `migration of existing git credential uses zero policy without parse failure`() = runBlocking {
-    val credential =
-      PasskeyCredential(
-        credentialId = "migrated-cred".toByteArray(),
-        privateKey = ByteArray(32) { it.toByte() },
-        publicKey = ByteArray(65) { if (it == 0) 0x04.toByte() else it.toByte() },
-        rpId = "example.com",
-        user = FidoUser(id = "user-id".toByteArray(), name = "migrated", displayName = "Migrated User"),
-        signCount = 42u,
-        createdAt = Clock.System.now(),
-        transports = listOf("internal"),
-        uvInitialized = true,
-        backupEligible = true,
-        backupState = false,
-      )
-    storage.saveCredential(credential)
+  fun `migration of existing git credential uses zero policy without parse failure`() =
+    runBlocking {
+      val credential =
+        PasskeyCredential(
+          credentialId = "migrated-cred".toByteArray(),
+          privateKey = ByteArray(32) { it.toByte() },
+          publicKey = ByteArray(65) { if (it == 0) 0x04.toByte() else it.toByte() },
+          rpId = "example.com",
+          user =
+            FidoUser(
+              id = "user-id".toByteArray(),
+              name = "migrated",
+              displayName = "Migrated User",
+            ),
+          signCount = 42u,
+          createdAt = Clock.System.now(),
+          transports = listOf("internal"),
+          uvInitialized = true,
+          backupEligible = true,
+          backupState = false,
+        )
+      storage.saveCredential(credential)
 
-    val policy = SignatureCounterPolicy.ZERO_FOR_SYNCABLE
-    val signCount =
-      when (policy) {
-        SignatureCounterPolicy.ZERO_FOR_SYNCABLE -> 0u
-        SignatureCounterPolicy.MONOTONIC_LOCAL -> fail("unexpected")
-      }
-    assertEquals(0u, signCount)
+      val policy = SignatureCounterPolicy.ZERO_FOR_SYNCABLE
+      val signCount =
+        when (policy) {
+          SignatureCounterPolicy.ZERO_FOR_SYNCABLE -> 0u
+          SignatureCounterPolicy.MONOTONIC_LOCAL -> fail("unexpected")
+        }
+      assertEquals(0u, signCount)
 
-    val loaded = storage.loadForSigning(credential.credentialId)
-    assertTrue(loaded.isOk)
-  }
+      val loaded = storage.loadForSigning(credential.credentialId)
+      assertTrue(loaded.isOk)
+    }
 
   @Test
   fun `high water mark detects rollback`() {
@@ -327,28 +344,31 @@ class SignatureCounterPolicyTest {
     sensitive.close()
 
     assertTrue(result.isOk)
-    assertEquals(ULong.MAX_VALUE - 1u, result.getOrElse { _: SignatureCounterError -> fail("should succeed") })
+    assertEquals(
+      ULong.MAX_VALUE - 1u,
+      result.getOrElse { _: SignatureCounterError -> fail("should succeed") },
+    )
   }
 
   @Test
-  fun `monotonic local credential at ULong MAX_VALUE overflows`() = runBlocking<Unit> {
-    val credential =
-      createAndSaveCredentialWithSignCount("example.com", "user1", ULong.MAX_VALUE)
-    val transaction = SignatureCounterTransaction(storage, highWaterMark, repositoryState)
+  fun `monotonic local credential at ULong MAX_VALUE overflows`() =
+    runBlocking<Unit> {
+      val credential = createAndSaveCredentialWithSignCount("example.com", "user1", ULong.MAX_VALUE)
+      val transaction = SignatureCounterTransaction(storage, highWaterMark, repositoryState)
 
-    val sensitive = loadSensitive(credential)
-    val result =
-      transaction.executeMonotonicAssertion(
-        credentialId = credential.credentialId,
-        sensitiveCredential = sensitive,
-        preSignVersion = null,
-      )
-    sensitive.close()
+      val sensitive = loadSensitive(credential)
+      val result =
+        transaction.executeMonotonicAssertion(
+          credentialId = credential.credentialId,
+          sensitiveCredential = sensitive,
+          preSignVersion = null,
+        )
+      sensitive.close()
 
-    assertTrue(result.isErr)
-    val error = result.unwrapError()
-    assertIs<SignatureCounterError.CounterOverflow>(error)
-  }
+      assertTrue(result.isErr)
+      val error = result.unwrapError()
+      assertIs<SignatureCounterError.CounterOverflow>(error)
+    }
 
   private suspend fun createAndSaveCredential(rpId: String, userName: String): PasskeyCredential {
     val credential =
@@ -479,18 +499,30 @@ private class VersionMutatingPasskeyStorage(
 }
 
 private class FailingUpdateSignCountStorage(private val delegate: PasskeyStorage) : PasskeyStorage {
-  override suspend fun listMetadata(rpId: String?): com.github.michaelbull.result.Result<List<app.passwordstore.passkeys.model.PasskeyMetadata>, Throwable> =
-    delegate.listMetadata(rpId)
+  override suspend fun listMetadata(
+    rpId: String?
+  ): com.github.michaelbull.result.Result<
+    List<app.passwordstore.passkeys.model.PasskeyMetadata>,
+    Throwable,
+  > = delegate.listMetadata(rpId)
 
-  override suspend fun loadForSigning(credentialId: ByteArray): com.github.michaelbull.result.Result<SensitivePasskeyCredential, Throwable> =
+  override suspend fun loadForSigning(
+    credentialId: ByteArray
+  ): com.github.michaelbull.result.Result<SensitivePasskeyCredential, Throwable> =
     delegate.loadForSigning(credentialId)
 
-  override suspend fun saveCredential(credential: app.passwordstore.passkeys.model.PasskeyCredential): com.github.michaelbull.result.Result<Unit, Throwable> =
-    delegate.saveCredential(credential)
+  override suspend fun saveCredential(
+    credential: app.passwordstore.passkeys.model.PasskeyCredential
+  ): com.github.michaelbull.result.Result<Unit, Throwable> = delegate.saveCredential(credential)
 
-  override suspend fun deleteCredential(credentialId: ByteArray): com.github.michaelbull.result.Result<Boolean, Throwable> =
+  override suspend fun deleteCredential(
+    credentialId: ByteArray
+  ): com.github.michaelbull.result.Result<Boolean, Throwable> =
     delegate.deleteCredential(credentialId)
 
-  override suspend fun updateSignCount(credentialId: ByteArray, newSignCount: ULong): com.github.michaelbull.result.Result<Unit, Throwable> =
+  override suspend fun updateSignCount(
+    credentialId: ByteArray,
+    newSignCount: ULong,
+  ): com.github.michaelbull.result.Result<Unit, Throwable> =
     Err(IllegalStateException("Injected write failure"))
 }

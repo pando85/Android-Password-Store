@@ -53,7 +53,15 @@ public class SignatureCounterTransaction(
       return Err(SignatureCounterError.MergeConflict)
     }
 
-    val currentVersion = storage.resolveSourceVersion(credentialId).fold(success = { it }, failure = { return Err(SignatureCounterError.PersistenceFailed) })
+    val currentVersion =
+      storage
+        .resolveSourceVersion(credentialId)
+        .fold(
+          success = { it },
+          failure = {
+            return Err(SignatureCounterError.PersistenceFailed)
+          },
+        )
     if (preSignVersion != null && currentVersion != null && preSignVersion != currentVersion) {
       return Err(SignatureCounterError.FileChangedSinceSelection)
     }
@@ -63,7 +71,9 @@ public class SignatureCounterTransaction(
         .loadForSigning(credentialId)
         .fold(
           success = { it },
-          failure = { return Err(SignatureCounterError.PersistenceFailed) },
+          failure = {
+            return Err(SignatureCounterError.PersistenceFailed)
+          },
         )
 
     val currentCounter = freshCredential.signCount
@@ -71,7 +81,9 @@ public class SignatureCounterTransaction(
     if (highWaterMark.detectRollback(credentialId, currentCounter)) {
       val hwm = highWaterMark.getHighWaterMark(credentialId)
       freshCredential.close()
-      return Err(SignatureCounterError.RollbackDetected(diskCounter = currentCounter, highWaterMark = hwm))
+      return Err(
+        SignatureCounterError.RollbackDetected(diskCounter = currentCounter, highWaterMark = hwm)
+      )
     }
 
     val nextCounter =
