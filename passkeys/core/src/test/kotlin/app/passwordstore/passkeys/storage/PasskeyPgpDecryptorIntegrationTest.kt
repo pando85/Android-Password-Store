@@ -97,7 +97,7 @@ class PasskeyPgpDecryptorIntegrationTest {
     val result = mockDecryptor.decrypt(file, mockUnlockContext)
 
     assertTrue(result.isErr)
-    val error = result.error
+    val error = result.unwrapError()
     assertIs<PasskeyDecryptionError.MissingSecretKey>(error)
     assertEquals(setOf("0x1234567890ABCDEF"), error.recipientIds)
   }
@@ -125,7 +125,7 @@ class PasskeyPgpDecryptorIntegrationTest {
     val result = mockDecryptor.decrypt(file, mockUnlockContext)
 
     assertTrue(result.isErr)
-    val error = result.error
+    val error = result.unwrapError()
     assertIs<PasskeyDecryptionError.IncorrectPassphrase>(error)
     assertEquals("0x1234567890ABCDEF", error.keyId)
   }
@@ -153,7 +153,7 @@ class PasskeyPgpDecryptorIntegrationTest {
     val result = mockDecryptor.decrypt(file, mockUnlockContext)
 
     assertTrue(result.isErr)
-    val error = result.error
+    val error = result.unwrapError()
     assertIs<PasskeyDecryptionError.IntegrityCheckFailed>(error)
   }
 
@@ -180,7 +180,7 @@ class PasskeyPgpDecryptorIntegrationTest {
     val result = mockDecryptor.decrypt(file, mockUnlockContext)
 
     assertTrue(result.isErr)
-    val error = result.error
+    val error = result.unwrapError()
     assertIs<PasskeyDecryptionError.MalformedCiphertext>(error)
   }
 
