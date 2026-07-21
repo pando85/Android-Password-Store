@@ -6,7 +6,9 @@
 package app.passwordstore.passkeys.provider
 
 import app.passwordstore.passkeys.crypto.AssertionResult
+import app.passwordstore.passkeys.crypto.CallerType
 import app.passwordstore.passkeys.crypto.ES256CryptoHandler
+import app.passwordstore.passkeys.crypto.VerifiedWebAuthnContext
 import app.passwordstore.passkeys.model.FidoUser
 import app.passwordstore.passkeys.model.PasskeyCredential
 import kotlin.test.Test
@@ -100,6 +102,14 @@ class PasskeyProviderUtilsTest {
   @Test
   fun `buildAttestationResponse encodes none attestation with auth data`() {
     val credential = sampleCredential("alice")
+    val verifiedContext =
+      VerifiedWebAuthnContext(
+        callingPackage = "com.test.app",
+        origin = "https://example.com",
+        clientDataHash = null,
+        callerType = CallerType.NATIVE_APP,
+        signingCertificateDigests = setOf("testdigest"),
+      )
 
     val responseJson =
       PasskeyProviderUtils.buildAttestationResponse(
@@ -112,6 +122,7 @@ class PasskeyProviderUtilsTest {
         }
         """
           .trimIndent(),
+        verifiedContext,
       )
 
     val response = json.decodeFromString(AttestationResponseJson.serializer(), responseJson)

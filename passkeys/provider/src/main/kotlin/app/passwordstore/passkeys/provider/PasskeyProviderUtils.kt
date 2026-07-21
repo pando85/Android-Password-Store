@@ -7,6 +7,7 @@ package app.passwordstore.passkeys.provider
 
 import app.passwordstore.passkeys.crypto.AssertionResult
 import app.passwordstore.passkeys.crypto.ES256CryptoHandler
+import app.passwordstore.passkeys.crypto.VerifiedWebAuthnContext
 import app.passwordstore.passkeys.model.PasskeyCredential
 import app.passwordstore.passkeys.model.PasskeyMetadata
 import java.io.ByteArrayOutputStream
@@ -103,19 +104,25 @@ public object PasskeyProviderUtils {
    *
    * @param credential The newly created credential
    * @param requestJson The original request JSON
+   * @param verifiedContext The verified caller context providing the trusted origin
    * @return JSON-encoded attestation response
    */
-  public fun buildAttestationResponse(credential: PasskeyCredential, requestJson: String): String {
+  public fun buildAttestationResponse(
+    credential: PasskeyCredential,
+    requestJson: String,
+    verifiedContext: VerifiedWebAuthnContext,
+  ): String {
     val request = json.decodeFromString<WebAuthnCreateRequest>(requestJson)
-    return buildAttestationResponse(credential, request)
+    return buildAttestationResponse(credential, request, verifiedContext)
   }
 
   internal fun buildAttestationResponse(
     credential: PasskeyCredential,
     request: WebAuthnCreateRequest,
+    verifiedContext: VerifiedWebAuthnContext,
   ): String {
-    val origin = "https://${credential.rpId}"
-    val clientDataJson = buildClientDataJson("webauthn.create", request.challenge, origin)
+    val clientDataJson =
+      buildClientDataJson("webauthn.create", request.challenge, verifiedContext.origin)
     val coseKey = encodeCoseEcPublicKey(credential.publicKey)
     val authData = buildAttestedAuthenticatorData(credential, coseKey)
     val spkiPublicKey = buildSpkiPublicKey(credential.publicKey)
@@ -196,9 +203,6 @@ public object PasskeyProviderUtils {
   ): ByteArray {
     require(credential.credentialId.size <= 1023) {
       "Credential ID too large: ${credential.credentialId.size} bytes (max 1023)"
-    }
-    require(credential.credentialId.size <= 65535) {
-      "Credential ID exceeds 16-bit length encoding: ${credential.credentialId.size}"
     }
     val rpIdHash = MessageDigest.getInstance("SHA-256").digest(credential.rpId.toByteArray())
     val flags =

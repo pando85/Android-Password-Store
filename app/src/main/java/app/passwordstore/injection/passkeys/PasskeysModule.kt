@@ -9,9 +9,11 @@ import android.content.Context
 import app.passwordstore.crypto.PGPKeyManager
 import app.passwordstore.crypto.PGPainlessCryptoHandler
 import app.passwordstore.passkeys.BiometricPasskeyAuthenticator
+import app.passwordstore.passkeys.DefaultWebAuthnCallerVerifier
 import app.passwordstore.passkeys.crypto.ES256CryptoHandler
 import app.passwordstore.passkeys.crypto.PasskeyCryptoHandler
 import app.passwordstore.passkeys.provider.PasskeyAuthenticator
+import app.passwordstore.passkeys.provider.caller.WebAuthnCallerVerifier
 import app.passwordstore.passkeys.storage.FilePasskeyStorage
 import app.passwordstore.passkeys.storage.IndexedPasskeyStorage
 import app.passwordstore.passkeys.storage.PasskeyStorage
@@ -36,6 +38,11 @@ object PasskeysModule {
   @Provides
   @Singleton
   fun providePasskeyAuthenticator(): PasskeyAuthenticator = BiometricPasskeyAuthenticator()
+
+  @Provides
+  @Singleton
+  fun provideCallerVerifier(@ApplicationContext context: Context): WebAuthnCallerVerifier =
+    DefaultWebAuthnCallerVerifier(context)
 
   @Provides
   @Singleton

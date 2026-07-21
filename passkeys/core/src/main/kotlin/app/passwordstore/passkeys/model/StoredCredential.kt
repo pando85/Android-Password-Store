@@ -9,6 +9,7 @@ import app.passwordstore.passkeys.cbor.Cbor
 import app.passwordstore.passkeys.cbor.CborMap
 import app.passwordstore.passkeys.cbor.CborValue
 import app.passwordstore.passkeys.cbor.toCborIntegerArray
+import app.passwordstore.passkeys.crypto.CallerType
 import java.math.BigInteger
 import kotlinx.datetime.Instant
 import org.bouncycastle.crypto.ec.CustomNamedCurves
@@ -24,6 +25,10 @@ public data class StoredCredential(
   val created: Long,
   val discoverable: Boolean = true,
   val extensions: Extensions = Extensions(),
+  val createdByCallerType: CallerType? = null,
+  val createdByPackage: String? = null,
+  val createdByCertificateDigest: String? = null,
+  val verifiedOrigin: String? = null,
 ) {
 
   override fun toString(): String =
@@ -42,6 +47,18 @@ public data class StoredCredential(
     map["created"] = CborValue.UnsignedInteger(BigInteger.valueOf(created))
     map["discoverable"] = if (discoverable) CborValue.True else CborValue.False
     map["extensions"] = CborValue.Map(extensions.toCborMap())
+    createdByCallerType?.let {
+      map["created_by_caller_type"] = CborValue.TextString(it.name)
+    } ?: run { map["created_by_caller_type"] = CborValue.Null }
+    createdByPackage?.let {
+      map["created_by_package"] = CborValue.TextString(it)
+    } ?: run { map["created_by_package"] = CborValue.Null }
+    createdByCertificateDigest?.let {
+      map["created_by_cert_digest"] = CborValue.TextString(it)
+    } ?: run { map["created_by_cert_digest"] = CborValue.Null }
+    verifiedOrigin?.let {
+      map["verified_origin"] = CborValue.TextString(it)
+    } ?: run { map["verified_origin"] = CborValue.Null }
     return Cbor.fromMap(CborMap.from(map)).toBytes()
   }
 
@@ -56,6 +73,10 @@ public data class StoredCredential(
       createdAt = Instant.fromEpochSeconds(created),
       transports = listOf("internal"),
       uvInitialized = true,
+      createdByCallerType = createdByCallerType,
+      createdByPackage = createdByPackage,
+      createdByCertificateDigest = createdByCertificateDigest,
+      verifiedOrigin = verifiedOrigin,
     )
   }
 
@@ -79,6 +100,10 @@ public data class StoredCredential(
     if (created != other.created) return false
     if (discoverable != other.discoverable) return false
     if (extensions != other.extensions) return false
+    if (createdByCallerType != other.createdByCallerType) return false
+    if (createdByPackage != other.createdByPackage) return false
+    if (createdByCertificateDigest != other.createdByCertificateDigest) return false
+    if (verifiedOrigin != other.verifiedOrigin) return false
     return true
   }
 
@@ -93,6 +118,10 @@ public data class StoredCredential(
     result = 31 * result + created.hashCode()
     result = 31 * result + discoverable.hashCode()
     result = 31 * result + extensions.hashCode()
+    result = 31 * result + (createdByCallerType?.hashCode() ?: 0)
+    result = 31 * result + (createdByPackage?.hashCode() ?: 0)
+    result = 31 * result + (createdByCertificateDigest?.hashCode() ?: 0)
+    result = 31 * result + (verifiedOrigin?.hashCode() ?: 0)
     return result
   }
 
@@ -125,6 +154,22 @@ public data class StoredCredential(
         map.getLong("created") ?: throw IllegalArgumentException("Missing 'created' field")
       val discoverable = map.getBoolean("discoverable") ?: true
       val extensionsMap = map.getMap("extensions")
+      val createdByCallerType =
+        if (map.isNull("created_by_caller_type")) null
+        else
+          map.getString("created_by_caller_type")?.let {
+            try {
+              CallerType.valueOf(it)
+            } catch (_: Exception) {
+              null
+            }
+          }
+      val createdByPackage =
+        if (map.isNull("created_by_package")) null else map.getString("created_by_package")
+      val createdByCertificateDigest =
+        if (map.isNull("created_by_cert_digest")) null else map.getString("created_by_cert_digest")
+      val verifiedOrigin =
+        if (map.isNull("verified_origin")) null else map.getString("verified_origin")
 
       return StoredCredential(
         id = id,
@@ -137,6 +182,10 @@ public data class StoredCredential(
         created = created,
         discoverable = discoverable,
         extensions = extensionsMap?.let { Extensions.fromCborMap(it) } ?: Extensions(),
+        createdByCallerType = createdByCallerType,
+        createdByPackage = createdByPackage,
+        createdByCertificateDigest = createdByCertificateDigest,
+        verifiedOrigin = verifiedOrigin,
       )
     }
 
@@ -157,6 +206,10 @@ public data class StoredCredential(
         created = credential.createdAt.epochSeconds,
         discoverable = true,
         extensions = Extensions(),
+        createdByCallerType = credential.createdByCallerType,
+        createdByPackage = credential.createdByPackage,
+        createdByCertificateDigest = credential.createdByCertificateDigest,
+        verifiedOrigin = credential.verifiedOrigin,
       )
     }
   }
