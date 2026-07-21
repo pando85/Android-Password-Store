@@ -234,7 +234,9 @@ public class IndexedPasskeyStorage(
   }
 
   override suspend fun onGitSyncCompleted(syncResult: GitSyncResult) {
-    if (syncResult.hasConflicts && syncResult.affectsPasskeys()) {
+    val passkeyConflicts =
+      syncResult.conflicts.filter { it.startsWith("fido2/") || it == ".gpg-id" }
+    if (passkeyConflicts.isNotEmpty()) {
       inMergeConflict = true
       invalidate(InvalidationReason.MERGE_CONFLICT)
       return

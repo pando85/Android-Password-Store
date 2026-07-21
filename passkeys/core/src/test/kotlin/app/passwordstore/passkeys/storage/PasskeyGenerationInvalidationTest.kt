@@ -7,6 +7,7 @@ package app.passwordstore.passkeys.storage
 
 import app.passwordstore.passkeys.model.FidoUser
 import app.passwordstore.passkeys.model.PasskeyCredential
+import app.passwordstore.passkeys.model.PasskeyMetadata
 import com.github.michaelbull.result.getOrElse
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.test.Test
@@ -143,8 +144,7 @@ class PasskeyGenerationInvalidationTest {
 
     val cred = createTestCredential(credentialId = "c1".toByteArray())
     delegate.saveCredential(cred)
-    indexed.invalidate(InvalidationReason.EXPLICIT_REQUEST)
-
+    indexed.listMetadata()
     assertEquals(1, indexed.indexedCredentialCount())
 
     indexed.invalidate(InvalidationReason.CLEAR_CREDENTIAL_STATE)
@@ -154,6 +154,7 @@ class PasskeyGenerationInvalidationTest {
     val listAfter = indexed.listMetadata()
     assertTrue(listAfter.isOk)
     assertEquals(1, listAfter.getOrElse { emptyList() }.size)
+    Unit
   }
 
   @Test
@@ -164,7 +165,7 @@ class PasskeyGenerationInvalidationTest {
 
     val cred = createTestCredential(credentialId = "c1".toByteArray())
     delegate.saveCredential(cred)
-    indexed.invalidate(InvalidationReason.EXPLICIT_REQUEST)
+    indexed.listMetadata()
 
     assertFalse(indexed.isInMergeConflict())
 
@@ -179,6 +180,7 @@ class PasskeyGenerationInvalidationTest {
     indexed.onGitSyncCompleted(syncResult)
 
     assertTrue(indexed.isInMergeConflict())
+    Unit
   }
 
   @Test
@@ -189,8 +191,7 @@ class PasskeyGenerationInvalidationTest {
 
     val cred = createTestCredential(credentialId = "c1".toByteArray())
     delegate.saveCredential(cred)
-    indexed.invalidate(InvalidationReason.EXPLICIT_REQUEST)
-
+    indexed.listMetadata()
     assertEquals(1, indexed.indexedCredentialCount())
 
     delegate.clear()
@@ -199,6 +200,7 @@ class PasskeyGenerationInvalidationTest {
     indexed.onRepositoryReinitialized()
 
     assertEquals(0, indexed.indexedCredentialCount())
+    Unit
   }
 
   @Test
@@ -209,8 +211,7 @@ class PasskeyGenerationInvalidationTest {
 
     val cred = createTestCredential(credentialId = "c1".toByteArray())
     delegate.saveCredential(cred)
-    indexed.invalidate(InvalidationReason.EXPLICIT_REQUEST)
-
+    indexed.listMetadata()
     assertEquals(1, indexed.indexedCredentialCount())
 
     indexed.onGpgIdChanged()
@@ -220,6 +221,7 @@ class PasskeyGenerationInvalidationTest {
     val listAfter = indexed.listMetadata()
     assertTrue(listAfter.isOk)
     assertEquals(1, listAfter.getOrElse { emptyList() }.size)
+    Unit
   }
 
   @Test
@@ -248,7 +250,8 @@ class PasskeyGenerationInvalidationTest {
         indexed.onGitSyncCompleted(syncResult)
       }
       val results = awaitAll(assertionJob, syncJob)
-      val metadataResult = results[0]
+      @Suppress("UNCHECKED_CAST")
+      val metadataResult = results[0] as com.github.michaelbull.result.Result<List<PasskeyMetadata>, Throwable>
       assertTrue(metadataResult.isOk)
     }
   }
@@ -261,8 +264,7 @@ class PasskeyGenerationInvalidationTest {
 
     val cred = createTestCredential(credentialId = "c1".toByteArray())
     delegate.saveCredential(cred)
-    indexed.invalidate(InvalidationReason.EXPLICIT_REQUEST)
-
+    indexed.listMetadata()
     assertEquals(1, indexed.indexedCredentialCount())
 
     val syncResult =
@@ -275,6 +277,7 @@ class PasskeyGenerationInvalidationTest {
     indexed.onGitSyncCompleted(syncResult)
 
     assertEquals(1, indexed.indexedCredentialCount())
+    Unit
   }
 
   @Test
@@ -307,8 +310,7 @@ class PasskeyGenerationInvalidationTest {
 
     val cred = createTestCredential(credentialId = "c1".toByteArray())
     delegate.saveCredential(cred)
-    indexed.invalidate(InvalidationReason.EXPLICIT_REQUEST)
-
+    indexed.listMetadata()
     assertEquals(1, indexed.indexedCredentialCount())
 
     val newProvider = TestGenerationProvider(identity = "repo-B")
@@ -319,6 +321,7 @@ class PasskeyGenerationInvalidationTest {
     val list = indexed2.listMetadata()
     assertTrue(list.isOk)
     assertEquals(1, list.getOrElse { emptyList() }.size)
+    Unit
   }
 
   @Test
@@ -384,6 +387,7 @@ class PasskeyGenerationInvalidationTest {
 
     val version = indexed.getSourceVersion(cred.credentialId)
     assertNotNull(version)
+    Unit
   }
 
   @Test
