@@ -15,6 +15,7 @@ import com.github.michaelbull.result.Result
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.Clock
+import java.security.MessageDigest
 
 public class InMemoryPasskeyStorage : PasskeyStorage {
 
@@ -86,6 +87,33 @@ public class InMemoryPasskeyStorage : PasskeyStorage {
         Ok(Unit)
       } else {
         Err(IllegalArgumentException("Credential not found"))
+      }
+    }
+
+  override suspend fun resolveSourceVersion(
+    credentialId: ByteArray
+  ): Result<CredentialSourceVersion?, Throwable> =
+    withContext(Dispatchers.Default) {
+      val key = credentialIdKey(credentialId)
+      val credential = credentials[key]
+      if (credential != null) {
+        val digest = MessageDigest.getInstance("SHA-256").digest(credential.privateKey)
+        Ok(
+          CredentialSourceVersion(
+            repositoryGeneration =
+              RepositoryGeneration(
+                repositoryIdentity = "in-memory",
+                gitHead = null,
+                worktreeGeneration = credentials.size.toLong(),
+              ),
+            canonicalPath = "in-memory://$key",
+            fileSize = credential.privateKey.size.toLong(),
+            modifiedAtMillis = Clock.System.now().toEpochMilliseconds(),
+            ciphertextDigest = digest,
+          )
+        )
+      } else {
+        Ok(null)
       }
     }
 
