@@ -135,6 +135,7 @@ class PasskeyPgpDecryptorIntegrationTest {
     assertTrue(result.isErr)
     val error = result.unwrapError()
     assertIs<PasskeyDecryptionError.IntegrityCheckFailed>(error)
+    Unit
   }
 
   @Test
@@ -162,6 +163,7 @@ class PasskeyPgpDecryptorIntegrationTest {
     assertTrue(result.isErr)
     val error = result.unwrapError()
     assertIs<PasskeyDecryptionError.MalformedCiphertext>(error)
+    Unit
   }
 
   @Test
