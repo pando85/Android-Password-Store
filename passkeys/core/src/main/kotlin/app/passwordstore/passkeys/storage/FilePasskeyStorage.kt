@@ -19,7 +19,6 @@ import com.github.michaelbull.result.Ok
 import com.github.michaelbull.result.Result
 import com.github.michaelbull.result.fold
 import java.io.ByteArrayInputStream
-import java.io.ByteArrayOutputStream
 import java.io.File
 import java.security.MessageDigest
 import kotlinx.coroutines.Dispatchers
@@ -42,6 +41,8 @@ public class FilePasskeyStorage<
   private val encryptionKeys: () -> List<Key>,
   private val encryptionOptions: EncOpts,
   private val config: PasskeyStorageConfig = PasskeyStorageConfig(),
+  private val atomicWriter: DefaultAtomicCredentialWriter =
+    DefaultAtomicCredentialWriter(repositoryRoot),
 ) : PasskeyStorage {
 
   private val passkeyDir: File
@@ -63,8 +64,13 @@ public class FilePasskeyStorage<
         val metadata = mutableListOf<PasskeyMetadata>()
         targetDir
           .walkTopDown()
-          .filter { it.isFile && it.extension == config.fileExtension.removePrefix(".") }
+          .filter { file ->
+            file.isFile &&
+              file.extension == config.fileExtension.removePrefix(".") &&
+              !atomicWriter.isInternalArtifact(file.name)
+          }
           .forEach { file ->
+            if (java.nio.file.Files.isSymbolicLink(file.toPath())) return@forEach
             val credentialId = hexToBytes(file.nameWithoutExtension) ?: return@forEach
             val fileRpId =
               if (rpId != null) rpId else unsanitizeRpId(file.parentFile?.name ?: return@forEach)
@@ -104,6 +110,9 @@ public class FilePasskeyStorage<
           .walkTopDown()
           .filter { it.isFile && it.nameWithoutExtension == hexId }
           .forEach { file ->
+            if (java.nio.file.Files.isSymbolicLink(file.toPath())) {
+              return@withContext Err(IllegalStateException("Symlink rejected for credential file"))
+            }
             val stored = decryptCredential(file)
             if (stored != null) {
               return@withContext Ok(
@@ -141,29 +150,37 @@ public class FilePasskeyStorage<
         val file = File(rpDir, fileName)
 
         val plaintext = storedCred.toCbor()
-        val plaintextStream = ByteArrayInputStream(plaintext)
-        val outputStream = ByteArrayOutputStream()
 
-        cryptoHandler
-          .encrypt(
-            keys = encryptionKeys(),
-            passphrase = null,
-            plaintextStream = plaintextStream,
-            outputStream = outputStream,
-            options = encryptionOptions,
-          )
-          .fold(
-            success = {
-              file.writeBytes(outputStream.toByteArray())
-              plaintext.fill(0)
-              logcat { "Saved passkey for ${credential.rpId}/${storedCred.credentialIdHex()}" }
-              Ok(Unit)
-            },
-            failure = {
-              plaintext.fill(0)
-              Err(it)
-            },
-          )
+        try {
+          atomicWriter
+            .replace(file) { outputStream ->
+              val plaintextStream = ByteArrayInputStream(plaintext)
+              cryptoHandler
+                .encrypt(
+                  keys = encryptionKeys(),
+                  passphrase = null,
+                  plaintextStream = plaintextStream,
+                  outputStream = outputStream,
+                  options = encryptionOptions,
+                )
+                .fold(
+                  success = { },
+                  failure = { throw it },
+                )
+            }
+            .fold(
+              success = {
+                logcat { "Saved passkey for ${credential.rpId}/${storedCred.credentialIdHex()}" }
+                Ok(Unit)
+              },
+              failure = { error ->
+                logcat(LogPriority.ERROR) { "Atomic write failed: ${error.message}" }
+                Err(storageErrorToException(error))
+              },
+            )
+        } finally {
+          plaintext.fill(0)
+        }
       } catch (e: Exception) {
         logcat(LogPriority.ERROR) { "Failed to save credential: ${e.message}" }
         Err(e)
@@ -179,12 +196,21 @@ public class FilePasskeyStorage<
           .walkTopDown()
           .filter { it.isFile && it.nameWithoutExtension == hexId }
           .forEach { file ->
-            val deleted = file.delete()
-            if (deleted) {
-              logcat { "Deleted passkey ${hexId}" }
-              cleanupEmptyDirectories(file.parentFile)
-            }
-            return@withContext Ok(deleted)
+            return@withContext atomicWriter
+              .deleteAtomic(file)
+              .fold(
+                success = { deleted ->
+                  if (deleted) {
+                    logcat { "Deleted passkey ${hexId}" }
+                    cleanupEmptyDirectories(file.parentFile)
+                  }
+                  Ok(deleted)
+                },
+                failure = { error ->
+                  logcat(LogPriority.ERROR) { "Atomic delete failed: ${error.message}" }
+                  Err(storageErrorToException(error))
+                },
+              )
           }
 
         Ok(false)
@@ -210,29 +236,37 @@ public class FilePasskeyStorage<
             if (credential != null) {
               val updated = credential.copy(signCount = newSignCount.toUInt())
               val plaintext = updated.toCbor()
-              val plaintextStream = ByteArrayInputStream(plaintext)
-              val outputStream = ByteArrayOutputStream()
 
-              cryptoHandler
-                .encrypt(
-                  keys = encryptionKeys(),
-                  passphrase = null,
-                  plaintextStream = plaintextStream,
-                  outputStream = outputStream,
-                  options = encryptionOptions,
-                )
-                .fold(
-                  success = {
-                    file.writeBytes(outputStream.toByteArray())
-                    plaintext.fill(0)
-                    logcat { "Updated sign count for ${hexId}" }
-                  },
-                  failure = {
-                    plaintext.fill(0)
-                    return@withContext Err(it)
-                  },
-                )
-              return@withContext Ok(Unit)
+              try {
+                return@withContext atomicWriter
+                  .replace(file) { outputStream ->
+                    val plaintextStream = ByteArrayInputStream(plaintext)
+                    cryptoHandler
+                      .encrypt(
+                        keys = encryptionKeys(),
+                        passphrase = null,
+                        plaintextStream = plaintextStream,
+                        outputStream = outputStream,
+                        options = encryptionOptions,
+                      )
+                      .fold(
+                        success = { },
+                        failure = { throw it },
+                      )
+                  }
+                  .fold(
+                    success = {
+                      logcat { "Updated sign count for ${hexId}" }
+                      Ok(Unit)
+                    },
+                    failure = { error ->
+                      logcat(LogPriority.ERROR) { "Atomic write for counter update failed: ${error.message}" }
+                      Err(storageErrorToException(error))
+                    },
+                  )
+              } finally {
+                plaintext.fill(0)
+              }
             }
           }
 
@@ -257,9 +291,14 @@ public class FilePasskeyStorage<
         var found: CredentialSourceVersion? = null
         dir
           .walkTopDown()
-          .filter { it.isFile && it.nameWithoutExtension == hexId }
+          .filter { file ->
+            file.isFile &&
+              file.nameWithoutExtension == hexId &&
+              !atomicWriter.isInternalArtifact(file.name)
+          }
           .forEach { file ->
             if (found != null) return@forEach
+            if (java.nio.file.Files.isSymbolicLink(file.toPath())) return@forEach
             val canonicalPath = file.canonicalPath
             val fileSize = file.length()
             val modifiedAtMillis = file.lastModified()
@@ -284,6 +323,12 @@ public class FilePasskeyStorage<
         Err(e)
       }
     }
+
+  public suspend fun recoverStaleArtifacts(): List<File> {
+    val dir = passkeyDir
+    if (!dir.exists() || !dir.isDirectory) return emptyList()
+    return atomicWriter.cleanupStaleTempFiles(dir)
+  }
 
   private suspend fun decryptCredential(file: File): StoredCredential? {
     return try {
@@ -351,6 +396,33 @@ public class FilePasskeyStorage<
       }
     } catch (e: NumberFormatException) {
       null
+    }
+  }
+
+  private fun storageErrorToException(error: AtomicWriteError): Exception {
+    return when (error) {
+      is AtomicWriteError.TargetOutsideRepository ->
+        SecurityException(error.message)
+      is AtomicWriteError.SymlinkRejected ->
+        SecurityException(error.message)
+      is AtomicWriteError.AtomicMoveUnsupported ->
+        UnsupportedOperationException(error.message)
+      is AtomicWriteError.ConcurrentModification ->
+        IllegalStateException(error.message)
+      is AtomicWriteError.DirectorySyncFailed ->
+        java.io.IOException(error.message)
+      is AtomicWriteError.EncryptionFailed ->
+        java.io.IOException(error.message)
+      is AtomicWriteError.FileSyncFailed ->
+        java.io.IOException(error.message)
+      is AtomicWriteError.IoError ->
+        java.io.IOException(error.message)
+      is AtomicWriteError.RenameFailed ->
+        java.io.IOException(error.message)
+      is AtomicWriteError.TempCreateFailed ->
+        java.io.IOException(error.message)
+      is AtomicWriteError.VerificationFailed ->
+        java.io.IOException(error.message)
     }
   }
 }
