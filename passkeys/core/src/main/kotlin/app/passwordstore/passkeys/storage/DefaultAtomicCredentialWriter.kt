@@ -8,6 +8,7 @@ package app.passwordstore.passkeys.storage
 import com.github.michaelbull.result.Err
 import com.github.michaelbull.result.Ok
 import com.github.michaelbull.result.Result
+import com.github.michaelbull.result.fold
 import java.io.File
 import java.io.FileDescriptor
 import java.io.FileOutputStream
@@ -15,10 +16,8 @@ import java.io.OutputStream
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.withContext
 import logcat.LogPriority
 import logcat.logcat
 
@@ -36,10 +35,7 @@ public class DefaultAtomicCredentialWriter(
     }
   }
 
-  override suspend fun replace(
-    target: File,
-    writeCiphertext: suspend (OutputStream) -> Unit,
-  ): Result<DurableFileVersion, AtomicWriteError> {
+  private fun validateTarget(target: File): Result<ValidatedTarget, AtomicWriteError> {
     val canonicalTarget =
       try {
         target.canonicalFile
@@ -65,6 +61,22 @@ public class DefaultAtomicCredentialWriter(
     }
 
     val parentDir = canonicalTarget.parentFile ?: return Err(AtomicWriteError.IoError("No parent directory"))
+
+    return Ok(ValidatedTarget(canonicalTarget, parentDir))
+  }
+
+  private data class ValidatedTarget(val canonicalTarget: File, val parentDir: File)
+
+  override suspend fun replace(
+    target: File,
+    writeCiphertext: suspend (OutputStream) -> Unit,
+  ): Result<DurableFileVersion, AtomicWriteError> {
+    val validated = validateTarget(target).fold(
+      success = { it },
+      failure = { return Err(it) },
+    )
+    val canonicalTarget = validated.canonicalTarget
+    val parentDir = validated.parentDir
 
     if (!parentDir.exists()) {
       val created = parentDir.mkdirs()
@@ -191,8 +203,9 @@ public class DefaultAtomicCredentialWriter(
   private fun createExclusiveTempFile(parentDir: File, target: File): File? {
     val baseName = target.name
     val maxAttempts = 10
+    val secureRandom = java.security.SecureRandom()
     for (i in 0 until maxAttempts) {
-      val randomSuffix = java.security.SecureRandom().nextLong().toString(36)
+      val randomSuffix = secureRandom.nextLong().toString(36)
       val tempName = ".${baseName}.tmp-$randomSuffix"
       val tempFile = File(parentDir, tempName)
       try {
@@ -235,34 +248,28 @@ public class DefaultAtomicCredentialWriter(
   }
 
   private fun syncDirectory(dir: File) {
-    // Directory fsync is platform-specific and not always available via standard Java APIs.
-    // On Android, this would use libcore.io.Libcore.os.fsync().
-    // On standard JVM/Linux, we attempt to open the directory fd via reflection.
     try {
-      val unixPathClass = Class.forName("sun.nio.fs.UnixPath")
-      if (unixPathClass.isInstance(dir.toPath())) {
-        val nativeDispatcherClass = Class.forName("sun.nio.fs.UnixNativeDispatcher")
-        val openMethod = nativeDispatcherClass.getDeclaredMethod(
-          "open",
-          java.nio.file.Path::class.java,
-          Int::class.javaPrimitiveType,
-          Int::class.javaPrimitiveType,
-        )
-        openMethod.isAccessible = true
-        // O_RDONLY = 0, O_DIRECTORY = 0200000 (Linux)
-        val fd = openMethod.invoke(null, dir.toPath(), 0, 0) as Int
-        if (fd >= 0) {
+      val nativeDispatcherClass = Class.forName("sun.nio.fs.UnixNativeDispatcher")
+      val openMethod = nativeDispatcherClass.getDeclaredMethod(
+        "open",
+        ByteArray::class.java,
+        Int::class.javaPrimitiveType,
+        Int::class.javaPrimitiveType,
+      )
+      openMethod.isAccessible = true
+      val pathBytes = dir.toPath().toAbsolutePath().toString().toByteArray()
+      val fd = openMethod.invoke(null, pathBytes, 0, 0) as Int
+      if (fd >= 0) {
+        try {
+          val fsyncMethod = nativeDispatcherClass.getDeclaredMethod("fsync", Int::class.javaPrimitiveType)
+          fsyncMethod.isAccessible = true
+          fsyncMethod.invoke(null, fd)
+        } finally {
           try {
-            val fsyncMethod = nativeDispatcherClass.getDeclaredMethod("fsync", Int::class.javaPrimitiveType)
-            fsyncMethod.isAccessible = true
-            fsyncMethod.invoke(null, fd)
-          } finally {
-            try {
-              val closeMethod = nativeDispatcherClass.getDeclaredMethod("close", Int::class.javaPrimitiveType)
-              closeMethod.isAccessible = true
-              closeMethod.invoke(null, fd)
-            } catch (_: Exception) { }
-          }
+            val closeMethod = nativeDispatcherClass.getDeclaredMethod("close", Int::class.javaPrimitiveType)
+            closeMethod.isAccessible = true
+            closeMethod.invoke(null, fd)
+          } catch (_: Exception) { }
         }
       }
     } catch (_: Exception) {
@@ -273,35 +280,16 @@ public class DefaultAtomicCredentialWriter(
   public suspend fun deleteAtomic(
     target: File,
   ): Result<Boolean, AtomicWriteError> {
-    val canonicalTarget =
-      try {
-        target.canonicalFile
-      } catch (e: Exception) {
-        return Err(AtomicWriteError.IoError("Cannot resolve canonical path: ${e.message}"))
-      }
-
-    val canonicalRoot =
-      try {
-        repositoryRoot.canonicalFile
-      } catch (e: Exception) {
-        return Err(AtomicWriteError.IoError("Cannot resolve repository root: ${e.message}"))
-      }
-
-    if (!canonicalTarget.path.startsWith(canonicalRoot.path + File.separator) &&
-        canonicalTarget.path != canonicalRoot.path
-    ) {
-      return Err(AtomicWriteError.TargetOutsideRepository)
-    }
-
-    if (isSymlinkInPath(target) || isSymlink(target)) {
-      return Err(AtomicWriteError.SymlinkRejected)
-    }
+    val validated = validateTarget(target).fold(
+      success = { it },
+      failure = { return Err(it) },
+    )
+    val canonicalTarget = validated.canonicalTarget
+    val parentDir = validated.parentDir
 
     if (!canonicalTarget.exists()) {
       return Ok(false)
     }
-
-    val parentDir = canonicalTarget.parentFile ?: return Err(AtomicWriteError.IoError("No parent directory"))
 
     val mutex = mutexFor(canonicalTarget.path)
     return mutex.withLock {
@@ -362,9 +350,7 @@ public class DefaultAtomicCredentialWriter(
   }
 }
 
-public fun interface FaultInjector {
-  public fun throwIfFault(): Nothing
-
+public interface FaultInjector {
   public suspend fun beforeEncryption() {}
   public suspend fun afterEncryptionBeforeClose() {}
   public suspend fun afterCloseBeforeSync() {}
