@@ -15,7 +15,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
-import kotlinx.datetime.Clock
+import kotlin.time.Clock
 
 class WebAuthnBackupFlagsProviderTest {
 

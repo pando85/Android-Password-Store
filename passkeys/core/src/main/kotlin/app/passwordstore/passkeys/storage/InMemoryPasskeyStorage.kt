@@ -15,7 +15,7 @@ import com.github.michaelbull.result.Result
 import java.security.MessageDigest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.datetime.Clock
+import kotlin.time.Clock
 
 public class InMemoryPasskeyStorage : PasskeyStorage {
 

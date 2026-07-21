@@ -5,7 +5,7 @@
 
 package app.passwordstore.passkeys.model
 
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 public class SensitivePasskeyCredential(
   public val credentialId: ByteArray,

@@ -14,7 +14,7 @@ import app.passwordstore.passkeys.model.PasskeyCredential
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
-import kotlinx.datetime.Clock
+import kotlin.time.Clock
 import kotlinx.serialization.json.Json
 
 class PasskeyProviderUtilsTest {

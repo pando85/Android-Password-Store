@@ -281,7 +281,7 @@ class ES256CryptoHandlerEdgeCasesTest {
           displayName = "Test User",
         ),
       signCount = 0u,
-      createdAt = kotlinx.datetime.Clock.System.now(),
+      createdAt = kotlin.time.Clock.System.now(),
       transports = listOf("internal"),
       uvInitialized = true,
     )

@@ -11,7 +11,7 @@ import app.passwordstore.passkeys.cbor.CborValue
 import app.passwordstore.passkeys.cbor.toCborIntegerArray
 import app.passwordstore.passkeys.crypto.CallerType
 import java.math.BigInteger
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 import org.bouncycastle.crypto.ec.CustomNamedCurves
 
 public data class StoredCredential(

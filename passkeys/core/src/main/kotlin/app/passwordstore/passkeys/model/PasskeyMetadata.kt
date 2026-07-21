@@ -5,7 +5,7 @@
 
 package app.passwordstore.passkeys.model
 
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 public data class PasskeyMetadata(
   val credentialId: ByteArray,
