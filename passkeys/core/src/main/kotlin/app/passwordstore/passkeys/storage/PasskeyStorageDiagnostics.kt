@@ -8,6 +8,7 @@ package app.passwordstore.passkeys.storage
 import app.passwordstore.passkeys.crypto.PasskeyDecryptionError
 import app.passwordstore.passkeys.crypto.PasskeyPgpDecryptor
 import app.passwordstore.passkeys.crypto.PgpUnlockContext
+import com.github.michaelbull.result.fold
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext

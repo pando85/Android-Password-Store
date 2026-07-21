@@ -12,6 +12,8 @@ import app.passwordstore.passkeys.crypto.PgpUnlockContext
 import com.github.michaelbull.result.Err
 import com.github.michaelbull.result.Ok
 import com.github.michaelbull.result.Result
+import com.github.michaelbull.result.fold
+import com.github.michaelbull.result.getOrNull
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -99,7 +101,7 @@ public class PgpainlessPasskeyDecryptor(
   private fun extractRecipientKeyIds(ciphertext: ByteArray): Set<Long> {
     return try {
       val metadata = inspectMessageMetadata(ciphertext)
-      metadata.recipientKeyIds
+      metadata.recipientKeyIds.toSet()
     } catch (e: Exception) {
       logcat(LogPriority.WARN) { "Failed to extract recipient key IDs: ${e.message}" }
       emptySet()
@@ -121,7 +123,7 @@ public class PgpainlessPasskeyDecryptor(
       } catch (e: Exception) {
         // Expected to fail without keys, but metadata should be populated
       }
-      return stream.result.metadata
+      return stream.result
     }
   }
 
