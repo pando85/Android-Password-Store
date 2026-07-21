@@ -22,6 +22,7 @@ import app.passwordstore.passkeys.provider.caller.WebAuthnCallerVerifier
 import com.github.michaelbull.result.Err
 import com.github.michaelbull.result.Ok
 import com.github.michaelbull.result.Result
+import com.github.michaelbull.result.fold
 import java.security.MessageDigest
 import java.util.Base64
 import kotlinx.coroutines.Dispatchers
