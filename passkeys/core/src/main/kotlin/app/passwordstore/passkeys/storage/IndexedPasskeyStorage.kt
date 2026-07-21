@@ -285,15 +285,15 @@ public class IndexedPasskeyStorage(
 
   override fun isInMergeConflict(): Boolean = inMergeConflict
 
-  public fun isRepositoryBackedUp(): Boolean = repositoryBackedUp && !inMergeConflict
+  override fun isRepositoryBackedUp(): Boolean = repositoryBackedUp && !inMergeConflict
 
-  public fun hasRemote(): Boolean = hasRemoteConfigured
+  override fun hasRemote(): Boolean = hasRemoteConfigured
 
-  public fun setHasRemote(hasRemote: Boolean) {
+  override fun setHasRemote(hasRemote: Boolean) {
     hasRemoteConfigured = hasRemote
   }
 
-  public fun effectiveBackupState(credentialBackupEligible: Boolean): Boolean {
+  override fun effectiveBackupState(credentialBackupEligible: Boolean): Boolean {
     if (!credentialBackupEligible) return false
     if (inMergeConflict) return false
     return repositoryBackedUp
