@@ -181,7 +181,12 @@ public class ES256CryptoHandler : PasskeyCryptoHandler {
 
     return try {
       val authenticatorData =
-        buildAuthenticatorData(rpId, credential.signCount, credential.backupEligible, credential.backupState)
+        buildAuthenticatorData(
+          rpId,
+          credential.signCount,
+          credential.backupEligible,
+          credential.backupState,
+        )
       val (clientDataJson, clientDataHash) = buildClientData(challenge, origin, "webauthn.get")
 
       sign(credential.privateKey, authenticatorData, clientDataHash)

@@ -34,7 +34,6 @@ public data class PasskeyCredential(
     }
   }
 
-
   override fun toString(): String =
     "PasskeyCredential(credentialId=${'$'}{credentialId.contentToString()}, rpId=$'$'{rpId}, privateKey=<REDACTED>, publicKey=${'$'}{publicKey.contentToString()})"
 

@@ -7,7 +7,6 @@ package app.passwordstore.passkeys.provider
 
 import app.passwordstore.passkeys.crypto.AssertionResult
 import app.passwordstore.passkeys.crypto.AuthenticatorFlags
-import app.passwordstore.passkeys.crypto.ES256CryptoHandler
 import app.passwordstore.passkeys.crypto.VerifiedWebAuthnContext
 import app.passwordstore.passkeys.model.PasskeyCredential
 import app.passwordstore.passkeys.model.PasskeyMetadata

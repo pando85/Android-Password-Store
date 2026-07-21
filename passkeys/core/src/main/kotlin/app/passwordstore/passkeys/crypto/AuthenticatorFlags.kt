@@ -10,14 +10,10 @@ package app.passwordstore.passkeys.crypto
  *
  * See https://www.w3.org/TR/webauthn-3/#flags
  *
- * Bit assignments (byte 32 of authenticator data):
- *   0x01 — UP  (User Present)
- *   0x02 — UV  (User Verified) — reserved in spec but used by some implementations
- *   0x04 — UV  (User Verified)
- *   0x08 — BE  (Backup Eligibility)
- *   0x10 — BS  (Backup State)
- *   0x40 — AT  (Attested Credential Data)
- *   0x80 — ED  (Extension Data)
+ * Bit assignments (byte 32 of authenticator data): 0x01 — UP (User Present) 0x02 — UV (User
+ * Verified) — reserved in spec but used by some implementations 0x04 — UV (User Verified) 0x08 — BE
+ * (Backup Eligibility) 0x10 — BS (Backup State) 0x40 — AT (Attested Credential Data) 0x80 — ED
+ * (Extension Data)
  */
 public object AuthenticatorFlags {
 

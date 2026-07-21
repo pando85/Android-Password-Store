@@ -29,8 +29,7 @@ class WebAuthnBackupFlagsProviderTest {
     val response =
       PasskeyProviderUtils.json.decodeFromString(AttestationResponseJson.serializer(), responseJson)
 
-    val authData =
-      PasskeyProviderUtils.decodeBase64Url(response.response.authenticatorData)
+    val authData = PasskeyProviderUtils.decodeBase64Url(response.response.authenticatorData)
     val flagsByte = authData[32].toInt() and 0xFF
     assertTrue(flagsByte and 0x08 != 0, "Registration should set BE for syncable credential")
     assertFalse((flagsByte and 0x10) != 0, "Registration should not set BS before backup")
@@ -45,8 +44,7 @@ class WebAuthnBackupFlagsProviderTest {
     val response =
       PasskeyProviderUtils.json.decodeFromString(AttestationResponseJson.serializer(), responseJson)
 
-    val authData =
-      PasskeyProviderUtils.decodeBase64Url(response.response.authenticatorData)
+    val authData = PasskeyProviderUtils.decodeBase64Url(response.response.authenticatorData)
     val flagsByte = authData[32].toInt() and 0xFF
     assertTrue(flagsByte and 0x08 != 0, "Registration should set BE")
     assertTrue(flagsByte and 0x10 != 0, "Registration should set BS for backed up credential")
@@ -60,8 +58,7 @@ class WebAuthnBackupFlagsProviderTest {
     val response =
       PasskeyProviderUtils.json.decodeFromString(AttestationResponseJson.serializer(), responseJson)
 
-    val authData =
-      PasskeyProviderUtils.decodeBase64Url(response.response.authenticatorData)
+    val authData = PasskeyProviderUtils.decodeBase64Url(response.response.authenticatorData)
     val flagsByte = authData[32].toInt() and 0xFF
     assertFalse((flagsByte and 0x08) != 0, "Registration should not set BE for device-bound")
     assertFalse((flagsByte and 0x10) != 0, "Registration should not set BS for device-bound")
@@ -86,8 +83,7 @@ class WebAuthnBackupFlagsProviderTest {
     val responseJson = buildAttestation(credential)
     val response =
       PasskeyProviderUtils.json.decodeFromString(AttestationResponseJson.serializer(), responseJson)
-    val authData =
-      PasskeyProviderUtils.decodeBase64Url(response.response.authenticatorData)
+    val authData = PasskeyProviderUtils.decodeBase64Url(response.response.authenticatorData)
     val registrationFlags = authData[32].toInt() and 0xFF
 
     val backupBitsMask = 0x18
@@ -106,7 +102,8 @@ class WebAuthnBackupFlagsProviderTest {
         "user": {"id": "dXNlcg", "name": "test", "displayName": "Test"},
         "challenge": "Y2hhbGxlbmdl"
       }
-      """.trimIndent()
+      """
+        .trimIndent()
     val verifiedContext =
       VerifiedWebAuthnContext(
         callingPackage = "com.test",
