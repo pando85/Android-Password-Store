@@ -44,9 +44,10 @@ class AtomicCredentialWriterTest {
     val target = File(tempDir, "fido2/example/abcd1234.gpg")
     val content = "encrypted-content".toByteArray()
 
-    val result = writer.replace(target) { outputStream ->
-      outputStream.write(content)
-    }
+    val result =
+      writer.replace(target) { outputStream ->
+        outputStream.write(content)
+      }
 
     if (result.isErr) {
       val error = result.unwrapError()
@@ -66,16 +67,18 @@ class AtomicCredentialWriterTest {
     target.parentFile.mkdirs()
     target.writeBytes(originalContent)
 
-    val result = writer.replace(target) { _ ->
-      throw RuntimeException("Encryption failed")
-    }
+    val result =
+      writer.replace(target) { _ ->
+        throw RuntimeException("Encryption failed")
+      }
 
     assertTrue(result.isErr)
     val error = result.unwrapError()
     assertIs<AtomicWriteError.EncryptionFailed>(error)
     assertTrue(target.exists())
     assertContentEquals(originalContent, target.readBytes())
-    val tempFiles = target.parentFile.listFiles { f -> f.name.startsWith(".") && f.name.contains(".tmp-") }
+    val tempFiles =
+      target.parentFile.listFiles { f -> f.name.startsWith(".") && f.name.contains(".tmp-") }
     assertTrue(tempFiles == null || tempFiles.isEmpty(), "No temp files should remain")
   }
 
@@ -98,9 +101,10 @@ class AtomicCredentialWriterTest {
     val target = File(outsideDir, "credential.gpg")
 
     try {
-      val result = writer.replace(target) { outputStream ->
-        outputStream.write("data".toByteArray())
-      }
+      val result =
+        writer.replace(target) { outputStream ->
+          outputStream.write("data".toByteArray())
+        }
 
       assertTrue(result.isErr)
       val error = result.unwrapError()
@@ -123,9 +127,10 @@ class AtomicCredentialWriterTest {
     val linkFile = File(linkDir, "cred.gpg")
     Files.createSymbolicLink(linkFile.toPath(), realFile.toPath())
 
-    val result = writer.replace(linkFile) { outputStream ->
-      outputStream.write("new-content".toByteArray())
-    }
+    val result =
+      writer.replace(linkFile) { outputStream ->
+        outputStream.write("new-content".toByteArray())
+      }
 
     assertTrue(result.isErr)
     val error = result.unwrapError()
@@ -145,9 +150,10 @@ class AtomicCredentialWriterTest {
 
     val target = File(linkSub, "cred.gpg")
 
-    val result = writer.replace(target) { outputStream ->
-      outputStream.write("data".toByteArray())
-    }
+    val result =
+      writer.replace(target) { outputStream ->
+        outputStream.write("data".toByteArray())
+      }
 
     assertTrue(result.isErr)
     val error = result.unwrapError()
@@ -158,20 +164,23 @@ class AtomicCredentialWriterTest {
   @Test
   fun `concurrent writes are serialized`() = runBlocking {
     val target = File(tempDir, "fido2/example/abcd1234.gpg")
-    val results = mutableListOf<com.github.michaelbull.result.Result<DurableFileVersion, AtomicWriteError>>()
+    val results =
+      mutableListOf<com.github.michaelbull.result.Result<DurableFileVersion, AtomicWriteError>>()
     val writeOrder = mutableListOf<Int>()
     val lock = Any()
 
-    val jobs = (0 until 5).map { i ->
-      async(Dispatchers.IO) {
-        val result = writer.replace(target) { outputStream ->
-          synchronized(lock) { writeOrder.add(i) }
-          Thread.sleep(50)
-          outputStream.write("content-$i".toByteArray())
+    val jobs =
+      (0 until 5).map { i ->
+        async(Dispatchers.IO) {
+          val result =
+            writer.replace(target) { outputStream ->
+              synchronized(lock) { writeOrder.add(i) }
+              Thread.sleep(50)
+              outputStream.write("content-$i".toByteArray())
+            }
+          synchronized(lock) { results.add(result) }
         }
-        synchronized(lock) { results.add(result) }
       }
-    }
 
     jobs.awaitAll()
 
@@ -262,9 +271,10 @@ class AtomicCredentialWriterTest {
     val originalModified = target.lastModified()
     Thread.sleep(50)
 
-    val result = writer.replace(target) { outputStream ->
-      outputStream.write("new-content".toByteArray())
-    }
+    val result =
+      writer.replace(target) { outputStream ->
+        outputStream.write("new-content".toByteArray())
+      }
 
     assertTrue(result.isOk)
     assertContentEquals("new-content".toByteArray(), target.readBytes())
@@ -276,11 +286,12 @@ class AtomicCredentialWriterTest {
     val target = File(tempDir, "fido2/example/abcd1234.gpg")
     target.parentFile.mkdirs()
 
-    val results = (0 until 10).map {
-      writer.replace(target) { outputStream ->
-        outputStream.write("content-$it".toByteArray())
+    val results =
+      (0 until 10).map {
+        writer.replace(target) { outputStream ->
+          outputStream.write("content-$it".toByteArray())
+        }
       }
-    }
 
     assertTrue(results.all { it.isOk })
     assertTrue(target.exists())

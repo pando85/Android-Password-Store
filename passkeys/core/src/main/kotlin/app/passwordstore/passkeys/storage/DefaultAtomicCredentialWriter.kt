@@ -50,7 +50,8 @@ public class DefaultAtomicCredentialWriter(
         return Err(AtomicWriteError.IoError("Cannot resolve repository root: ${e.message}"))
       }
 
-    if (!canonicalTarget.path.startsWith(canonicalRoot.path + File.separator) &&
+    if (
+      !canonicalTarget.path.startsWith(canonicalRoot.path + File.separator) &&
         canonicalTarget.path != canonicalRoot.path
     ) {
       return Err(AtomicWriteError.TargetOutsideRepository)
@@ -60,7 +61,8 @@ public class DefaultAtomicCredentialWriter(
       return Err(AtomicWriteError.SymlinkRejected)
     }
 
-    val parentDir = canonicalTarget.parentFile ?: return Err(AtomicWriteError.IoError("No parent directory"))
+    val parentDir =
+      canonicalTarget.parentFile ?: return Err(AtomicWriteError.IoError("No parent directory"))
 
     return Ok(ValidatedTarget(canonicalTarget, parentDir))
   }
@@ -71,10 +73,14 @@ public class DefaultAtomicCredentialWriter(
     target: File,
     writeCiphertext: suspend (OutputStream) -> Unit,
   ): Result<DurableFileVersion, AtomicWriteError> {
-    val validated = validateTarget(target).fold(
-      success = { it },
-      failure = { return Err(it) },
-    )
+    val validated =
+      validateTarget(target)
+        .fold(
+          success = { it },
+          failure = {
+            return Err(it)
+          },
+        )
     val canonicalTarget = validated.canonicalTarget
     val parentDir = validated.parentDir
 
@@ -96,8 +102,9 @@ public class DefaultAtomicCredentialWriter(
     parentDir: File,
     writeCiphertext: suspend (OutputStream) -> Unit,
   ): Result<DurableFileVersion, AtomicWriteError> {
-    val tempFile = createExclusiveTempFile(parentDir, target)
-      ?: return Err(AtomicWriteError.TempCreateFailed("Could not create exclusive temp file"))
+    val tempFile =
+      createExclusiveTempFile(parentDir, target)
+        ?: return Err(AtomicWriteError.TempCreateFailed("Could not create exclusive temp file"))
 
     try {
       if (isSymlink(tempFile)) {
@@ -133,7 +140,6 @@ public class DefaultAtomicCredentialWriter(
         }
 
         faultInjector?.afterFileSync()
-
       } finally {
         fos.close()
       }
@@ -176,9 +182,7 @@ public class DefaultAtomicCredentialWriter(
       } catch (e: Exception) {
         logcat(LogPriority.ERROR) { "Directory fsync failed: ${e.message}" }
         return Err(
-          AtomicWriteError.DirectorySyncFailed(
-            "Directory fsync failed after rename: ${e.message}"
-          )
+          AtomicWriteError.DirectorySyncFailed("Directory fsync failed after rename: ${e.message}")
         )
       }
 
@@ -211,8 +215,7 @@ public class DefaultAtomicCredentialWriter(
       try {
         if (tempFile.createNewFile()) {
           try {
-            val posixPerms =
-              java.nio.file.attribute.PosixFilePermissions.fromString("rw-------")
+            val posixPerms = java.nio.file.attribute.PosixFilePermissions.fromString("rw-------")
             Files.setPosixFilePermissions(tempFile.toPath(), posixPerms)
           } catch (_: Exception) {
             tempFile.setReadable(false, false)
@@ -250,40 +253,47 @@ public class DefaultAtomicCredentialWriter(
   private fun syncDirectory(dir: File) {
     try {
       val nativeDispatcherClass = Class.forName("sun.nio.fs.UnixNativeDispatcher")
-      val openMethod = nativeDispatcherClass.getDeclaredMethod(
-        "open",
-        ByteArray::class.java,
-        Int::class.javaPrimitiveType,
-        Int::class.javaPrimitiveType,
-      )
+      val openMethod =
+        nativeDispatcherClass.getDeclaredMethod(
+          "open",
+          ByteArray::class.java,
+          Int::class.javaPrimitiveType,
+          Int::class.javaPrimitiveType,
+        )
       openMethod.isAccessible = true
       val pathBytes = dir.toPath().toAbsolutePath().toString().toByteArray()
       val fd = openMethod.invoke(null, pathBytes, 0, 0) as Int
       if (fd >= 0) {
         try {
-          val fsyncMethod = nativeDispatcherClass.getDeclaredMethod("fsync", Int::class.javaPrimitiveType)
+          val fsyncMethod =
+            nativeDispatcherClass.getDeclaredMethod("fsync", Int::class.javaPrimitiveType)
           fsyncMethod.isAccessible = true
           fsyncMethod.invoke(null, fd)
         } finally {
           try {
-            val closeMethod = nativeDispatcherClass.getDeclaredMethod("close", Int::class.javaPrimitiveType)
+            val closeMethod =
+              nativeDispatcherClass.getDeclaredMethod("close", Int::class.javaPrimitiveType)
             closeMethod.isAccessible = true
             closeMethod.invoke(null, fd)
-          } catch (_: Exception) { }
+          } catch (_: Exception) {}
         }
       }
     } catch (_: Exception) {
-      logcat(LogPriority.WARN) { "Directory fsync not available on this platform, skipping for ${dir.path}" }
+      logcat(LogPriority.WARN) {
+        "Directory fsync not available on this platform, skipping for ${dir.path}"
+      }
     }
   }
 
-  public suspend fun deleteAtomic(
-    target: File,
-  ): Result<Boolean, AtomicWriteError> {
-    val validated = validateTarget(target).fold(
-      success = { it },
-      failure = { return Err(it) },
-    )
+  public suspend fun deleteAtomic(target: File): Result<Boolean, AtomicWriteError> {
+    val validated =
+      validateTarget(target)
+        .fold(
+          success = { it },
+          failure = {
+            return Err(it)
+          },
+        )
     val canonicalTarget = validated.canonicalTarget
     val parentDir = validated.parentDir
 
@@ -323,17 +333,20 @@ public class DefaultAtomicCredentialWriter(
     val stale = mutableListOf<File>()
     if (!dir.exists() || !dir.isDirectory) return stale
 
-    dir.walkTopDown().filter { file ->
-      file.isFile && isTempFileName(file.name)
-    }.forEach { file ->
-      val age = now - file.lastModified()
-      if (age > maxAgeMs) {
-        if (file.delete()) {
-          stale.add(file)
-          logcat { "Cleaned up stale temp file: ${file.path}" }
+    dir
+      .walkTopDown()
+      .filter { file ->
+        file.isFile && isTempFileName(file.name)
+      }
+      .forEach { file ->
+        val age = now - file.lastModified()
+        if (age > maxAgeMs) {
+          if (file.delete()) {
+            stale.add(file)
+            logcat { "Cleaned up stale temp file: ${file.path}" }
+          }
         }
       }
-    }
     return stale
   }
 
@@ -352,11 +365,17 @@ public class DefaultAtomicCredentialWriter(
 
 public interface FaultInjector {
   public suspend fun beforeEncryption() {}
+
   public suspend fun afterEncryptionBeforeClose() {}
+
   public suspend fun afterCloseBeforeSync() {}
+
   public suspend fun afterFileSync() {}
+
   public suspend fun beforeRename() {}
+
   public suspend fun afterRename() {}
+
   public suspend fun beforeDelete() {}
 }
 

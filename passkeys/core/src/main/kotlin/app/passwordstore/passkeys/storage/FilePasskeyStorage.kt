@@ -164,7 +164,7 @@ public class FilePasskeyStorage<
                   options = encryptionOptions,
                 )
                 .fold(
-                  success = { },
+                  success = {},
                   failure = { throw it },
                 )
             }
@@ -250,7 +250,7 @@ public class FilePasskeyStorage<
                         options = encryptionOptions,
                       )
                       .fold(
-                        success = { },
+                        success = {},
                         failure = { throw it },
                       )
                   }
@@ -260,7 +260,9 @@ public class FilePasskeyStorage<
                       Ok(Unit)
                     },
                     failure = { error ->
-                      logcat(LogPriority.ERROR) { "Atomic write for counter update failed: ${error.message}" }
+                      logcat(LogPriority.ERROR) {
+                        "Atomic write for counter update failed: ${error.message}"
+                      }
                       Err(storageErrorToException(error))
                     },
                   )
@@ -401,28 +403,17 @@ public class FilePasskeyStorage<
 
   private fun storageErrorToException(error: AtomicWriteError): Exception {
     return when (error) {
-      is AtomicWriteError.TargetOutsideRepository ->
-        SecurityException(error.message)
-      is AtomicWriteError.SymlinkRejected ->
-        SecurityException(error.message)
-      is AtomicWriteError.AtomicMoveUnsupported ->
-        UnsupportedOperationException(error.message)
-      is AtomicWriteError.ConcurrentModification ->
-        IllegalStateException(error.message)
-      is AtomicWriteError.DirectorySyncFailed ->
-        java.io.IOException(error.message)
-      is AtomicWriteError.EncryptionFailed ->
-        java.io.IOException(error.message)
-      is AtomicWriteError.FileSyncFailed ->
-        java.io.IOException(error.message)
-      is AtomicWriteError.IoError ->
-        java.io.IOException(error.message)
-      is AtomicWriteError.RenameFailed ->
-        java.io.IOException(error.message)
-      is AtomicWriteError.TempCreateFailed ->
-        java.io.IOException(error.message)
-      is AtomicWriteError.VerificationFailed ->
-        java.io.IOException(error.message)
+      is AtomicWriteError.TargetOutsideRepository -> SecurityException(error.message)
+      is AtomicWriteError.SymlinkRejected -> SecurityException(error.message)
+      is AtomicWriteError.AtomicMoveUnsupported -> UnsupportedOperationException(error.message)
+      is AtomicWriteError.ConcurrentModification -> IllegalStateException(error.message)
+      is AtomicWriteError.DirectorySyncFailed -> java.io.IOException(error.message)
+      is AtomicWriteError.EncryptionFailed -> java.io.IOException(error.message)
+      is AtomicWriteError.FileSyncFailed -> java.io.IOException(error.message)
+      is AtomicWriteError.IoError -> java.io.IOException(error.message)
+      is AtomicWriteError.RenameFailed -> java.io.IOException(error.message)
+      is AtomicWriteError.TempCreateFailed -> java.io.IOException(error.message)
+      is AtomicWriteError.VerificationFailed -> java.io.IOException(error.message)
     }
   }
 }
