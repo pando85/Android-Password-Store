@@ -6,8 +6,8 @@
 package app.passwordstore.util.git.operation
 
 import androidx.appcompat.app.AppCompatActivity
-import org.eclipse.jgit.api.GitCommand
 import java.util.Date
+import org.eclipse.jgit.api.GitCommand
 
 /**
  * Run an aggressive garbage collection job on the repository, expiring every loose object to
