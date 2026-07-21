@@ -6,7 +6,6 @@
 package app.passwordstore.util.git.operation
 
 import androidx.appcompat.app.AppCompatActivity
-import java.util.Date
 import org.eclipse.jgit.api.GitCommand
 
 /**
@@ -17,5 +16,5 @@ class GcOperation(callingActivity: AppCompatActivity) : GitOperation(callingActi
 
   override val requiresAuth: Boolean = false
   override val commands: Array<GitCommand<out Any>> =
-    arrayOf(git.gc().setAggressive(true).setExpire(null as Date?))
+    arrayOf(git.gc().setAggressive(true).setExpire(null as java.time.Instant?))
 }
