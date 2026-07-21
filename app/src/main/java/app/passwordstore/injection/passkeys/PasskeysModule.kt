@@ -9,6 +9,7 @@ import android.content.Context
 import app.passwordstore.crypto.PGPKeyManager
 import app.passwordstore.crypto.PGPainlessCryptoHandler
 import app.passwordstore.crypto.PgpainlessPasskeyDecryptor
+import com.github.michaelbull.result.get
 import app.passwordstore.passkeys.BiometricPasskeyAuthenticator
 import app.passwordstore.passkeys.DefaultPgpUnlockContext
 import app.passwordstore.passkeys.DefaultWebAuthnCallerVerifier
@@ -73,7 +74,7 @@ object PasskeysModule {
         cryptoHandler = cryptoHandler,
         passkeyPgpDecryptor = passkeyPgpDecryptor,
         pgpUnlockContext = pgpUnlockContext,
-        encryptionKeys = { keyManager.getAllKeys().getOrNull() ?: emptyList() },
+        encryptionKeys = { keyManager.getAllKeys().get() ?: emptyList() },
         encryptionOptions = app.passwordstore.crypto.PGPEncryptOptions.Builder().build(),
         config = passkeyConfig,
       )

@@ -13,7 +13,7 @@ import com.github.michaelbull.result.Err
 import com.github.michaelbull.result.Ok
 import com.github.michaelbull.result.Result
 import com.github.michaelbull.result.fold
-import com.github.michaelbull.result.getOrNull
+import com.github.michaelbull.result.get
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -22,17 +22,13 @@ import kotlinx.coroutines.withContext
 import logcat.LogPriority
 import logcat.logcat
 import org.bouncycastle.openpgp.api.OpenPGPKey
-import org.pgpainless.PGPainless
-import org.pgpainless.decryption_verification.ConsumerOptions
-import org.pgpainless.decryption_verification.MessageMetadata
+import org.pgpainless.decryption_verification.MessageInspector
 import org.pgpainless.exception.WrongPassphraseException
 
 public class PgpainlessPasskeyDecryptor(
   private val cryptoHandler: PGPainlessCryptoHandler,
   private val keyManager: PGPKeyManager,
 ) : PasskeyPgpDecryptor {
-
-  private val pgpApi = PGPainless.getInstance()
 
   override suspend fun decrypt(
     file: File,
@@ -47,7 +43,7 @@ public class PgpainlessPasskeyDecryptor(
           return@withContext Err(PasskeyDecryptionError.NoRecipientPackets)
         }
 
-        val allKeys = keyManager.getAllKeys().getOrNull() ?: emptyList()
+        val allKeys = keyManager.getAllKeys().get() ?: emptyList()
         val matchingKeys = findMatchingSecretKeys(allKeys, recipientKeyIds)
 
         if (matchingKeys.isEmpty()) {
@@ -63,24 +59,24 @@ public class PgpainlessPasskeyDecryptor(
 
           try {
             val plaintext = attemptDecryption(key, passphrase, ciphertext)
-            passphrase?.fill(0)
+            passphrase?.fill('\u0000')
             return@withContext Ok(plaintext)
           } catch (e: WrongPassphraseException) {
-            passphrase?.fill(0)
+            passphrase?.fill('\u0000')
             lastError = PasskeyDecryptionError.IncorrectPassphrase(keyId.toString())
             logcat(LogPriority.DEBUG) {
               "Wrong passphrase for key ${keyId}, trying next matching key"
             }
             continue
           } catch (e: IncorrectPassphraseException) {
-            passphrase?.fill(0)
+            passphrase?.fill('\u0000')
             lastError = PasskeyDecryptionError.IncorrectPassphrase(keyId.toString())
             logcat(LogPriority.DEBUG) {
               "Incorrect passphrase for key ${keyId}, trying next matching key"
             }
             continue
           } catch (e: Exception) {
-            passphrase?.fill(0)
+            passphrase?.fill('\u0000')
             lastError = mapExceptionToError(e)
             logcat(LogPriority.DEBUG) {
               "Decryption failed with key ${keyId}: ${e.message}, trying next"
@@ -98,30 +94,12 @@ public class PgpainlessPasskeyDecryptor(
 
   private fun extractRecipientKeyIds(ciphertext: ByteArray): Set<Long> {
     return try {
-      val metadata = inspectMessageMetadata(ciphertext)
-      metadata.recipientKeyIds.toSet()
+      val message = ciphertext.decodeToString()
+      val info = MessageInspector().determineEncryptionInfoForMessage(message)
+      info.keyIds.toSet()
     } catch (e: Exception) {
       logcat(LogPriority.WARN) { "Failed to extract recipient key IDs: ${e.message}" }
       emptySet()
-    }
-  }
-
-  private fun inspectMessageMetadata(ciphertext: ByteArray): MessageMetadata {
-    val inputStream = ByteArrayInputStream(ciphertext)
-    val consumerOptions = ConsumerOptions.get(pgpApi)
-    val decryptionStream =
-      pgpApi.processMessage().onInputStream(inputStream).withOptions(consumerOptions)
-
-    decryptionStream.use { stream ->
-      try {
-        val buffer = ByteArray(8192)
-        while (stream.read(buffer) != -1) {
-          // Read through to populate metadata
-        }
-      } catch (e: Exception) {
-        // Expected to fail without keys, but metadata should be populated
-      }
-      return stream.result
     }
   }
 
