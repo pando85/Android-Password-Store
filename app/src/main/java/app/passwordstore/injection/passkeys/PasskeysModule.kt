@@ -9,7 +9,6 @@ import android.content.Context
 import app.passwordstore.crypto.PGPKeyManager
 import app.passwordstore.crypto.PGPainlessCryptoHandler
 import app.passwordstore.crypto.PgpainlessPasskeyDecryptor
-import com.github.michaelbull.result.get
 import app.passwordstore.passkeys.BiometricPasskeyAuthenticator
 import app.passwordstore.passkeys.DefaultPgpUnlockContext
 import app.passwordstore.passkeys.DefaultWebAuthnCallerVerifier
@@ -23,6 +22,7 @@ import app.passwordstore.passkeys.storage.FilePasskeyStorage
 import app.passwordstore.passkeys.storage.IndexedPasskeyStorage
 import app.passwordstore.passkeys.storage.PasskeyStorage
 import app.passwordstore.passkeys.storage.PasskeyStorageConfig
+import com.github.michaelbull.result.get
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
