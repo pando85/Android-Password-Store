@@ -409,27 +409,29 @@ class SignatureCounterPolicyTest {
   }
 
   @Test
-  fun `file changes between selection and transaction are rejected`() = runBlocking<Unit> {
-    val credential = createAndSaveCredential("example.com", "user1")
-    val mutatingStorage = VersionMutatingPasskeyStorage(storage)
-    val transaction = SignatureCounterTransaction(mutatingStorage, highWaterMark, repositoryState)
+  fun `file changes between selection and transaction are rejected`() =
+    runBlocking<Unit> {
+      val credential = createAndSaveCredential("example.com", "user1")
+      val mutatingStorage = VersionMutatingPasskeyStorage(storage)
+      val transaction = SignatureCounterTransaction(mutatingStorage, highWaterMark, repositoryState)
 
-    val preSignVersion = mutatingStorage.resolveSourceVersion(credential.credentialId).getOrElse { null }
-    assertTrue(preSignVersion != null)
+      val preSignVersion =
+        mutatingStorage.resolveSourceVersion(credential.credentialId).getOrElse { null }
+      assertTrue(preSignVersion != null)
 
-    val sensitive = loadSensitive(credential)
-    val result =
-      transaction.executeMonotonicAssertion(
-        credentialId = credential.credentialId,
-        sensitiveCredential = sensitive,
-        preSignVersion = preSignVersion,
-      )
-    sensitive.close()
+      val sensitive = loadSensitive(credential)
+      val result =
+        transaction.executeMonotonicAssertion(
+          credentialId = credential.credentialId,
+          sensitiveCredential = sensitive,
+          preSignVersion = preSignVersion,
+        )
+      sensitive.close()
 
-    assertTrue(result.isErr)
-    val error = result.unwrapError()
-    assertIs<SignatureCounterError.FileChangedSinceSelection>(error)
-  }
+      assertTrue(result.isErr)
+      val error = result.unwrapError()
+      assertIs<SignatureCounterError.FileChangedSinceSelection>(error)
+    }
 
   @Test
   fun `monotonic mode not allowed for syncable repository with remote`() = runBlocking {
@@ -467,29 +469,44 @@ class SignatureCounterPolicyTest {
   }
 }
 
-private class VersionMutatingPasskeyStorage(
-  private val delegate: InMemoryPasskeyStorage
-) : PasskeyStorage {
+private class VersionMutatingPasskeyStorage(private val delegate: InMemoryPasskeyStorage) :
+  PasskeyStorage {
   private var versionCounter = 0L
 
-  override suspend fun listMetadata(rpId: String?): com.github.michaelbull.result.Result<List<app.passwordstore.passkeys.model.PasskeyMetadata>, Throwable> =
-    delegate.listMetadata(rpId)
+  override suspend fun listMetadata(
+    rpId: String?
+  ): com.github.michaelbull.result.Result<
+    List<app.passwordstore.passkeys.model.PasskeyMetadata>,
+    Throwable,
+  > = delegate.listMetadata(rpId)
 
-  override suspend fun loadForSigning(credentialId: ByteArray): com.github.michaelbull.result.Result<SensitivePasskeyCredential, Throwable> =
+  override suspend fun loadForSigning(
+    credentialId: ByteArray
+  ): com.github.michaelbull.result.Result<SensitivePasskeyCredential, Throwable> =
     delegate.loadForSigning(credentialId)
 
-  override suspend fun saveCredential(credential: app.passwordstore.passkeys.model.PasskeyCredential): com.github.michaelbull.result.Result<Unit, Throwable> =
-    delegate.saveCredential(credential)
+  override suspend fun saveCredential(
+    credential: app.passwordstore.passkeys.model.PasskeyCredential
+  ): com.github.michaelbull.result.Result<Unit, Throwable> = delegate.saveCredential(credential)
 
-  override suspend fun deleteCredential(credentialId: ByteArray): com.github.michaelbull.result.Result<Boolean, Throwable> =
+  override suspend fun deleteCredential(
+    credentialId: ByteArray
+  ): com.github.michaelbull.result.Result<Boolean, Throwable> =
     delegate.deleteCredential(credentialId)
 
-  override suspend fun updateSignCount(credentialId: ByteArray, newSignCount: ULong): com.github.michaelbull.result.Result<Unit, Throwable> =
+  override suspend fun updateSignCount(
+    credentialId: ByteArray,
+    newSignCount: ULong,
+  ): com.github.michaelbull.result.Result<Unit, Throwable> =
     delegate.updateSignCount(credentialId, newSignCount)
 
-  override suspend fun resolveSourceVersion(credentialId: ByteArray): com.github.michaelbull.result.Result<CredentialSourceVersion?, Throwable> {
+  override suspend fun resolveSourceVersion(
+    credentialId: ByteArray
+  ): com.github.michaelbull.result.Result<CredentialSourceVersion?, Throwable> {
     versionCounter++
-    val base = delegate.resolveSourceVersion(credentialId).getOrElse { null } ?: return com.github.michaelbull.result.Ok(null)
+    val base =
+      delegate.resolveSourceVersion(credentialId).getOrElse { null }
+        ?: return com.github.michaelbull.result.Ok(null)
     return com.github.michaelbull.result.Ok(
       base.copy(
         repositoryGeneration = base.repositoryGeneration.copy(worktreeGeneration = versionCounter)
