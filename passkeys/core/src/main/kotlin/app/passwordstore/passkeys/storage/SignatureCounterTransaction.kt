@@ -86,7 +86,7 @@ public class SignatureCounterTransaction(
         return Err(SignatureCounterError.CounterOverflow)
       }
 
-    if (nextCounter == 0u) {
+    if (nextCounter == 0uL) {
       freshCredential.close()
       return Err(SignatureCounterError.CounterOverflow)
     }
