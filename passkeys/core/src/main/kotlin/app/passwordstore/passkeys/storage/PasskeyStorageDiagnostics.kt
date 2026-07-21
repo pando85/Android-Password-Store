@@ -69,9 +69,7 @@ public class PasskeyStorageDiagnostics(
                   is PasskeyDecryptionError.MissingSecretKey -> {
                     noMatchingKey++
                     error.recipientIds.forEach { recipientId ->
-                      recipientKeyIssues
-                        .getOrPut(recipientId) { mutableSetOf() }
-                        .add(file.name)
+                      recipientKeyIssues.getOrPut(recipientId) { mutableSetOf() }.add(file.name)
                     }
                   }
                   is PasskeyDecryptionError.KeyLocked -> lockedKeys++
@@ -125,9 +123,7 @@ public class PasskeyStorageDiagnostics(
     }
 
     if (report.filesWithIncorrectPassphrase > 0) {
-      sb.appendLine(
-        "⚠ Files with incorrect passphrase: ${report.filesWithIncorrectPassphrase}"
-      )
+      sb.appendLine("⚠ Files with incorrect passphrase: ${report.filesWithIncorrectPassphrase}")
       sb.appendLine()
     }
 

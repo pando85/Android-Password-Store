@@ -26,8 +26,6 @@ import org.pgpainless.PGPainless
 import org.pgpainless.decryption_verification.ConsumerOptions
 import org.pgpainless.decryption_verification.MessageMetadata
 import org.pgpainless.exception.WrongPassphraseException
-import org.pgpainless.key.protection.SecretKeyRingProtector
-import org.pgpainless.util.Passphrase
 
 public class PgpainlessPasskeyDecryptor(
   private val cryptoHandler: PGPainlessCryptoHandler,
@@ -139,8 +137,7 @@ public class PgpainlessPasskeyDecryptor(
       if (!KeyUtils.isSecretKey(certOrKey)) continue
       if (!KeyUtils.hasDecKey(certOrKey)) continue
 
-      val secretKeyIds =
-        certOrKey.getSecretKeys().keys.map { it.getKeyId() }.toSet()
+      val secretKeyIds = certOrKey.getSecretKeys().keys.map { it.getKeyId() }.toSet()
 
       for (recipientId in recipientKeyIds) {
         if (secretKeyIds.contains(recipientId)) {
@@ -170,7 +167,9 @@ public class PgpainlessPasskeyDecryptor(
         options = PGPDecryptOptions.Builder().build(),
       )
       .fold(
-        success = { return outputStream.toByteArray() },
+        success = {
+          return outputStream.toByteArray()
+        },
         failure = { throw it },
       )
 
@@ -179,8 +178,8 @@ public class PgpainlessPasskeyDecryptor(
 
   private fun mapExceptionToError(e: Exception): PasskeyDecryptionError {
     return when (e) {
-      is WrongPassphraseException, is IncorrectPassphraseException ->
-        PasskeyDecryptionError.IncorrectPassphrase("unknown")
+      is WrongPassphraseException,
+      is IncorrectPassphraseException -> PasskeyDecryptionError.IncorrectPassphrase("unknown")
       is org.pgpainless.exception.MessageNotIntegrityProtectedException ->
         PasskeyDecryptionError.IntegrityCheckFailed
       is org.bouncycastle.openpgp.PGPException -> {

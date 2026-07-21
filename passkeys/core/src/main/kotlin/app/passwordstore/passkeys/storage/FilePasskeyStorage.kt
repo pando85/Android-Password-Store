@@ -273,8 +273,7 @@ public class FilePasskeyStorage<
       is PasskeyDecryptionError.MissingSecretKey ->
         "No matching secret key for recipients: ${error.recipientIds.joinToString()}"
       is PasskeyDecryptionError.KeyLocked -> "Key ${error.keyId} is locked"
-      is PasskeyDecryptionError.IncorrectPassphrase ->
-        "Incorrect passphrase for key ${error.keyId}"
+      is PasskeyDecryptionError.IncorrectPassphrase -> "Incorrect passphrase for key ${error.keyId}"
       is PasskeyDecryptionError.IntegrityCheckFailed -> "Integrity check failed"
       is PasskeyDecryptionError.MalformedCiphertext -> "Malformed ciphertext"
       is PasskeyDecryptionError.UnsupportedFormat -> "Unsupported format: ${error.reason}"

@@ -47,9 +47,7 @@ object PasskeysModule {
   fun provideCallerVerifier(@ApplicationContext context: Context): WebAuthnCallerVerifier =
     DefaultWebAuthnCallerVerifier(context)
 
-  @Provides
-  @Singleton
-  fun providePgpUnlockContext(): PgpUnlockContext = DefaultPgpUnlockContext()
+  @Provides @Singleton fun providePgpUnlockContext(): PgpUnlockContext = DefaultPgpUnlockContext()
 
   @Provides
   @Singleton
