@@ -7,6 +7,7 @@ package app.passwordstore.util.git.operation
 
 import androidx.appcompat.app.AppCompatActivity
 import org.eclipse.jgit.api.GitCommand
+import java.util.Date
 
 /**
  * Run an aggressive garbage collection job on the repository, expiring every loose object to
@@ -16,5 +17,5 @@ class GcOperation(callingActivity: AppCompatActivity) : GitOperation(callingActi
 
   override val requiresAuth: Boolean = false
   override val commands: Array<GitCommand<out Any>> =
-    arrayOf(git.gc().setAggressive(true).setExpire(null))
+    arrayOf(git.gc().setAggressive(true).setExpire(null as Date?))
 }
