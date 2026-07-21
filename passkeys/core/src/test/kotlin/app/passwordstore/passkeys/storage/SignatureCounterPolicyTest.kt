@@ -20,12 +20,12 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlin.test.fail
+import kotlin.time.Clock
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
-import kotlin.time.Clock
 
 class SignatureCounterPolicyTest {
 

@@ -13,8 +13,8 @@ import com.github.michaelbull.result.getOrElse
 import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
-import kotlinx.coroutines.runBlocking
 import kotlin.time.Clock
+import kotlinx.coroutines.runBlocking
 
 class PasskeyBackupStateTrackingTest {
 

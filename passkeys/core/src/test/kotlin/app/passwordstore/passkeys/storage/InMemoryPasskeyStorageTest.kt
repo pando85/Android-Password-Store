@@ -17,8 +17,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
-import kotlinx.coroutines.runBlocking
 import kotlin.time.Clock
+import kotlinx.coroutines.runBlocking
 
 class InMemoryPasskeyStorageTest {
 
