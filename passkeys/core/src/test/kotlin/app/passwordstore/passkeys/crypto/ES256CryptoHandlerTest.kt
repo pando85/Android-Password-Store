@@ -138,9 +138,9 @@ class ES256CryptoHandlerTest {
     )
     assertEquals(37, assertion.authenticatorData.size, "Authenticator data should be 37 bytes")
     assertEquals(
-      0x05,
+      0x0D,
       assertion.authenticatorData[32].toInt() and 0xFF,
-      "Authenticator flags should set UP and UV only",
+      "Authenticator flags should set UP, UV, and BE for syncable credential",
     )
     assertTrue(
       assertion.signature.size in 68..72,

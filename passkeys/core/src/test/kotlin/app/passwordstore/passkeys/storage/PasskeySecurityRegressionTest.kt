@@ -169,6 +169,8 @@ class PasskeySecurityRegressionTest {
         createdAt = Clock.System.now(),
         transports = listOf("internal"),
         uvInitialized = true,
+        backupEligible = true,
+        backupState = false,
         fileLastModified = 0L,
         privateKey = privateKey,
       )
