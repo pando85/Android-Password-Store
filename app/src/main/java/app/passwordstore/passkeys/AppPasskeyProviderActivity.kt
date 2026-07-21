@@ -29,12 +29,16 @@ import app.passwordstore.passkeys.provider.PasskeyAuthenticator
 import app.passwordstore.passkeys.provider.PasskeyCredentialProviderService
 import app.passwordstore.passkeys.provider.PasskeyProviderUtils
 import app.passwordstore.passkeys.provider.caller.WebAuthnCallerVerifier
+import app.passwordstore.passkeys.storage.GitSyncResult
+import app.passwordstore.passkeys.storage.PasskeyRepositoryState
 import app.passwordstore.passkeys.storage.PasskeyStorage
+import app.passwordstore.passkeys.storage.RepositoryGenerationProvider
 import app.passwordstore.ui.git.base.BaseGitActivity
 import app.passwordstore.ui.git.base.BaseGitActivity.GitOp
 import app.passwordstore.util.extensions.sharedPrefs
 import app.passwordstore.util.settings.PreferenceKeys
 import com.github.michaelbull.result.fold
+import com.github.michaelbull.result.getOrElse
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlinx.coroutines.launch
@@ -48,6 +52,8 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
   @Inject lateinit var cryptoHandler: PasskeyCryptoHandler
   @Inject lateinit var authenticator: PasskeyAuthenticator
   @Inject lateinit var callerVerifier: WebAuthnCallerVerifier
+  @Inject lateinit var passkeyRepositoryState: PasskeyRepositoryState
+  @Inject lateinit var generationProvider: RepositoryGenerationProvider
 
   private fun maybeSyncToGit() {
     if (!sharedPrefs.getBoolean(PreferenceKeys.PASSKEY_AUTO_GIT_SYNC, true)) return
@@ -55,9 +61,22 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
     if (PasswordRepository.repository == null) return
     lifecycleScope.launch(dispatcherProvider.io()) {
       try {
+        val oldHead = generationProvider.currentGitHead()
         launchGitOperation(GitOp.SYNC)
           .fold(
-            success = { logcat { "Passkey auto-sync completed" } },
+            success = {
+              val newHead = generationProvider.currentGitHead()
+              val syncResult =
+                GitSyncResult(
+                  oldHead = oldHead,
+                  newHead = newHead,
+                  worktreeChanged = oldHead != newHead,
+                  conflicts = emptyList(),
+                )
+              passkeyRepositoryState.onGitSyncCompleted(syncResult)
+              generationProvider.bumpWorktreeGeneration()
+              logcat { "Passkey auto-sync completed" }
+            },
             failure = { logcat(LogPriority.WARN) { "Passkey auto-sync failed: $it" } },
           )
       } catch (e: Exception) {
@@ -121,6 +140,15 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
         return
       }
 
+      if (passkeyRepositoryState.isInMergeConflict()) {
+        finishWithGetError(
+          GetCredentialUnknownException(
+            "Repository is in a conflicted state. Please resolve conflicts first."
+          )
+        )
+        return
+      }
+
       val verifiedContext =
         callerVerifier
           .verifyGetRequest(request, rpId)
@@ -164,6 +192,8 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
         return
       }
 
+      val pickerVersion = passkeyStorage.resolveSourceVersion(credentialId).getOrElse { null }
+
       if (authenticator.canAuthenticate(this)) {
         when (val authResult = authenticator.authenticateForPasskey(this, metadata.rpId)) {
           is PasskeyAuthenticator.Result.Success -> {}
@@ -186,6 +216,22 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
         }
       } else {
         finishWithGetError(GetCredentialUnknownException("Biometric authentication required"))
+        return
+      }
+
+      if (passkeyRepositoryState.isInMergeConflict()) {
+        finishWithGetError(
+          GetCredentialUnknownException(
+            "Repository entered a conflicted state during authentication."
+          )
+        )
+        return
+      }
+
+      val preSignVersion = passkeyStorage.resolveSourceVersion(credentialId).getOrElse { null }
+
+      if (pickerVersion != null && preSignVersion != null && pickerVersion != preSignVersion) {
+        finishWithGetError(GetCredentialUnknownException("Credential file changed since selection"))
         return
       }
 
@@ -223,7 +269,10 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
         passkeyStorage
           .updateSignCount(sensitiveCredential.credentialId, newSignCount)
           .fold(
-            success = {},
+            success = {
+              passkeyRepositoryState.onCredentialUpdated()
+              generationProvider.bumpWorktreeGeneration()
+            },
             failure = { logcat(LogPriority.WARN) { "Failed to update sign count: $it" } },
           )
 
@@ -394,6 +443,9 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
         finishWithCreateError(CreateCredentialUnknownException("Failed storing passkey"))
         return
       }
+
+      passkeyRepositoryState.onCredentialSaved()
+      generationProvider.bumpWorktreeGeneration()
 
       val responseJson =
         PasskeyProviderUtils.buildAttestationResponse(

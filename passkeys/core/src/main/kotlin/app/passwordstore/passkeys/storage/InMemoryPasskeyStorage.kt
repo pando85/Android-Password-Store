@@ -12,6 +12,7 @@ import app.passwordstore.passkeys.model.SensitivePasskeyCredential
 import com.github.michaelbull.result.Err
 import com.github.michaelbull.result.Ok
 import com.github.michaelbull.result.Result
+import java.security.MessageDigest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.Clock
@@ -86,6 +87,33 @@ public class InMemoryPasskeyStorage : PasskeyStorage {
         Ok(Unit)
       } else {
         Err(IllegalArgumentException("Credential not found"))
+      }
+    }
+
+  override suspend fun resolveSourceVersion(
+    credentialId: ByteArray
+  ): Result<CredentialSourceVersion?, Throwable> =
+    withContext(Dispatchers.Default) {
+      val key = credentialIdKey(credentialId)
+      val credential = credentials[key]
+      if (credential != null) {
+        val digest = MessageDigest.getInstance("SHA-256").digest(credential.privateKey)
+        Ok(
+          CredentialSourceVersion(
+            repositoryGeneration =
+              RepositoryGeneration(
+                repositoryIdentity = "in-memory",
+                gitHead = null,
+                worktreeGeneration = credentials.size.toLong(),
+              ),
+            canonicalPath = "in-memory://$key",
+            fileSize = credential.privateKey.size.toLong(),
+            modifiedAtMillis = Clock.System.now().toEpochMilliseconds(),
+            ciphertextDigest = digest,
+          )
+        )
+      } else {
+        Ok(null)
       }
     }
 

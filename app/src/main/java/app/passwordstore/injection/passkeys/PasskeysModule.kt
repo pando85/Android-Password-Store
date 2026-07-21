@@ -11,6 +11,7 @@ import app.passwordstore.crypto.PGPainlessCryptoHandler
 import app.passwordstore.crypto.PgpainlessPasskeyDecryptor
 import app.passwordstore.passkeys.BiometricPasskeyAuthenticator
 import app.passwordstore.passkeys.DefaultPgpUnlockContext
+import app.passwordstore.passkeys.DefaultRepositoryGenerationProvider
 import app.passwordstore.passkeys.DefaultWebAuthnCallerVerifier
 import app.passwordstore.passkeys.crypto.ES256CryptoHandler
 import app.passwordstore.passkeys.crypto.PasskeyCryptoHandler
@@ -20,8 +21,10 @@ import app.passwordstore.passkeys.provider.PasskeyAuthenticator
 import app.passwordstore.passkeys.provider.caller.WebAuthnCallerVerifier
 import app.passwordstore.passkeys.storage.FilePasskeyStorage
 import app.passwordstore.passkeys.storage.IndexedPasskeyStorage
+import app.passwordstore.passkeys.storage.PasskeyRepositoryState
 import app.passwordstore.passkeys.storage.PasskeyStorage
 import app.passwordstore.passkeys.storage.PasskeyStorageConfig
+import app.passwordstore.passkeys.storage.RepositoryGenerationProvider
 import com.github.michaelbull.result.get
 import dagger.Module
 import dagger.Provides
@@ -59,12 +62,20 @@ object PasskeysModule {
 
   @Provides
   @Singleton
+  fun provideRepositoryGenerationProvider(
+    @ApplicationContext context: Context
+  ): RepositoryGenerationProvider =
+    DefaultRepositoryGenerationProvider(File(context.filesDir, "store"))
+
+  @Provides
+  @Singleton
   fun providePasskeyStorage(
     @ApplicationContext context: Context,
     cryptoHandler: PGPainlessCryptoHandler,
     passkeyPgpDecryptor: PasskeyPgpDecryptor,
     pgpUnlockContext: PgpUnlockContext,
     keyManager: PGPKeyManager,
+    generationProvider: RepositoryGenerationProvider,
   ): PasskeyStorage {
     val repositoryRoot = File(context.filesDir, "store")
     val passkeyConfig = PasskeyStorageConfig(passkeyDirectory = "fido2", fileExtension = ".gpg")
@@ -78,6 +89,12 @@ object PasskeysModule {
         encryptionOptions = app.passwordstore.crypto.PGPEncryptOptions.Builder().build(),
         config = passkeyConfig,
       )
-    return IndexedPasskeyStorage(fileStorage)
+    return IndexedPasskeyStorage(fileStorage, generationProvider)
+  }
+
+  @Provides
+  @Singleton
+  fun providePasskeyRepositoryState(passkeyStorage: PasskeyStorage): PasskeyRepositoryState {
+    return passkeyStorage as PasskeyRepositoryState
   }
 }

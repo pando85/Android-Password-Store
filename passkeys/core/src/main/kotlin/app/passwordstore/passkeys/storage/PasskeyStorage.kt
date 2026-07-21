@@ -26,6 +26,12 @@ public interface PasskeyStorage {
     credentialId: ByteArray,
     newSignCount: ULong,
   ): Result<Unit, Throwable>
+
+  public suspend fun resolveSourceVersion(
+    credentialId: ByteArray
+  ): Result<CredentialSourceVersion?, Throwable> {
+    return com.github.michaelbull.result.Ok(null)
+  }
 }
 
 public data class PasskeyStorageConfig(

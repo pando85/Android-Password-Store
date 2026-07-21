@@ -12,6 +12,7 @@ import com.github.michaelbull.result.Err
 import com.github.michaelbull.result.Ok
 import com.github.michaelbull.result.Result
 import com.github.michaelbull.result.fold
+import com.github.michaelbull.result.getOrElse
 import java.util.Base64
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.Dispatchers
@@ -21,11 +22,21 @@ import kotlinx.coroutines.withContext
 import logcat.LogPriority
 import logcat.logcat
 
-public class IndexedPasskeyStorage(private val delegate: PasskeyStorage) : PasskeyStorage {
+public class IndexedPasskeyStorage(
+  private val delegate: PasskeyStorage,
+  private val generationProvider: RepositoryGenerationProvider? = null,
+) : PasskeyStorage, PasskeyRepositoryState {
 
-  private val metadataIndex = ConcurrentHashMap<String, PasskeyMetadata>()
+  private data class IndexedEntry(
+    val metadata: PasskeyMetadata,
+    val sourceVersion: CredentialSourceVersion?,
+  )
+
+  private val metadataIndex = ConcurrentHashMap<String, IndexedEntry>()
   private val rpIdIndex = ConcurrentHashMap<String, MutableSet<String>>()
   @Volatile private var indexLoaded = false
+  @Volatile private var trackedGeneration: RepositoryGeneration? = null
+  @Volatile private var inMergeConflict = false
   private val indexLoadMutex = Mutex()
 
   private fun credentialKey(id: ByteArray): String {
@@ -33,28 +44,69 @@ public class IndexedPasskeyStorage(private val delegate: PasskeyStorage) : Passk
   }
 
   private suspend fun ensureIndexLoaded() {
-    if (indexLoaded) return
+    if (generationProvider == null) {
+      loadIndexIfNeeded()
+      return
+    }
+    val currentGen = resolveCurrentGeneration() ?: return
+    if (indexLoaded && trackedGeneration == currentGen) return
     indexLoadMutex.withLock {
-      if (indexLoaded) return
-      withContext(Dispatchers.IO) {
-        delegate
-          .listMetadata()
-          .fold(
-            success = { metadataList ->
-              metadataList.forEach { metadata -> indexMetadata(metadata) }
-              indexLoaded = true
-            },
-            failure = { error ->
-              logcat(LogPriority.ERROR) { "Failed to load passkey index: $error" }
-            },
-          )
-      }
+      if (indexLoaded && trackedGeneration == currentGen) return
+      rebuildIndex(currentGen)
     }
   }
 
-  private fun indexMetadata(metadata: PasskeyMetadata) {
+  private suspend fun loadIndexIfNeeded() {
+    if (indexLoaded) return
+    indexLoadMutex.withLock {
+      if (indexLoaded) return
+      rebuildIndex(trackedGeneration)
+    }
+  }
+
+  private suspend fun resolveCurrentGeneration(): RepositoryGeneration? {
+    val provider = generationProvider ?: return null
+    return try {
+      RepositoryGeneration(
+        repositoryIdentity = provider.repositoryIdentity(),
+        gitHead = provider.currentGitHead(),
+        worktreeGeneration = provider.currentWorktreeGeneration(),
+      )
+    } catch (e: Exception) {
+      logcat(LogPriority.WARN) { "Failed to resolve repository generation: $e" }
+      null
+    }
+  }
+
+  private suspend fun rebuildIndex(generation: RepositoryGeneration?) {
+    withContext(Dispatchers.IO) {
+      metadataIndex.clear()
+      rpIdIndex.clear()
+      if (generationProvider != null) {
+        inMergeConflict = generationProvider.isInMergeOrRebaseState()
+      }
+      delegate
+        .listMetadata()
+        .fold(
+          success = { metadataList ->
+            metadataList.forEach { metadata ->
+              val version = delegate.resolveSourceVersion(metadata.credentialId).getOrElse { null }
+              indexMetadata(metadata, version)
+            }
+            indexLoaded = true
+            trackedGeneration = generation
+          },
+          failure = { error ->
+            logcat(LogPriority.ERROR) { "Failed to load passkey index: $error" }
+            indexLoaded = false
+          },
+        )
+    }
+  }
+
+  private fun indexMetadata(metadata: PasskeyMetadata, version: CredentialSourceVersion? = null) {
     val key = credentialKey(metadata.credentialId)
-    metadataIndex[key] = metadata
+    metadataIndex[key] = IndexedEntry(metadata, version)
     rpIdIndex.getOrPut(metadata.rpId) { ConcurrentHashMap.newKeySet() }.add(key)
   }
 
@@ -75,9 +127,9 @@ public class IndexedPasskeyStorage(private val delegate: PasskeyStorage) : Passk
       try {
         val metadata =
           if (rpId != null) {
-            rpIdIndex[rpId]?.mapNotNull { metadataIndex[it] } ?: emptyList()
+            rpIdIndex[rpId]?.mapNotNull { metadataIndex[it]?.metadata } ?: emptyList()
           } else {
-            metadataIndex.values.toList()
+            metadataIndex.values.map { it.metadata }
           }
         Ok(metadata)
       } catch (e: Exception) {
@@ -95,21 +147,29 @@ public class IndexedPasskeyStorage(private val delegate: PasskeyStorage) : Passk
   override suspend fun saveCredential(credential: PasskeyCredential): Result<Unit, Throwable> {
     return delegate.saveCredential(credential).also { result ->
       if (result.isOk) {
-        indexMetadata(PasskeyMetadata.fromPasskeyCredential(credential))
+        val metadata = PasskeyMetadata.fromPasskeyCredential(credential)
+        val version = delegate.resolveSourceVersion(credential.credentialId).getOrElse { null }
+        indexMetadata(metadata, version)
+        if (generationProvider != null) {
+          trackedGeneration = resolveCurrentGeneration()
+        }
       }
     }
   }
 
   override suspend fun deleteCredential(credentialId: ByteArray): Result<Boolean, Throwable> {
     val key = credentialKey(credentialId)
-    val metadata = metadataIndex[key]
+    val entry = metadataIndex[key]
 
     return delegate
       .deleteCredential(credentialId)
       .fold(
         success = { deleted ->
-          if (deleted && metadata != null) {
-            removeFromIndex(metadata)
+          if (deleted && entry != null) {
+            removeFromIndex(entry.metadata)
+          }
+          if (deleted && generationProvider != null) {
+            trackedGeneration = resolveCurrentGeneration()
           }
           Ok(deleted)
         },
@@ -127,7 +187,8 @@ public class IndexedPasskeyStorage(private val delegate: PasskeyStorage) : Passk
     return if (existing != null) {
       delegate.updateSignCount(credentialId, newSignCount).also { result ->
         if (result.isOk) {
-          metadataIndex[key] = existing.copy(signCount = newSignCount)
+          val updatedMetadata = existing.metadata.copy(signCount = newSignCount)
+          metadataIndex[key] = IndexedEntry(updatedMetadata, existing.sourceVersion)
         }
       }
     } else {
@@ -135,10 +196,77 @@ public class IndexedPasskeyStorage(private val delegate: PasskeyStorage) : Passk
     }
   }
 
+  override suspend fun resolveSourceVersion(
+    credentialId: ByteArray
+  ): Result<CredentialSourceVersion?, Throwable> {
+    return delegate.resolveSourceVersion(credentialId)
+  }
+
+  public suspend fun getSourceVersion(credentialId: ByteArray): CredentialSourceVersion? {
+    val key = credentialKey(credentialId)
+    return metadataIndex[key]?.sourceVersion
+  }
+
+  override suspend fun invalidate(reason: InvalidationReason) {
+    logcat { "Invalidating passkey index: $reason" }
+    indexLoadMutex.withLock {
+      metadataIndex.clear()
+      rpIdIndex.clear()
+      indexLoaded = false
+      trackedGeneration = null
+    }
+  }
+
+  override suspend fun currentGeneration(): RepositoryGeneration {
+    return resolveCurrentGeneration()
+      ?: RepositoryGeneration(
+        repositoryIdentity = "unknown",
+        gitHead = null,
+        worktreeGeneration = 0L,
+      )
+  }
+
+  override suspend fun onGitSyncCompleted(syncResult: GitSyncResult) {
+    val passkeyConflicts =
+      syncResult.conflicts.filter { it.startsWith("fido2/") || it == ".gpg-id" }
+    if (passkeyConflicts.isNotEmpty()) {
+      inMergeConflict = true
+      invalidate(InvalidationReason.MERGE_CONFLICT)
+      return
+    }
+    if (syncResult.affectsPasskeys()) {
+      invalidate(InvalidationReason.GIT_SYNC_COMPLETED)
+    }
+  }
+
+  override suspend fun onCredentialSaved() {
+    invalidate(InvalidationReason.LOCAL_SAVE)
+  }
+
+  override suspend fun onCredentialUpdated() {
+    invalidate(InvalidationReason.LOCAL_UPDATE)
+  }
+
+  override suspend fun onCredentialDeleted() {
+    invalidate(InvalidationReason.LOCAL_DELETE)
+  }
+
+  override suspend fun onRepositoryReinitialized() {
+    invalidate(InvalidationReason.REPOSITORY_REINITIALIZED)
+  }
+
+  override suspend fun onGpgIdChanged() {
+    invalidate(InvalidationReason.GPG_ID_CHANGED)
+  }
+
+  override fun isInMergeConflict(): Boolean = inMergeConflict
+
   public fun clearIndex() {
     metadataIndex.clear()
     rpIdIndex.clear()
     indexLoaded = false
+    trackedGeneration = null
+    inMergeConflict = false
   }
 
   public fun indexedCredentialCount(): Int = metadataIndex.size

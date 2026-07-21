@@ -21,6 +21,7 @@ import com.github.michaelbull.result.fold
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.security.MessageDigest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.Instant
@@ -238,6 +239,48 @@ public class FilePasskeyStorage<
         Err(IllegalArgumentException("Credential not found"))
       } catch (e: Exception) {
         logcat(LogPriority.ERROR) { "Failed to update sign count: ${e.message}" }
+        Err(e)
+      }
+    }
+
+  override suspend fun resolveSourceVersion(
+    credentialId: ByteArray
+  ): Result<CredentialSourceVersion?, Throwable> =
+    withContext(Dispatchers.IO) {
+      try {
+        val hexId = credentialId.joinToString("") { byte -> "%02x".format(byte) }
+        val dir = passkeyDir
+        if (!dir.exists() || !dir.isDirectory) {
+          return@withContext Ok(null)
+        }
+
+        var found: CredentialSourceVersion? = null
+        dir
+          .walkTopDown()
+          .filter { it.isFile && it.nameWithoutExtension == hexId }
+          .forEach { file ->
+            if (found != null) return@forEach
+            val canonicalPath = file.canonicalPath
+            val fileSize = file.length()
+            val modifiedAtMillis = file.lastModified()
+            val digest = MessageDigest.getInstance("SHA-256").digest(file.readBytes())
+            found =
+              CredentialSourceVersion(
+                repositoryGeneration =
+                  RepositoryGeneration(
+                    repositoryIdentity = repositoryRoot.canonicalPath,
+                    gitHead = null,
+                    worktreeGeneration = modifiedAtMillis,
+                  ),
+                canonicalPath = canonicalPath,
+                fileSize = fileSize,
+                modifiedAtMillis = modifiedAtMillis,
+                ciphertextDigest = digest,
+              )
+          }
+        Ok(found)
+      } catch (e: Exception) {
+        logcat(LogPriority.ERROR) { "Failed to resolve source version: ${e.message}" }
         Err(e)
       }
     }
