@@ -15,6 +15,8 @@ public data class PasskeyMetadata(
   val createdAt: Instant,
   val signCount: ULong = 0u,
   val fileLastModified: Long = 0L,
+  val backupEligible: Boolean = true,
+  val backupState: Boolean = false,
 ) {
 
   override fun equals(other: Any?): Boolean {
@@ -27,6 +29,8 @@ public data class PasskeyMetadata(
     if (createdAt != other.createdAt) return false
     if (signCount != other.signCount) return false
     if (fileLastModified != other.fileLastModified) return false
+    if (backupEligible != other.backupEligible) return false
+    if (backupState != other.backupState) return false
     return true
   }
 
@@ -38,6 +42,8 @@ public data class PasskeyMetadata(
     result = 31 * result + createdAt.hashCode()
     result = 31 * result + signCount.hashCode()
     result = 31 * result + fileLastModified.hashCode()
+    result = 31 * result + backupEligible.hashCode()
+    result = 31 * result + backupState.hashCode()
     return result
   }
 
@@ -58,6 +64,8 @@ public data class PasskeyMetadata(
         userDisplayName = credential.user.displayName,
         createdAt = credential.createdAt,
         signCount = credential.signCount,
+        backupEligible = credential.backupEligible,
+        backupState = credential.backupState,
       )
     }
   }
