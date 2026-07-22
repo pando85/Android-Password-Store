@@ -40,7 +40,7 @@ public class FilePasskeyStorage<
   private val cryptoHandler: CryptoHandler<Key, Identifier, KeyPair, EncOpts, DecryptOpts>,
   private val passkeyPgpDecryptor: PasskeyPgpDecryptor,
   private val pgpUnlockContext: PgpUnlockContext,
-  private val encryptionKeys: () -> List<Key>,
+  private val recipientResolver: PassRecipientResolver<Key>,
   private val encryptionOptions: EncOpts,
   private val config: PasskeyStorageConfig = PasskeyStorageConfig(),
   private val atomicWriter: DefaultAtomicCredentialWriter =
@@ -154,12 +154,21 @@ public class FilePasskeyStorage<
         val plaintext = storedCred.toCbor()
 
         try {
+          val recipients =
+            recipientResolver.resolveFor(file).fold(
+              success = { it },
+              failure = { error ->
+                logcat(LogPriority.ERROR) { "Recipient resolution failed: $error" }
+                return@withContext Err(recipientPolicyErrorToException(error))
+              },
+            )
+
           atomicWriter
             .replace(file) { outputStream ->
               val plaintextStream = ByteArrayInputStream(plaintext)
               cryptoHandler
                 .encrypt(
-                  keys = encryptionKeys(),
+                  keys = recipients,
                   passphrase = null,
                   plaintextStream = plaintextStream,
                   outputStream = outputStream,
@@ -239,13 +248,24 @@ public class FilePasskeyStorage<
               val updated = credential.copy(signCount = newSignCount.toUInt())
               val plaintext = updated.toCbor()
 
+              val recipients =
+                recipientResolver.resolveFor(file).fold(
+                  success = { it },
+                  failure = { error ->
+                    logcat(LogPriority.ERROR) {
+                      "Recipient resolution failed for counter update: $error"
+                    }
+                    return@withContext Err(recipientPolicyErrorToException(error))
+                  },
+                )
+
               try {
                 return@withContext atomicWriter
                   .replace(file) { outputStream ->
                     val plaintextStream = ByteArrayInputStream(plaintext)
                     cryptoHandler
                       .encrypt(
-                        keys = encryptionKeys(),
+                        keys = recipients,
                         passphrase = null,
                         plaintextStream = plaintextStream,
                         outputStream = outputStream,
@@ -416,6 +436,25 @@ public class FilePasskeyStorage<
       is AtomicWriteError.RenameFailed -> java.io.IOException(error.message)
       is AtomicWriteError.TempCreateFailed -> java.io.IOException(error.message)
       is AtomicWriteError.VerificationFailed -> java.io.IOException(error.message)
+    }
+  }
+
+  private fun recipientPolicyErrorToException(error: RecipientPolicyError): Exception {
+    return when (error) {
+      is RecipientPolicyError.TargetOutsideRepository ->
+        SecurityException("Target outside repository")
+      is RecipientPolicyError.SymlinkRejected -> SecurityException("Symlink rejected")
+      is RecipientPolicyError.GpgIdNotFound -> IllegalStateException("No .gpg-id found")
+      is RecipientPolicyError.MalformedGpgId ->
+        IllegalStateException("Malformed .gpg-id at line ${error.line}: ${error.reason}")
+      is RecipientPolicyError.RecipientNotFound ->
+        IllegalStateException("Recipient not found: ${error.identifier}")
+      is RecipientPolicyError.AmbiguousRecipient ->
+        IllegalStateException("Ambiguous recipient: ${error.identifier}")
+      is RecipientPolicyError.RecipientUnusable ->
+        IllegalStateException("Recipient unusable: ${error.identifier}")
+      is RecipientPolicyError.EmptyRecipientSet ->
+        IllegalStateException("Empty recipient set in .gpg-id")
     }
   }
 }
