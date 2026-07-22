@@ -111,7 +111,7 @@ internal class DefaultWebAuthnCallerVerifier(
     }
 
     val certMatchesPinned = certDigests.any { digest ->
-      val hexDigest = normalizeBase64UrlToHex(digest)
+      val hexDigest = base64UrlDigestToHex(digest)
       hexDigest != null && BrowserAllowlist.isCertificateAcceptedHex(browserEntry, hexDigest)
     }
     if (!certMatchesPinned) {
@@ -119,7 +119,16 @@ internal class DefaultWebAuthnCallerVerifier(
       return Err(CallerVerificationError.BrowserCertificateMismatch(packageName))
     }
 
-    val verifiedOrigin = callingAppInfo.getOrigin("")
+    val verifiedOrigin =
+      try {
+        callingAppInfo.getOrigin(BrowserAllowlist.toPrivilegedAllowlistJson(browserEntry))
+      } catch (e: IllegalArgumentException) {
+        emitDiagnostic(packageName, null, rpId, stage, "UNTRUSTED_BROWSER", e.message.orEmpty())
+        return Err(CallerVerificationError.UntrustedBrowser(packageName, e.message.orEmpty()))
+      } catch (e: IllegalStateException) {
+        emitDiagnostic(packageName, null, rpId, stage, "UNTRUSTED_BROWSER", e.message.orEmpty())
+        return Err(CallerVerificationError.UntrustedBrowser(packageName, e.message.orEmpty()))
+      }
     if (verifiedOrigin.isNullOrBlank()) {
       emitDiagnostic(packageName, null, rpId, stage, "UNTRUSTED_BROWSER", "No verified origin")
       return Err(
@@ -131,12 +140,15 @@ internal class DefaultWebAuthnCallerVerifier(
       emitDiagnostic(packageName, null, rpId, stage, "ORIGIN_RP_MISMATCH", "Origin/RP mismatch")
       return Err(CallerVerificationError.OriginRpIdMismatch(verifiedOrigin, rpId))
     }
+    val canonicalOrigin =
+      RpIdValidator.canonicalizeWebOrigin(verifiedOrigin)
+        ?: return Err(CallerVerificationError.OriginRpIdMismatch(verifiedOrigin, rpId))
 
-    logcat { "Browser caller verified: pkg=$packageName, rpId=$rpId, origin=$verifiedOrigin" }
+    logcat { "Browser caller verified: pkg=$packageName, rpId=$rpId, origin=$canonicalOrigin" }
     return Ok(
       VerifiedWebAuthnContext(
         callingPackage = packageName,
-        origin = verifiedOrigin,
+        origin = canonicalOrigin,
         clientDataHash = null,
         callerType = CallerType.PRIVILEGED_BROWSER,
         signingCertificateDigests = certDigests,
@@ -183,27 +195,7 @@ internal class DefaultWebAuthnCallerVerifier(
         },
       )
 
-    val matched = statements.any { statement ->
-      val target = statement.target ?: return@any false
-      val isDelegatePermissionRelation =
-        statement.relation?.any { rel ->
-          rel == "delegate_permission/common_handle" ||
-            rel == "delegate_permission/common_get_login_creds"
-        } ?: false
-      val isAndroidNamespace = target.namespace == "android_app"
-      val packageMatches = target.packageName == packageName
-      val certMatches =
-        target.sha256CertFingerprint?.let { fingerprint ->
-          val normalizedFingerprint = normalizeCertFingerprint(fingerprint)
-          certDigests.any { digest ->
-            val normalizedDigest = normalizeBase64UrlToHex(digest)
-            normalizedFingerprint != null &&
-              normalizedDigest != null &&
-              normalizedFingerprint == normalizedDigest
-          }
-        } ?: false
-      isDelegatePermissionRelation && isAndroidNamespace && packageMatches && certMatches
-    }
+    val matched = statements.any { it.matchesAndroidApp(packageName, certDigests) }
 
     if (!matched) {
       emitDiagnostic(packageName, null, rpId, stage, "ASSET_LINK_FAILED", "No matching statement")
@@ -265,23 +257,6 @@ internal class DefaultWebAuthnCallerVerifier(
     }
   }
 
-  private fun normalizeCertFingerprint(fingerprint: String): String? {
-    return try {
-      fingerprint.replace(":", "").lowercase()
-    } catch (_: Exception) {
-      null
-    }
-  }
-
-  private fun normalizeBase64UrlToHex(base64Url: String): String? {
-    return try {
-      val bytes = Base64.getUrlDecoder().decode(base64Url)
-      bytes.joinToString("") { "%02x".format(it) }
-    } catch (_: Exception) {
-      null
-    }
-  }
-
   private fun emitDiagnostic(
     callerPackage: String?,
     callerType: CallerType?,
@@ -302,3 +277,32 @@ internal class DefaultWebAuthnCallerVerifier(
     )
   }
 }
+
+internal fun AssetLinkStatement.matchesAndroidApp(
+  packageName: String,
+  certificateDigests: Set<String>,
+): Boolean {
+  val target = target ?: return false
+  val hasSupportedRelation =
+    relation?.any {
+      it == "delegate_permission/common.handle_all_urls" ||
+        it == "delegate_permission/common.get_login_creds"
+    } == true
+  if (
+    !hasSupportedRelation || target.namespace != "android_app" || target.packageName != packageName
+  )
+    return false
+  return target.sha256CertFingerprints?.any { fingerprint ->
+    val normalizedFingerprint = fingerprint.replace(":", "").lowercase()
+    certificateDigests.any { digest ->
+      base64UrlDigestToHex(digest) == normalizedFingerprint
+    }
+  } == true
+}
+
+internal fun base64UrlDigestToHex(digest: String): String? =
+  try {
+    Base64.getUrlDecoder().decode(digest).joinToString("") { "%02x".format(it) }
+  } catch (_: IllegalArgumentException) {
+    null
+  }

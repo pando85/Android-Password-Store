@@ -16,6 +16,9 @@ The passkey implementation is fully compatible with [pando85/passless](https://g
 
 The original documentation can be found [here](https://docs.passwordstore.app) and [there](https://github.com/android-password-store/Android-Password-Store/wiki/).
 
+Passkey maintainers should read [Passkey implementation notes](PASSKEYS.md) before changing the
+credential format, caller verification, browser allowlist, or Credential Manager entries.
+
 ## How-To: Transfer a PGP key to Password Store securely
 
 ### From GPG keyring

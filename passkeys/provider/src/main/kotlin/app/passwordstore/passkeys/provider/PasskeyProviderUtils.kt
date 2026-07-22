@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
+@file:OptIn(kotlin.time.ExperimentalTime::class)
+
 package app.passwordstore.passkeys.provider
 
 import app.passwordstore.passkeys.crypto.AssertionResult
@@ -10,6 +12,8 @@ import app.passwordstore.passkeys.crypto.AuthenticatorFlags
 import app.passwordstore.passkeys.crypto.VerifiedWebAuthnContext
 import app.passwordstore.passkeys.model.PasskeyCredential
 import app.passwordstore.passkeys.model.PasskeyMetadata
+import app.passwordstore.passkeys.storage.PasskeyStorage
+import com.github.michaelbull.result.fold
 import java.io.ByteArrayOutputStream
 import java.security.MessageDigest
 import java.util.Base64
@@ -17,6 +21,8 @@ import kotlinx.serialization.json.Json
 
 /** Utility functions for WebAuthn/FIDO2 passkey operations. */
 public object PasskeyProviderUtils {
+
+  internal data class CredentialEntryIdentity(val username: String, val displayName: String?)
 
   /** Shared JSON serializer for WebAuthn protocol messages. */
   public val json: Json = Json {
@@ -59,6 +65,37 @@ public object PasskeyProviderUtils {
     if (allowCredentials.isEmpty()) return metadata
     val allowedIds = allowCredentials.mapTo(hashSetOf()) { it.id }
     return metadata.filter { meta -> encodeBase64Url(meta.credentialId) in allowedIds }
+  }
+
+  internal fun credentialEntryIdentity(metadata: PasskeyMetadata): CredentialEntryIdentity {
+    val username = metadata.userName.ifBlank { metadata.userDisplayName.ifBlank { metadata.rpId } }
+    val displayName = metadata.userDisplayName.takeIf { it.isNotBlank() && it != username }
+    return CredentialEntryIdentity(username, displayName)
+  }
+
+  internal fun isAutoSelectAllowed(candidateCount: Int): Boolean = candidateCount == 1
+
+  internal fun credentialIntentUri(credentialId: ByteArray): String =
+    "aps-passkey://credential/${encodeBase64Url(credentialId)}"
+
+  internal suspend fun loadStoredIdentity(
+    storage: PasskeyStorage,
+    metadata: PasskeyMetadata,
+  ): PasskeyMetadata {
+    if (metadata.userName.isNotBlank() || metadata.userDisplayName.isNotBlank()) return metadata
+    return storage
+      .loadForSigning(metadata.credentialId)
+      .fold(
+        success = { credential ->
+          credential.use {
+            metadata.copy(
+              userName = credential.user.name,
+              userDisplayName = credential.user.displayName,
+            )
+          }
+        },
+        failure = { metadata },
+      )
   }
 
   /**

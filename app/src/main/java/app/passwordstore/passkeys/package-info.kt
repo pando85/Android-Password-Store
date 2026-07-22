@@ -21,11 +21,11 @@ package app.passwordstore.passkeys
  *    framework-provided `CallingAppInfo`.
  * 2. The provider fetches `https://<rpId>/.well-known/assetlinks.json` over HTTPS.
  * 3. The response is parsed and checked for a statement with:
- *     - `relation`: `delegate_permission/common_handle` or
- *       `delegate_permission/common_get_login_creds`
+ *     - `relation`: `delegate_permission/common.handle_all_urls` or
+ *       `delegate_permission/common.get_login_creds`
  *     - `target.namespace`: `android_app`
  *     - `target.package_name`: matching the calling package
- *     - `target.sha256_cert_fingerprint`: matching the calling app's signing certificate digest
+ *     - `target.sha256_cert_fingerprints`: containing the calling app's signing certificate digest
  * 4. The Android app origin is derived as `android:apk-key-hash:<base64url_sha256>`.
  *
  * **No fabricated `https://` origin is ever used for native callers.**

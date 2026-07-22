@@ -14,6 +14,7 @@ import android.graphics.drawable.Icon
 import android.os.CancellationSignal
 import android.os.OutcomeReceiver
 import androidx.annotation.RequiresApi
+import androidx.core.net.toUri
 import androidx.credentials.exceptions.ClearCredentialException
 import androidx.credentials.exceptions.CreateCredentialException
 import androidx.credentials.exceptions.CreateCredentialNoCreateOptionException
@@ -87,9 +88,12 @@ public abstract class PasskeyCredentialProviderService : CredentialProviderServi
                   .fold(
                     success = {
                       PasskeyProviderUtils.selectCredentialsByMetadata(
-                        it,
-                        parsedRequest.allowCredentials,
-                      )
+                          it,
+                          parsedRequest.allowCredentials,
+                        )
+                        .map { metadata ->
+                          PasskeyProviderUtils.loadStoredIdentity(passkeyStorage, metadata)
+                        }
                     },
                     failure = {
                       logcat(LogPriority.ERROR) { "Failed loading passkeys for $rpId: $it" }
@@ -98,7 +102,12 @@ public abstract class PasskeyCredentialProviderService : CredentialProviderServi
                   )
               }
 
-            addAll(metadata.map { meta -> buildCredentialEntry(option, meta) })
+            logcat {
+              "Passkey candidates: rpId=$rpId, allowCredentials=${parsedRequest.allowCredentials.size}, matches=${metadata.size}"
+            }
+
+            val isAutoSelectAllowed = PasskeyProviderUtils.isAutoSelectAllowed(metadata.size)
+            addAll(metadata.map { meta -> buildCredentialEntry(option, meta, isAutoSelectAllowed) })
           }
         }
 
@@ -177,25 +186,28 @@ public abstract class PasskeyCredentialProviderService : CredentialProviderServi
   private fun buildCredentialEntry(
     option: BeginGetPublicKeyCredentialOption,
     metadata: PasskeyMetadata,
+    isAutoSelectAllowed: Boolean,
   ): PublicKeyCredentialEntry {
-    val displayName = metadata.displayNameOrName().ifBlank { metadata.rpId }
+    val identity = PasskeyProviderUtils.credentialEntryIdentity(metadata)
     return PublicKeyCredentialEntry(
-      this,
-      displayName,
-      buildGetPendingIntent(metadata),
-      option,
-      metadata.userDisplayName.ifBlank { metadata.userName },
-      Instant.ofEpochMilli(metadata.createdAt.toEpochMilliseconds()),
-      providerIcon(),
-      true,
+      context = this,
+      username = identity.username,
+      pendingIntent = buildGetPendingIntent(metadata),
+      beginGetPublicKeyCredentialOption = option,
+      displayName = identity.displayName,
+      lastUsedTime = Instant.ofEpochMilli(metadata.createdAt.toEpochMilliseconds()),
+      icon = providerIcon(),
+      isAutoSelectAllowed = isAutoSelectAllowed,
     )
   }
 
   private fun buildGetPendingIntent(metadata: PasskeyMetadata): PendingIntent {
+    val encodedCredentialId = PasskeyProviderUtils.encodeBase64Url(metadata.credentialId)
     val intent =
       Intent(this, providerActivity)
+        .setData(PasskeyProviderUtils.credentialIntentUri(metadata.credentialId).toUri())
         .putExtra(EXTRA_OPERATION, OPERATION_GET)
-        .putExtra(EXTRA_CREDENTIAL_ID, PasskeyProviderUtils.encodeBase64Url(metadata.credentialId))
+        .putExtra(EXTRA_CREDENTIAL_ID, encodedCredentialId)
     return PendingIntent.getActivity(
       this,
       metadata.credentialId.contentHashCode(),

@@ -59,6 +59,41 @@ jobs:
           name: Build report (unit-tests)
           path: build/reports/kotlin-build/
 
+  passkey-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup build environment
+        uses: pando85/Android-Password-Store/.github/reusable-workflows/setup-gradle@142cdf46dd504ec1165b0f8bb31a624888066ba6 # main
+        with:
+          java-version: 21
+
+      - name: Run passkey compatibility tests
+        shell: bash
+        run: >-
+          ./gradlew
+          :passkeys:core:test
+          :passkeys:provider:testDebugUnitTest
+          :crypto:pgpainless:test
+          :app:testDebugUnitTest
+
+      - name: (Fail-only) Upload passkey test reports
+        if: "${{ failure() }}"
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: Test report (passkey-tests)
+          path: |
+            app/build/reports/tests
+            crypto/pgpainless/build/reports/tests
+            passkeys/core/build/reports/tests
+            passkeys/provider/build/reports/tests
+
+      - name: Upload Kotlin build report
+        if: "${{ always() }}"
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: Build report (passkey-tests)
+          path: build/reports/kotlin-build/
+
   build-apks:
     runs-on: ubuntu-latest
     steps:

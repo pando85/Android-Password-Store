@@ -28,7 +28,7 @@ internal data class AssetLinkTarget(
   @SerialName("namespace") val namespace: String? = null,
   @SerialName("site") val site: String? = null,
   @SerialName("package_name") val packageName: String? = null,
-  @SerialName("sha256_cert_fingerprint") val sha256CertFingerprint: String? = null,
+  @SerialName("sha256_cert_fingerprints") val sha256CertFingerprints: List<String>? = null,
 )
 
 internal class DigitalAssetLinksClient(
