@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Setup build environment
-        uses: pando85/Android-Password-Store/.github/reusable-workflows/setup-gradle@1fcfa6d3959876dbe616ed36814d213b282a509c # main
+        uses: pando85/Android-Password-Store/.github/reusable-workflows/setup-gradle@83962ece3e0d40c8185031213fb854ab100ccaf1 # main
         with:
           java-version: 21
 
@@ -35,7 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Setup build environment
-        uses: pando85/Android-Password-Store/.github/reusable-workflows/setup-gradle@1fcfa6d3959876dbe616ed36814d213b282a509c # main
+        uses: pando85/Android-Password-Store/.github/reusable-workflows/setup-gradle@83962ece3e0d40c8185031213fb854ab100ccaf1 # main
         with:
           java-version: 21
 
@@ -63,7 +63,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Setup build environment
-        uses: pando85/Android-Password-Store/.github/reusable-workflows/setup-gradle@142cdf46dd504ec1165b0f8bb31a624888066ba6 # main
+        uses: pando85/Android-Password-Store/.github/reusable-workflows/setup-gradle@83962ece3e0d40c8185031213fb854ab100ccaf1 # main
         with:
           java-version: 21
 
@@ -98,7 +98,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Setup build environment
-        uses: pando85/Android-Password-Store/.github/reusable-workflows/setup-gradle@1fcfa6d3959876dbe616ed36814d213b282a509c # main
+        uses: pando85/Android-Password-Store/.github/reusable-workflows/setup-gradle@83962ece3e0d40c8185031213fb854ab100ccaf1 # main
         with:
           java-version: 21
 
@@ -117,7 +117,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Setup build environment
-        uses: pando85/Android-Password-Store/.github/reusable-workflows/setup-gradle@1fcfa6d3959876dbe616ed36814d213b282a509c # main
+        uses: pando85/Android-Password-Store/.github/reusable-workflows/setup-gradle@83962ece3e0d40c8185031213fb854ab100ccaf1 # main
         with:
           java-version: 21
 
