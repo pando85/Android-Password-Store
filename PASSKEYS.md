@@ -96,3 +96,91 @@ entries or caller verification, test on a physical Android device with debug log
 
 Capture package-scoped logs with `adb logcat --uid=<app uid> -v threadtime`. Logs must not include
 credential IDs, challenges, user handles, private keys, or decrypted CBOR.
+
+## USB Debugging With The F-Droid-Signed App
+
+Android only permits an APK to update an installed app when both APKs use the same application ID
+and signing certificate. For this repository, the F-Droid-compatible signing material is stored in
+`pass` at:
+
+```text
+personal/fdroid/android-password-store
+```
+
+The first line is the keystore password. The entry also contains `keyAlias: release`, followed by a
+base64-encoded keystore after the `--- keystore.jks ---` marker. Never print this entry in issue
+reports, CI logs, or shared terminal transcripts.
+
+From the repository root, materialize the ignored signing files locally:
+
+```bash
+install -m 600 /dev/null keystore.jks
+pass show personal/fdroid/android-password-store \
+  | sed -n '/^--- keystore.jks ---$/,$p' \
+  | tail -n +2 \
+  | base64 -d > keystore.jks
+
+store_password="$(pass show personal/fdroid/android-password-store | sed -n '1p')"
+install -m 600 /dev/null keystore.properties
+{
+  printf 'storeFile=keystore.jks\n'
+  printf 'storePassword=%s\n' "$store_password"
+  printf 'keyAlias=release\n'
+  printf 'keyPassword=%s\n' "$store_password"
+} > keystore.properties
+unset store_password
+```
+
+Verify that the extracted key is the expected F-Droid-compatible certificate before building:
+
+```bash
+keytool -list -keystore keystore.jks
+```
+
+Its SHA-256 certificate fingerprint must be:
+
+```text
+D7:57:11:D7:DA:9C:8E:EC:A9:D0:4E:51:C4:EB:5D:4D:7E:3D:B7:4B:C1:8E:A5:0E:26:2C:0A:74:9E:3C:50:F8
+```
+
+Build the normal minified signed release and collect the consistently named APK:
+
+```bash
+./gradlew :app:assembleRelease :app:collectReleaseApks
+```
+
+Confirm the phone is authorized, verify the APK certificate, and update the installed app without
+clearing its data:
+
+```bash
+adb devices -l
+"$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs \
+  app/build/outputs/apk/release/app-release.apk
+adb install -r app/build/outputs/apk/release/app-release.apk
+```
+
+For release builds, enable **Settings → Miscellaneous → Enable debug logging** and restart the app.
+Find the app UID and capture only this app's logs:
+
+```bash
+app_uid="$(adb shell dumpsys package app.passwordstore.pando85 \
+  | sed -n 's/.*appId=\([0-9]*\).*/\1/p' \
+  | sed -n '1p')"
+adb logcat -c
+adb logcat --uid="$app_uid" -v threadtime > aps-logcat.txt
+```
+
+Reproduce one operation at a time, stop capture with `Ctrl-C`, and inspect errors without publishing
+the full log blindly:
+
+```bash
+rg -i 'fatal|exception|error|fail|passkey|credential|webauthn' aps-logcat.txt
+```
+
+When debugging is complete, remove materialized secrets and the local log:
+
+```bash
+rm -f keystore.jks keystore.properties aps-logcat.txt
+```
+
+`keystore.jks` and `keystore.properties` are gitignored, but they should still be deleted promptly.
