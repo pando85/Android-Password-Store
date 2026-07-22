@@ -137,8 +137,6 @@ public class DefaultPassRecipientResolver(
       if (current.canonicalPath == root.canonicalPath) break
       current = current.parentFile ?: break
     }
-    val rootGpgId = File(root, gpgIdFileName)
-    if (rootGpgId.exists() && rootGpgId.isFile) return rootGpgId
     return null
   }
 
@@ -155,16 +153,15 @@ public class DefaultPassRecipientResolver(
       }
 
     val identifiers = mutableListOf<PGPIdentifier>()
-    val commentPattern = Regex("\\s*#|!")
 
     for ((index, rawLine) in lines.withIndex()) {
-      val commentMatch = commentPattern.find(rawLine)
+      val commentMatch = COMMENT_PATTERN.find(rawLine)
       val line =
         if (commentMatch != null) rawLine.substring(0, commentMatch.range.first) else rawLine
       val trimmed = line.trim()
       if (trimmed.isBlank() || trimmed == "gpg-id") continue
 
-      if (trimmed.removePrefix("0x").matches("[a-fA-F0-9]{8}".toRegex())) {
+      if (SHORT_KEY_ID_PATTERN.matches(trimmed.removePrefix("0x"))) {
         return com.github.michaelbull.result.Err(
           RecipientPolicyError.AmbiguousRecipient(trimmed)
         )
@@ -199,5 +196,7 @@ public class DefaultPassRecipientResolver(
 
   public companion object {
     public const val GPG_ID_FILE_NAME: String = ".gpg-id"
+    private val COMMENT_PATTERN = Regex("\\s*#|!")
+    private val SHORT_KEY_ID_PATTERN = Regex("[a-fA-F0-9]{8}")
   }
 }

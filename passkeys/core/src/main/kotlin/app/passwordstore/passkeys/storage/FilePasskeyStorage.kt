@@ -154,41 +154,11 @@ public class FilePasskeyStorage<
         val plaintext = storedCred.toCbor()
 
         try {
-          val recipients =
-            recipientResolver.resolveFor(file).fold(
-              success = { it },
-              failure = { error ->
-                logcat(LogPriority.ERROR) { "Recipient resolution failed: $error" }
-                return@withContext Err(recipientPolicyErrorToException(error))
-              },
-            )
-
-          atomicWriter
-            .replace(file) { outputStream ->
-              val plaintextStream = ByteArrayInputStream(plaintext)
-              cryptoHandler
-                .encrypt(
-                  keys = recipients,
-                  passphrase = null,
-                  plaintextStream = plaintextStream,
-                  outputStream = outputStream,
-                  options = encryptionOptions,
-                )
-                .fold(
-                  success = {},
-                  failure = { throw it },
-                )
-            }
-            .fold(
-              success = {
-                logcat { "Saved passkey for ${credential.rpId}/${storedCred.credentialIdHex()}" }
-                Ok(Unit)
-              },
-              failure = { error ->
-                logcat(LogPriority.ERROR) { "Atomic write failed: ${error.message}" }
-                Err(storageErrorToException(error))
-              },
-            )
+          return@withContext encryptAndWrite(
+            file,
+            plaintext,
+            "Saved passkey for ${credential.rpId}/${storedCred.credentialIdHex()}",
+          )
         } finally {
           plaintext.fill(0)
         }
@@ -248,46 +218,8 @@ public class FilePasskeyStorage<
               val updated = credential.copy(signCount = newSignCount.toUInt())
               val plaintext = updated.toCbor()
 
-              val recipients =
-                recipientResolver.resolveFor(file).fold(
-                  success = { it },
-                  failure = { error ->
-                    logcat(LogPriority.ERROR) {
-                      "Recipient resolution failed for counter update: $error"
-                    }
-                    return@withContext Err(recipientPolicyErrorToException(error))
-                  },
-                )
-
               try {
-                return@withContext atomicWriter
-                  .replace(file) { outputStream ->
-                    val plaintextStream = ByteArrayInputStream(plaintext)
-                    cryptoHandler
-                      .encrypt(
-                        keys = recipients,
-                        passphrase = null,
-                        plaintextStream = plaintextStream,
-                        outputStream = outputStream,
-                        options = encryptionOptions,
-                      )
-                      .fold(
-                        success = {},
-                        failure = { throw it },
-                      )
-                  }
-                  .fold(
-                    success = {
-                      logcat { "Updated sign count for ${hexId}" }
-                      Ok(Unit)
-                    },
-                    failure = { error ->
-                      logcat(LogPriority.ERROR) {
-                        "Atomic write for counter update failed: ${error.message}"
-                      }
-                      Err(storageErrorToException(error))
-                    },
-                  )
+                return@withContext encryptAndWrite(file, plaintext, "Updated sign count for ${hexId}")
               } finally {
                 plaintext.fill(0)
               }
@@ -352,6 +284,48 @@ public class FilePasskeyStorage<
     val dir = passkeyDir
     if (!dir.exists() || !dir.isDirectory) return emptyList()
     return atomicWriter.cleanupStaleTempFiles(dir)
+  }
+
+  private suspend fun encryptAndWrite(
+    file: File,
+    plaintext: ByteArray,
+    successMessage: String,
+  ): Result<Unit, Throwable> {
+    val recipients =
+      recipientResolver.resolveFor(file).fold(
+        success = { it },
+        failure = { error ->
+          logcat(LogPriority.ERROR) { "Recipient resolution failed: $error" }
+          return Err(recipientPolicyErrorToException(error))
+        },
+      )
+
+    return atomicWriter
+      .replace(file) { outputStream ->
+        val plaintextStream = ByteArrayInputStream(plaintext)
+        cryptoHandler
+          .encrypt(
+            keys = recipients,
+            passphrase = null,
+            plaintextStream = plaintextStream,
+            outputStream = outputStream,
+            options = encryptionOptions,
+          )
+          .fold(
+            success = {},
+            failure = { throw it },
+          )
+      }
+      .fold(
+        success = {
+          logcat { successMessage }
+          Ok(Unit)
+        },
+        failure = { error ->
+          logcat(LogPriority.ERROR) { "Atomic write failed: ${error.message}" }
+          Err(storageErrorToException(error))
+        },
+      )
   }
 
   private suspend fun decryptCredential(file: File): StoredCredential? {
