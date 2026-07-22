@@ -4,15 +4,37 @@ All notable changes to this project will be documented in this file
 
 ## [Unreleased]
 
+## [1.18.0] - 2026-07-22
+
+### Added
+
+- WebAuthn backup eligibility and state are now reported correctly for Git-synchronized credentials
+- Explicit signature counter policy with fail-safe monotonic mode
+
+### Security
+
+- Private keys are now isolated from the metadata index and decrypted only after user verification
+- WebAuthn requests are bound to verified Android caller and trusted origin
+- Matching OpenPGP decryption key selection with support for protected secret keys
+
 ### Fixed
 
 - Restored passkey login with binary OpenPGP credentials created by 1.17.3 and passless
 - Fixed native app and pinned Chrome/Firefox caller verification
 - Fixed usernameless login origin canonicalization and multi-account selection
+- Credential metadata is now invalidated after Git/filesystem changes and revalidated before signing
+- Atomic, durable, serialized credential writes prevent corruption
+- Updated dependencies: jgit v7, Kotlin/Compose, BouncyCastle v1.85, AGP v9.3.0, AndroidX, Hilt v2.60.1, PGPainless v2.0.4
 
 ### Testing
 
 - Added a dedicated passkey compatibility CI suite and implementation guidance
+
+### Fork infrastructure
+
+- Added Renovate dependency automation configuration
+- Added pre-commit hooks, forkline setup, and pre-merge CI skill
+- Updated GitHub Actions (checkout v7, setup-java v5.6.0, upload-artifact v7.0.1, codeql v4.37.2, gradle/actions v6, softprops/action-gh-release v3)
 
 ## [1.17.3] - 2026-07-12
 
@@ -768,7 +790,8 @@ All notable changes to this project will be documented in this file
 
 - Fix elements overlapping.
 
-[unreleased]: https://github.com/pando85/Android-Password-Store/compare/v1.17.3...HEAD
+[unreleased]: https://github.com/pando85/Android-Password-Store/compare/v1.18.0...HEAD
+[1.18.0]: https://github.com/pando85/Android-Password-Store/compare/v1.17.3...v1.18.0
 [1.17.3]: https://github.com/pando85/Android-Password-Store/compare/v1.17.2...v1.17.3
 [1.17.2]: https://github.com/pando85/Android-Password-Store/compare/v1.17.1...v1.17.2
 [1.17.1]: https://github.com/pando85/Android-Password-Store/compare/v1.17.0...v1.17.1
