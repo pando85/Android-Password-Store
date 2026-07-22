@@ -9,8 +9,8 @@ import com.github.michaelbull.result.Result
 import java.io.File
 
 /**
- * Resolves the encryption recipients for a passkey target file by walking the hierarchical `.gpg-id`
- * policy from the target directory upward to the repository root.
+ * Resolves the encryption recipients for a passkey target file by walking the hierarchical
+ * `.gpg-id` policy from the target directory upward to the repository root.
  *
  * The resolver must never fall back to a global key list. If the policy cannot be satisfied, it
  * returns a [RecipientPolicyError] and the caller must fail closed.

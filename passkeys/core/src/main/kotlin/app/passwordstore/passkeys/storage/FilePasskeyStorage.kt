@@ -219,7 +219,11 @@ public class FilePasskeyStorage<
               val plaintext = updated.toCbor()
 
               try {
-                return@withContext encryptAndWrite(file, plaintext, "Updated sign count for ${hexId}")
+                return@withContext encryptAndWrite(
+                  file,
+                  plaintext,
+                  "Updated sign count for ${hexId}",
+                )
               } finally {
                 plaintext.fill(0)
               }
@@ -292,13 +296,15 @@ public class FilePasskeyStorage<
     successMessage: String,
   ): Result<Unit, Throwable> {
     val recipients =
-      recipientResolver.resolveFor(file).fold(
-        success = { it },
-        failure = { error ->
-          logcat(LogPriority.ERROR) { "Recipient resolution failed: $error" }
-          return Err(recipientPolicyErrorToException(error))
-        },
-      )
+      recipientResolver
+        .resolveFor(file)
+        .fold(
+          success = { it },
+          failure = { error ->
+            logcat(LogPriority.ERROR) { "Recipient resolution failed: $error" }
+            return Err(recipientPolicyErrorToException(error))
+          },
+        )
 
     return atomicWriter
       .replace(file) { outputStream ->

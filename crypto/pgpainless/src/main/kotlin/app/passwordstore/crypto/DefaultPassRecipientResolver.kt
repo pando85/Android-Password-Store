@@ -27,9 +27,7 @@ public class DefaultPassRecipientResolver(
   private val gpgIdFileName: String = GPG_ID_FILE_NAME,
 ) : PassRecipientResolver<PGPKey> {
 
-  override suspend fun resolveFor(
-    target: File
-  ): Result<List<PGPKey>, RecipientPolicyError> =
+  override suspend fun resolveFor(target: File): Result<List<PGPKey>, RecipientPolicyError> =
     withContext(Dispatchers.IO) {
       val canonicalRoot = repositoryRoot.canonicalFile
       val canonicalTarget =
@@ -41,7 +39,8 @@ public class DefaultPassRecipientResolver(
           )
         }
 
-      if (!canonicalTarget.path.startsWith(canonicalRoot.path + File.separator) &&
+      if (
+        !canonicalTarget.path.startsWith(canonicalRoot.path + File.separator) &&
           canonicalTarget.path != canonicalRoot.path
       ) {
         return@withContext com.github.michaelbull.result.Err(
@@ -71,22 +70,22 @@ public class DefaultPassRecipientResolver(
               RecipientPolicyError.SymlinkRejected
             )
           }
-        if (!linkTarget.path.startsWith(canonicalRoot.path + File.separator) &&
+        if (
+          !linkTarget.path.startsWith(canonicalRoot.path + File.separator) &&
             linkTarget.path != canonicalRoot.path
         ) {
-          return@withContext com.github.michaelbull.result.Err(
-            RecipientPolicyError.SymlinkRejected
-          )
+          return@withContext com.github.michaelbull.result.Err(RecipientPolicyError.SymlinkRejected)
         }
       }
 
       val parsedIdentifiers =
-        parseGpgIdFile(gpgIdFile).fold(
-          success = { it },
-          failure = { error ->
-            return@withContext com.github.michaelbull.result.Err(error)
-          },
-        )
+        parseGpgIdFile(gpgIdFile)
+          .fold(
+            success = { it },
+            failure = { error ->
+              return@withContext com.github.michaelbull.result.Err(error)
+            },
+          )
 
       if (parsedIdentifiers.isEmpty()) {
         return@withContext com.github.michaelbull.result.Err(RecipientPolicyError.EmptyRecipientSet)
@@ -97,14 +96,16 @@ public class DefaultPassRecipientResolver(
 
       for (identifier in parsedIdentifiers) {
         val key =
-          keyManager.getKeyById(identifier).fold(
-            success = { it },
-            failure = {
-              return@withContext com.github.michaelbull.result.Err(
-                RecipientPolicyError.RecipientNotFound(identifier.toString())
-              )
-            },
-          )
+          keyManager
+            .getKeyById(identifier)
+            .fold(
+              success = { it },
+              failure = {
+                return@withContext com.github.michaelbull.result.Err(
+                  RecipientPolicyError.RecipientNotFound(identifier.toString())
+                )
+              },
+            )
 
         val cert = KeyUtils.tryParseCertificateOrKey(key)
         if (cert == null || !KeyUtils.isKeyUsable(cert)) {
@@ -140,9 +141,7 @@ public class DefaultPassRecipientResolver(
     return null
   }
 
-  private fun parseGpgIdFile(
-    gpgIdFile: File
-  ): Result<List<PGPIdentifier>, RecipientPolicyError> {
+  private fun parseGpgIdFile(gpgIdFile: File): Result<List<PGPIdentifier>, RecipientPolicyError> {
     val lines =
       try {
         gpgIdFile.readLines()
@@ -162,9 +161,7 @@ public class DefaultPassRecipientResolver(
       if (trimmed.isBlank() || trimmed == "gpg-id") continue
 
       if (SHORT_KEY_ID_PATTERN.matches(trimmed.removePrefix("0x"))) {
-        return com.github.michaelbull.result.Err(
-          RecipientPolicyError.AmbiguousRecipient(trimmed)
-        )
+        return com.github.michaelbull.result.Err(RecipientPolicyError.AmbiguousRecipient(trimmed))
       }
 
       val identifier = PGPIdentifier.fromString(trimmed)

@@ -7,6 +7,7 @@ package app.passwordstore.injection.passkeys
 
 import android.content.Context
 import app.passwordstore.crypto.DefaultPassRecipientResolver
+import app.passwordstore.crypto.PGPKey
 import app.passwordstore.crypto.PGPKeyManager
 import app.passwordstore.crypto.PGPainlessCryptoHandler
 import app.passwordstore.crypto.PgpainlessPasskeyDecryptor
@@ -29,7 +30,6 @@ import app.passwordstore.passkeys.storage.PasskeyStorageConfig
 import app.passwordstore.passkeys.storage.RepositoryGenerationProvider
 import app.passwordstore.passkeys.storage.SignatureCounterHighWaterMark
 import app.passwordstore.passkeys.storage.SignatureCounterTransaction
-import app.passwordstore.crypto.PGPKey
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
