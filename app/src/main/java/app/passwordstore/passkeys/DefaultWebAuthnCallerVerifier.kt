@@ -300,7 +300,9 @@ internal fun AssetLinkStatement.matchesAndroidApp(
   } == true
 }
 
-internal fun base64UrlDigestToHex(digest: String): String? = runCatching {
-  Base64.getUrlDecoder().decode(digest).joinToString("") { "%02x".format(it) }
-}
-  .getOrNull()
+internal fun base64UrlDigestToHex(digest: String): String? =
+  try {
+    Base64.getUrlDecoder().decode(digest).joinToString("") { "%02x".format(it) }
+  } catch (_: IllegalArgumentException) {
+    null
+  }

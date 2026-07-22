@@ -11,10 +11,10 @@ import android.app.Activity
 import android.app.PendingIntent
 import android.content.Intent
 import android.graphics.drawable.Icon
-import android.net.Uri
 import android.os.CancellationSignal
 import android.os.OutcomeReceiver
 import androidx.annotation.RequiresApi
+import androidx.core.net.toUri
 import androidx.credentials.exceptions.ClearCredentialException
 import androidx.credentials.exceptions.CreateCredentialException
 import androidx.credentials.exceptions.CreateCredentialNoCreateOptionException
@@ -205,7 +205,7 @@ public abstract class PasskeyCredentialProviderService : CredentialProviderServi
     val encodedCredentialId = PasskeyProviderUtils.encodeBase64Url(metadata.credentialId)
     val intent =
       Intent(this, providerActivity)
-        .setData(Uri.parse(PasskeyProviderUtils.credentialIntentUri(metadata.credentialId)))
+        .setData(PasskeyProviderUtils.credentialIntentUri(metadata.credentialId).toUri())
         .putExtra(EXTRA_OPERATION, OPERATION_GET)
         .putExtra(EXTRA_CREDENTIAL_ID, encodedCredentialId)
     return PendingIntent.getActivity(
