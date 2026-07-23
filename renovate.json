@@ -23,6 +23,11 @@
     },
     {
       "matchManagers": ["github-actions"],
+      "matchPackageNames": ["pando85/Android-Password-Store"],
+      "enabled": false
+    },
+    {
+      "matchManagers": ["github-actions"],
       "groupName": "github actions",
       "groupSlug": "github-actions"
     },
