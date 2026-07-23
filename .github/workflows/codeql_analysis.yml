@@ -20,7 +20,7 @@ jobs:
       security-events: write
     steps:
     - name: Setup build environment
-      uses: pando85/Android-Password-Store/.github/reusable-workflows/setup-gradle@main
+      uses: pando85/Android-Password-Store/.github/reusable-workflows/setup-gradle@50bc410c079f8aea88d17b233215ec4ef5327fd6 # main
       with:
         java-version: 21
 
