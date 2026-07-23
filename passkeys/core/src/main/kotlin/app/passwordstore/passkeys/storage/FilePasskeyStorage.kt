@@ -40,7 +40,7 @@ public class FilePasskeyStorage<
   private val cryptoHandler: CryptoHandler<Key, Identifier, KeyPair, EncOpts, DecryptOpts>,
   private val passkeyPgpDecryptor: PasskeyPgpDecryptor,
   private val pgpUnlockContext: PgpUnlockContext,
-  private val encryptionKeys: () -> List<Key>,
+  private val recipientResolver: PassRecipientResolver<Key>,
   private val encryptionOptions: EncOpts,
   private val config: PasskeyStorageConfig = PasskeyStorageConfig(),
   private val atomicWriter: DefaultAtomicCredentialWriter =
@@ -154,32 +154,11 @@ public class FilePasskeyStorage<
         val plaintext = storedCred.toCbor()
 
         try {
-          atomicWriter
-            .replace(file) { outputStream ->
-              val plaintextStream = ByteArrayInputStream(plaintext)
-              cryptoHandler
-                .encrypt(
-                  keys = encryptionKeys(),
-                  passphrase = null,
-                  plaintextStream = plaintextStream,
-                  outputStream = outputStream,
-                  options = encryptionOptions,
-                )
-                .fold(
-                  success = {},
-                  failure = { throw it },
-                )
-            }
-            .fold(
-              success = {
-                logcat { "Saved passkey for ${credential.rpId}/${storedCred.credentialIdHex()}" }
-                Ok(Unit)
-              },
-              failure = { error ->
-                logcat(LogPriority.ERROR) { "Atomic write failed: ${error.message}" }
-                Err(storageErrorToException(error))
-              },
-            )
+          return@withContext encryptAndWrite(
+            file,
+            plaintext,
+            "Saved passkey for ${credential.rpId}/${storedCred.credentialIdHex()}",
+          )
         } finally {
           plaintext.fill(0)
         }
@@ -240,34 +219,11 @@ public class FilePasskeyStorage<
               val plaintext = updated.toCbor()
 
               try {
-                return@withContext atomicWriter
-                  .replace(file) { outputStream ->
-                    val plaintextStream = ByteArrayInputStream(plaintext)
-                    cryptoHandler
-                      .encrypt(
-                        keys = encryptionKeys(),
-                        passphrase = null,
-                        plaintextStream = plaintextStream,
-                        outputStream = outputStream,
-                        options = encryptionOptions,
-                      )
-                      .fold(
-                        success = {},
-                        failure = { throw it },
-                      )
-                  }
-                  .fold(
-                    success = {
-                      logcat { "Updated sign count for ${hexId}" }
-                      Ok(Unit)
-                    },
-                    failure = { error ->
-                      logcat(LogPriority.ERROR) {
-                        "Atomic write for counter update failed: ${error.message}"
-                      }
-                      Err(storageErrorToException(error))
-                    },
-                  )
+                return@withContext encryptAndWrite(
+                  file,
+                  plaintext,
+                  "Updated sign count for ${hexId}",
+                )
               } finally {
                 plaintext.fill(0)
               }
@@ -332,6 +288,50 @@ public class FilePasskeyStorage<
     val dir = passkeyDir
     if (!dir.exists() || !dir.isDirectory) return emptyList()
     return atomicWriter.cleanupStaleTempFiles(dir)
+  }
+
+  private suspend fun encryptAndWrite(
+    file: File,
+    plaintext: ByteArray,
+    successMessage: String,
+  ): Result<Unit, Throwable> {
+    val recipients =
+      recipientResolver
+        .resolveFor(file)
+        .fold(
+          success = { it },
+          failure = { error ->
+            logcat(LogPriority.ERROR) { "Recipient resolution failed: $error" }
+            return Err(recipientPolicyErrorToException(error))
+          },
+        )
+
+    return atomicWriter
+      .replace(file) { outputStream ->
+        val plaintextStream = ByteArrayInputStream(plaintext)
+        cryptoHandler
+          .encrypt(
+            keys = recipients,
+            passphrase = null,
+            plaintextStream = plaintextStream,
+            outputStream = outputStream,
+            options = encryptionOptions,
+          )
+          .fold(
+            success = {},
+            failure = { throw it },
+          )
+      }
+      .fold(
+        success = {
+          logcat { successMessage }
+          Ok(Unit)
+        },
+        failure = { error ->
+          logcat(LogPriority.ERROR) { "Atomic write failed: ${error.message}" }
+          Err(storageErrorToException(error))
+        },
+      )
   }
 
   private suspend fun decryptCredential(file: File): StoredCredential? {
@@ -416,6 +416,25 @@ public class FilePasskeyStorage<
       is AtomicWriteError.RenameFailed -> java.io.IOException(error.message)
       is AtomicWriteError.TempCreateFailed -> java.io.IOException(error.message)
       is AtomicWriteError.VerificationFailed -> java.io.IOException(error.message)
+    }
+  }
+
+  private fun recipientPolicyErrorToException(error: RecipientPolicyError): Exception {
+    return when (error) {
+      is RecipientPolicyError.TargetOutsideRepository ->
+        SecurityException("Target outside repository")
+      is RecipientPolicyError.SymlinkRejected -> SecurityException("Symlink rejected")
+      is RecipientPolicyError.GpgIdNotFound -> IllegalStateException("No .gpg-id found")
+      is RecipientPolicyError.MalformedGpgId ->
+        IllegalStateException("Malformed .gpg-id at line ${error.line}: ${error.reason}")
+      is RecipientPolicyError.RecipientNotFound ->
+        IllegalStateException("Recipient not found: ${error.identifier}")
+      is RecipientPolicyError.AmbiguousRecipient ->
+        IllegalStateException("Ambiguous recipient: ${error.identifier}")
+      is RecipientPolicyError.RecipientUnusable ->
+        IllegalStateException("Recipient unusable: ${error.identifier}")
+      is RecipientPolicyError.EmptyRecipientSet ->
+        IllegalStateException("Empty recipient set in .gpg-id")
     }
   }
 }
