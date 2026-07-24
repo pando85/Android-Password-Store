@@ -555,4 +555,9 @@ private class FailingUpdateSignCountStorage(private val delegate: PasskeyStorage
     newSignCount: ULong,
   ): com.github.michaelbull.result.Result<Unit, Throwable> =
     Err(IllegalStateException("Injected write failure"))
+
+  override suspend fun resolveSourceVersion(
+    credentialId: ByteArray
+  ): com.github.michaelbull.result.Result<SourceVersionResult, Throwable> =
+    delegate.resolveSourceVersion(credentialId)
 }

@@ -67,6 +67,12 @@ class CountingPasskeyStorage : PasskeyStorage {
     return delegate.resolveSourceVersion(credentialId)
   }
 
+  override suspend fun listMetadataWithRefs(
+    rpId: String?
+  ): Result<List<PasskeyMetadataWithRef>, Throwable> {
+    return delegate.listMetadataWithRefs(rpId)
+  }
+
   fun clear() {
     delegate.clear()
   }
