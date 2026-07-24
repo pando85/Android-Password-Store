@@ -33,10 +33,25 @@ public data class StoredCredential(
   val createdByPackage: String? = null,
   val createdByCertificateDigest: String? = null,
   val verifiedOrigin: String? = null,
-) {
+) : AutoCloseable {
+
+  @Volatile private var wiped = false
+
+  public fun wipe() {
+    privateKey.fill(0)
+    publicKey?.fill(0)
+    id.fill(0)
+    user.id.fill(0)
+    extensions.credRandom?.fill(0)
+    wiped = true
+  }
+
+  override fun close() {
+    wipe()
+  }
 
   override fun toString(): String =
-    "StoredCredential(id=${'$'}{id.contentToString()}, rp=$'$'{rp}, signCount=$'$'{signCount}, alg=$'$'{alg}, privateKey=<REDACTED>, publicKey=${'$'}{publicKey?.let { \"<present>\" } ?: \"<null>\"}, created=$'$'{created})"
+    "StoredCredential(id=<redacted>, rp=$'$'{rp}, signCount=$'$'{signCount}, alg=$'$'{alg}, privateKey=<REDACTED>, publicKey=${'$'}{publicKey?.let { \"<present>\" } ?: \"<null>\"}, created=$'$'{created})"
 
   public fun toCbor(): ByteArray {
     val map = mutableMapOf<String, CborValue>()

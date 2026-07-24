@@ -7,6 +7,7 @@
 
 package app.passwordstore.passkeys.security
 
+import app.passwordstore.passkeys.model.Extensions
 import app.passwordstore.passkeys.model.FidoUser
 import app.passwordstore.passkeys.model.RelyingParty
 import app.passwordstore.passkeys.model.SensitivePasskeyCredential
@@ -306,5 +307,76 @@ class SensitiveZeroizationTest {
     assertEquals(original.created, decoded.created)
 
     cbor.fill(0)
+  }
+
+  @Test
+  fun `StoredCredential wipe zeros private key and other sensitive fields`() {
+    val id = ByteArray(32) { (it + 1).toByte() }
+    val privateKey = ByteArray(32) { (it + 10).toByte() }
+    val publicKey = ByteArray(65) { (it + 20).toByte() }
+    val userId = ByteArray(16) { (it + 30).toByte() }
+    val credRandom = ByteArray(8) { (it + 40).toByte() }
+    val stored =
+      StoredCredential(
+        id = id,
+        rp = RelyingParty("example.com"),
+        user = User(userId, "user", "User"),
+        signCount = 0u,
+        alg = -7,
+        privateKey = privateKey,
+        publicKey = publicKey,
+        created = 0L,
+        extensions = Extensions(credRandom = credRandom),
+      )
+
+    stored.wipe()
+
+    assertTrue(isZeroed(privateKey))
+    assertTrue(isZeroed(publicKey!!))
+    assertTrue(isZeroed(id))
+    assertTrue(isZeroed(userId))
+    assertTrue(isZeroed(credRandom))
+  }
+
+  @Test
+  fun `StoredCredential close wipes sensitive fields`() {
+    val privateKey = ByteArray(32) { 0xAA.toByte() }
+    val stored =
+      StoredCredential(
+        id = ByteArray(32),
+        rp = RelyingParty("example.com"),
+        user = User(ByteArray(16), "user", "User"),
+        signCount = 0u,
+        alg = -7,
+        privateKey = privateKey,
+        created = 0L,
+      )
+
+    stored.close()
+    assertTrue(isZeroed(privateKey))
+  }
+
+  @Test
+  fun `fromStoredCredential wipes source StoredCredential`() {
+    val privateKey = ByteArray(32) { (it + 1).toByte() }
+    val stored =
+      StoredCredential(
+        id = ByteArray(32) { (it + 10).toByte() },
+        rp = RelyingParty("example.com"),
+        user = User(ByteArray(16) { (it + 20).toByte() }, "user", "User"),
+        signCount = 0u,
+        alg = -7,
+        privateKey = privateKey,
+        publicKey = ByteArray(65) { if (it == 0) 0x04.toByte() else it.toByte() },
+        created = 0L,
+      )
+
+    val sensitive = SensitivePasskeyCredential.fromStoredCredential(stored)
+    assertTrue(isZeroed(privateKey))
+
+    val borrowedKey = sensitive.usePrivateKey { it.copyOf() }
+    assertContentEquals(ByteArray(32) { (it + 1).toByte() }, borrowedKey)
+
+    sensitive.close()
   }
 }

@@ -67,11 +67,12 @@ public class SensitivePasskeyCredential(
     ): SensitivePasskeyCredential {
       val keyCopy = stored.privateKey.copyOf()
       val sensitiveKey = SensitiveBytes(keyCopy)
+      val publicKeyCopy =
+        stored.publicKey?.copyOf() ?: StoredCredential.deriveP256PublicKey(keyCopy)
       try {
-        return SensitivePasskeyCredential(
+        val result = SensitivePasskeyCredential(
           credentialId = stored.id.copyOf(),
-          publicKey =
-            stored.publicKey?.copyOf() ?: StoredCredential.deriveP256PublicKey(stored.privateKey),
+          publicKey = publicKeyCopy,
           rpId = stored.rp.id,
           user =
             FidoUser(
@@ -88,6 +89,8 @@ public class SensitivePasskeyCredential(
           fileLastModified = fileLastModified,
           privateKey = sensitiveKey,
         )
+        stored.wipe()
+        return result
       } catch (e: Throwable) {
         sensitiveKey.close()
         throw e
