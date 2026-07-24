@@ -77,6 +77,7 @@ public class PasskeyStorageDiagnostics(
                   is PasskeyDecryptionError.IntegrityCheckFailed -> integrityErrors++
                   is PasskeyDecryptionError.MalformedCiphertext -> malformedCiphertext++
                   is PasskeyDecryptionError.UnsupportedFormat -> malformedCiphertext++
+                  is PasskeyDecryptionError.PlaintextTooLarge -> malformedCiphertext++
                 }
               },
             )
