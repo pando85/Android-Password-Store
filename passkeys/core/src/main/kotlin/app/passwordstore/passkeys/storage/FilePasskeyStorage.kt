@@ -22,7 +22,6 @@ import com.github.michaelbull.result.Err
 import com.github.michaelbull.result.Ok
 import com.github.michaelbull.result.Result
 import com.github.michaelbull.result.fold
-import com.github.michaelbull.result.getOrElse
 import java.io.ByteArrayInputStream
 import java.io.File
 import kotlin.time.Instant
@@ -165,50 +164,61 @@ public class FilePasskeyStorage<
     val opened = confinedStore.openExact(ref, expectedVersion)
     return opened.fold(
       success = file@{ file ->
-        try {
-          concurrencyLimiter.decryptionSemaphore.acquire()
-          val decryptResult =
-            try {
-              val fileSize = file.fileSize()
-              val stream = file.inputStream()
-              passkeyPgpDecryptor.decryptFromStream(stream, fileSize, pgpUnlockContext, inputLimits)
-            } finally {
-              concurrencyLimiter.decryptionSemaphore.release()
-            }
+          try {
+            concurrencyLimiter.decryptionSemaphore.acquire()
+            val decryptResult =
+              try {
+                val fileSize = file.fileSize()
+                val stream = file.inputStream()
+                passkeyPgpDecryptor.decryptFromStream(
+                  stream,
+                  fileSize,
+                  pgpUnlockContext,
+                  inputLimits,
+                )
+              } finally {
+                concurrencyLimiter.decryptionSemaphore.release()
+              }
 
-          val plaintext = decryptResult.fold(
-            success = { it },
-            failure = { error ->
-              return@file Err(
-                IllegalStateException("Decryption failed: ${formatDecryptionError(error)}")
+            val plaintext =
+              decryptResult.fold(
+                success = { it },
+                failure = { error ->
+                  return@file Err(
+                    IllegalStateException("Decryption failed: ${formatDecryptionError(error)}")
+                  )
+                },
               )
-            },
-          )
 
-          val stored =
-            try {
-              StoredCredential.fromCbor(plaintext)
-            } finally {
-              plaintext.fill(0)
-            }
+            val stored =
+              try {
+                StoredCredential.fromCbor(plaintext)
+              } finally {
+                plaintext.fill(0)
+              }
 
-          PayloadBindingValidator.validate(
-            requestRpId = ref.canonicalRpId,
-            requestCredentialId = ref.credentialId,
-            fileRef = ref,
-            stored = stored,
-          ).fold(
-            success = {},
-            failure = { error ->
-              return@file Err(SecurityException("Payload binding validation failed: ${error.message}"))
-            },
-          )
+            PayloadBindingValidator.validate(
+                requestRpId = ref.canonicalRpId,
+                requestCredentialId = ref.credentialId,
+                fileRef = ref,
+                stored = stored,
+              )
+              .fold(
+                success = {},
+                failure = { error ->
+                  return@file Err(
+                    SecurityException("Payload binding validation failed: ${error.message}")
+                  )
+                },
+              )
 
-          Ok(SensitivePasskeyCredential.fromStoredCredential(stored, file.version.modifiedAtMillis))
-        } finally {
-          file.close()
-        }
-      },
+            Ok(
+              SensitivePasskeyCredential.fromStoredCredential(stored, file.version.modifiedAtMillis)
+            )
+          } finally {
+            file.close()
+          }
+        },
       failure = { error ->
         when (error) {
           is FileStoreError.VersionMismatch ->
