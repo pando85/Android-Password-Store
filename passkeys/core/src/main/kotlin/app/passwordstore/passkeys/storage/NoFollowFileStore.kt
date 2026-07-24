@@ -465,7 +465,7 @@ public class NoFollowFileStore(
     }
   }
 
-  companion object {
+  private companion object {
     private const val MAX_FILE_SIZE = 1024 * 1024L
   }
 }

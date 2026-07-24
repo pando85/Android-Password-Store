@@ -192,11 +192,15 @@ public class FilePasskeyStorage<
             .fold(
               success = { it },
               failure = { error ->
-                return Err(
-                  IllegalStateException("Decryption failed: ${formatDecryptionError(error)}")
-                )
+                return@fold null
               },
             )
+
+          if (plaintext == null) {
+            val decryptResult = passkeyPgpDecryptor.decryptFromBytes(contentBytes, pgpUnlockContext)
+            val errorMsg = decryptResult.fold(success = { "" }, failure = { formatDecryptionError(it) })
+            return Err(IllegalStateException("Decryption failed: $errorMsg"))
+          }
 
           val stored = try {
             StoredCredential.fromCbor(plaintext)
@@ -210,10 +214,12 @@ public class FilePasskeyStorage<
             fileRef = ref,
             stored = stored,
           )
-          if (bindingResult.isErr) {
-            val bindingError = bindingResult.error
-            return Err(SecurityException("Payload binding validation failed: ${bindingError.message}"))
-          }
+          val bindingCheck = bindingResult.fold(
+            success = { true },
+            failure = { error ->
+              return Err(SecurityException("Payload binding validation failed: ${error.message}"))
+            },
+          )
 
           Ok(SensitivePasskeyCredential.fromStoredCredential(stored, file.version.modifiedAtMillis))
         } finally {
@@ -261,7 +267,7 @@ public class FilePasskeyStorage<
 
         val ref = PasskeyFileRef.fromRpIdAndCredentialId(
           rpId = credential.rpId,
-          credentialId = storedCred.credentialId,
+          credentialId = storedCred.id,
           sanitizedRpDir = sanitizedRpDir,
           fileExtension = config.fileExtension,
         )
@@ -419,12 +425,14 @@ public class FilePasskeyStorage<
               .decryptFromBytes(contentBytes, pgpUnlockContext)
               .fold(
                 success = { it },
-                failure = { error ->
-                  return Err(
-                    IllegalStateException("Decryption failed: ${formatDecryptionError(error)}")
-                  )
-                },
+                failure = { error -> null },
               )
+
+            if (plaintext == null) {
+              val decryptResult = passkeyPgpDecryptor.decryptFromBytes(contentBytes, pgpUnlockContext)
+              val errorMsg = decryptResult.fold(success = { "" }, failure = { formatDecryptionError(it) })
+              return@withContext Err(IllegalStateException("Decryption failed: $errorMsg")) as Result<Unit, Throwable>
+            }
 
             val credential = try {
               StoredCredential.fromCbor(plaintext)
@@ -436,17 +444,16 @@ public class FilePasskeyStorage<
             val updatedPlaintext = updated.toCbor()
 
             try {
-              val recipients =
-                recipientResolver
-                  .resolveFor(File(repositoryRoot, "${config.passkeyDirectory}/${ref.relativePath}"))
-                  .fold(
-                    success = { it },
-                    failure = { error ->
-                      return Err(recipientPolicyErrorToException(error))
-                    },
-                  )
+              val recipients = recipientResolver
+                .resolveFor(File(repositoryRoot, "${config.passkeyDirectory}/${ref.relativePath}"))
+                .fold(
+                  success = { it },
+                  failure = { error ->
+                    return@withContext Err(recipientPolicyErrorToException(error)) as Result<Unit, Throwable>
+                  },
+                )
 
-              return confinedStore
+              confinedStore
                 .createOrReplace(ref) { outputStream ->
                   val plaintextStream = ByteArrayInputStream(updatedPlaintext)
                   cryptoHandler
@@ -464,10 +471,10 @@ public class FilePasskeyStorage<
                 }
                 .fold(
                   success = {
-                    Ok(Unit)
+                    Ok(Unit) as Result<Unit, Throwable>
                   },
                   failure = { error ->
-                    Err(RuntimeException(error.message))
+                    Err(RuntimeException(error.message)) as Result<Unit, Throwable>
                   },
                 )
             } finally {
@@ -492,18 +499,21 @@ public class FilePasskeyStorage<
         success = { scanned ->
           val matches = scanned.filter { it.ref.credentialId.contentEquals(credentialId) }
           if (matches.isEmpty()) {
-            return@withContext Ok(null)
+            return@withContext Ok(null) as Result<CredentialSourceVersion?, Throwable>
           }
           if (matches.size > 1) {
-            return@withContext Err(SecurityException("Duplicate credential ID detected"))
+            return@withContext Err(SecurityException("Duplicate credential ID detected")) as Result<CredentialSourceVersion?, Throwable>
           }
-          confinedStore.resolveVersion(matches.first().ref)
+          confinedStore.resolveVersion(matches.first().ref).fold(
+            success = { Ok(it) as Result<CredentialSourceVersion?, Throwable> },
+            failure = { Err(RuntimeException(it.message)) as Result<CredentialSourceVersion?, Throwable> },
+          )
         },
         failure = { error ->
           when (error) {
             is FileStoreError.DuplicateCredentialId ->
-              Err(SecurityException("Duplicate credential ID detected"))
-            else -> Err(RuntimeException(error.message))
+              Err(SecurityException("Duplicate credential ID detected")) as Result<CredentialSourceVersion?, Throwable>
+            else -> Err(RuntimeException(error.message)) as Result<CredentialSourceVersion?, Throwable>
           }
         },
       )
@@ -513,7 +523,10 @@ public class FilePasskeyStorage<
     ref: PasskeyFileRef
   ): Result<CredentialSourceVersion?, Throwable> =
     withContext(Dispatchers.IO) {
-      confinedStore.resolveVersion(ref)
+      confinedStore.resolveVersion(ref).fold(
+        success = { Ok(it) as Result<CredentialSourceVersion?, Throwable> },
+        failure = { Err(RuntimeException(it.message)) as Result<CredentialSourceVersion?, Throwable> },
+      )
     }
 
   public suspend fun recoverStaleArtifacts(): List<File> {

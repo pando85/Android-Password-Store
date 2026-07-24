@@ -62,54 +62,54 @@ public class PgpainlessPasskeyDecryptor(
     unlockContext: PgpUnlockContext,
     sourceName: String,
   ): Result<ByteArray, PasskeyDecryptionError> {
-        val recipientKeyIds = inspectRecipientKeyIds(ciphertext)
-        if (recipientKeyIds.isEmpty()) {
-          return Err(PasskeyDecryptionError.NoRecipientPackets)
+    val recipientKeyIds = inspectRecipientKeyIds(ciphertext)
+    if (recipientKeyIds.isEmpty()) {
+      return Err(PasskeyDecryptionError.NoRecipientPackets)
+    }
+
+    val allKeys = keyManager.getAllKeys().get() ?: emptyList()
+    val matchingKeys = findMatchingSecretKeys(allKeys, recipientKeyIds)
+
+    if (matchingKeys.isEmpty()) {
+      return Err(
+        PasskeyDecryptionError.MissingSecretKey(recipientKeyIds.map { it.toString() }.toSet())
+      )
+    }
+
+    var lastError: PasskeyDecryptionError? = null
+
+    for ((key, keyId) in matchingKeys) {
+      val passphrase = unlockContext.unlockKey(keyId.toString())
+
+      try {
+        val plaintext = attemptDecryption(key, passphrase, ciphertext)
+        passphrase?.fill('\u0000')
+        return Ok(plaintext)
+      } catch (e: WrongPassphraseException) {
+        passphrase?.fill('\u0000')
+        lastError = PasskeyDecryptionError.IncorrectPassphrase(keyId.toString())
+        logcat(LogPriority.DEBUG) {
+          "Wrong passphrase for key ${keyId}, trying next matching key"
         }
-
-        val allKeys = keyManager.getAllKeys().get() ?: emptyList()
-        val matchingKeys = findMatchingSecretKeys(allKeys, recipientKeyIds)
-
-        if (matchingKeys.isEmpty()) {
-          return Err(
-            PasskeyDecryptionError.MissingSecretKey(recipientKeyIds.map { it.toString() }.toSet())
-          )
+        continue
+      } catch (e: IncorrectPassphraseException) {
+        passphrase?.fill('\u0000')
+        lastError = PasskeyDecryptionError.IncorrectPassphrase(keyId.toString())
+        logcat(LogPriority.DEBUG) {
+          "Incorrect passphrase for key ${keyId}, trying next matching key"
         }
-
-        var lastError: PasskeyDecryptionError? = null
-
-        for ((key, keyId) in matchingKeys) {
-          val passphrase = unlockContext.unlockKey(keyId.toString())
-
-          try {
-            val plaintext = attemptDecryption(key, passphrase, ciphertext)
-            passphrase?.fill('\u0000')
-            return Ok(plaintext)
-          } catch (e: WrongPassphraseException) {
-            passphrase?.fill('\u0000')
-            lastError = PasskeyDecryptionError.IncorrectPassphrase(keyId.toString())
-            logcat(LogPriority.DEBUG) {
-              "Wrong passphrase for key ${keyId}, trying next matching key"
-            }
-            continue
-          } catch (e: IncorrectPassphraseException) {
-            passphrase?.fill('\u0000')
-            lastError = PasskeyDecryptionError.IncorrectPassphrase(keyId.toString())
-            logcat(LogPriority.DEBUG) {
-              "Incorrect passphrase for key ${keyId}, trying next matching key"
-            }
-            continue
-          } catch (e: Exception) {
-            passphrase?.fill('\u0000')
-            lastError = mapExceptionToError(e)
-            logcat(LogPriority.DEBUG) {
-              "Decryption failed with key ${keyId}: ${e.message}, trying next"
-            }
-            continue
-          }
+        continue
+      } catch (e: Exception) {
+        passphrase?.fill('\u0000')
+        lastError = mapExceptionToError(e)
+        logcat(LogPriority.DEBUG) {
+          "Decryption failed with key ${keyId}: ${e.message}, trying next"
         }
+        continue
+      }
+    }
 
-        Err(lastError ?: PasskeyDecryptionError.MalformedCiphertext)
+    return Err(lastError ?: PasskeyDecryptionError.MalformedCiphertext)
   }
 
   private fun findMatchingSecretKeys(
