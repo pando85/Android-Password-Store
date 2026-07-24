@@ -5,6 +5,8 @@
 
 package app.passwordstore.passkeys.storage
 
+import app.passwordstore.passkeys.security.BoundedInputStream
+import app.passwordstore.passkeys.security.PasskeyInputLimits
 import com.github.michaelbull.result.Err
 import com.github.michaelbull.result.Ok
 import com.github.michaelbull.result.Result
@@ -26,6 +28,7 @@ public class NoFollowFileStore(
   private val fileExtension: String = ".gpg",
   private val atomicWriter: DefaultAtomicCredentialWriter =
     DefaultAtomicCredentialWriter(repositoryRoot),
+  private val inputLimits: PasskeyInputLimits = PasskeyInputLimits.DEFAULT,
 ) : ConfinedPasskeyFileStore {
 
   private val readMutex = Mutex()
@@ -163,24 +166,51 @@ public class NoFollowFileStore(
               },
             )
 
-        val contentBytes =
-          safeReadFile(filePath)
-            .fold(
-              success = { it },
-              failure = {
-                return@withLock Err(it)
-              },
+        val attrs =
+          try {
+            Files.readAttributes(
+              filePath,
+              java.nio.file.attribute.BasicFileAttributes::class.java,
+              LinkOption.NOFOLLOW_LINKS,
             )
+          } catch (e: Exception) {
+            return@withLock Err(FileStoreError.IoError(e.message ?: "Cannot read file attributes"))
+          }
 
-        val digest = MessageDigest.getInstance("SHA-256").digest(contentBytes)
+        if (attrs.size() == 0L) {
+          return@withLock Err(FileStoreError.IoError("Ciphertext file is empty"))
+        }
+        if (attrs.size() > inputLimits.maxCiphertextBytes) {
+          return@withLock Err(
+            FileStoreError.IoError(
+              "File size ${attrs.size()} exceeds maximum ${inputLimits.maxCiphertextBytes} bytes"
+            )
+          )
+        }
+
+        val digest = MessageDigest.getInstance("SHA-256")
+        val contentBytes = ByteArray(attrs.size().toInt())
+        var offset = 0
+        Files.newInputStream(filePath, LinkOption.NOFOLLOW_LINKS).use { rawStream ->
+          val bounded = BoundedInputStream(rawStream, inputLimits.maxCiphertextBytes)
+          val buf = ByteArray(8192)
+          while (offset < contentBytes.size) {
+            val n = bounded.read(buf, 0, minOf(buf.size, contentBytes.size - offset))
+            if (n == -1) break
+            digest.update(buf, 0, n)
+            System.arraycopy(buf, 0, contentBytes, offset, n)
+            offset += n
+          }
+        }
+
         val version =
           CredentialSourceVersion(
             repositoryGeneration = currentRepositoryGeneration(),
             canonicalPath = filePath.toString(),
-            fileSize = contentBytes.size.toLong(),
+            fileSize = attrs.size(),
             modifiedAtMillis =
               Files.getLastModifiedTime(filePath, LinkOption.NOFOLLOW_LINKS).toMillis(),
-            ciphertextDigest = digest,
+            ciphertextDigest = digest.digest(),
           )
 
         if (expectedVersion != null && expectedVersion != version) {
@@ -306,30 +336,47 @@ public class NoFollowFileStore(
           return@withLock Err(FileStoreError.NotRegularFile)
         }
 
-        val contentBytes =
-          safeReadFile(filePath)
-            .fold(
-              success = { it },
-              failure = {
-                return@withLock Err(it)
-              },
-            )
+        val attrs =
+          Files.readAttributes(
+            filePath,
+            java.nio.file.attribute.BasicFileAttributes::class.java,
+            LinkOption.NOFOLLOW_LINKS,
+          )
 
-        try {
-          val digest = MessageDigest.getInstance("SHA-256").digest(contentBytes)
-          val version =
-            CredentialSourceVersion(
-              repositoryGeneration = currentRepositoryGeneration(),
-              canonicalPath = filePath.toString(),
-              fileSize = contentBytes.size.toLong(),
-              modifiedAtMillis =
-                Files.getLastModifiedTime(filePath, LinkOption.NOFOLLOW_LINKS).toMillis(),
-              ciphertextDigest = digest,
-            )
-          Ok(version)
-        } finally {
-          contentBytes.fill(0)
+        if (attrs.size() == 0L) {
+          return@withLock Err(FileStoreError.IoError("Ciphertext file is empty"))
         }
+        if (attrs.size() > inputLimits.maxCiphertextBytes) {
+          return@withLock Err(
+            FileStoreError.IoError(
+              "File size ${attrs.size()} exceeds maximum ${inputLimits.maxCiphertextBytes} bytes"
+            )
+          )
+        }
+
+        val digest = MessageDigest.getInstance("SHA-256")
+        var totalRead = 0L
+        Files.newInputStream(filePath, LinkOption.NOFOLLOW_LINKS).use { rawStream ->
+          val bounded = BoundedInputStream(rawStream, inputLimits.maxCiphertextBytes)
+          val buf = ByteArray(8192)
+          while (true) {
+            val n = bounded.read(buf)
+            if (n == -1) break
+            digest.update(buf, 0, n)
+            totalRead += n
+          }
+        }
+
+        val version =
+          CredentialSourceVersion(
+            repositoryGeneration = currentRepositoryGeneration(),
+            canonicalPath = filePath.toString(),
+            fileSize = attrs.size(),
+            modifiedAtMillis =
+              Files.getLastModifiedTime(filePath, LinkOption.NOFOLLOW_LINKS).toMillis(),
+            ciphertextDigest = digest.digest(),
+          )
+        Ok(version)
       } catch (e: Exception) {
         logcat(LogPriority.ERROR) { "resolveVersion failed: ${e.message}" }
         Err(FileStoreError.IoError(e.message ?: "Unknown error"))
@@ -423,10 +470,29 @@ public class NoFollowFileStore(
           java.nio.file.attribute.BasicFileAttributes::class.java,
           LinkOption.NOFOLLOW_LINKS,
         )
-      if (attrs.size() > MAX_FILE_SIZE) {
-        return Err(FileStoreError.IoError("File exceeds maximum size limit"))
+      if (attrs.size() == 0L) {
+        return Err(FileStoreError.IoError("File is empty"))
       }
-      Ok(Files.readAllBytes(path))
+      if (attrs.size() > inputLimits.maxCiphertextBytes) {
+        return Err(
+          FileStoreError.IoError(
+            "File exceeds maximum size limit of ${inputLimits.maxCiphertextBytes} bytes"
+          )
+        )
+      }
+      val content = ByteArray(attrs.size().toInt())
+      Files.newInputStream(path, LinkOption.NOFOLLOW_LINKS).use { rawStream ->
+        val bounded = BoundedInputStream(rawStream, inputLimits.maxCiphertextBytes)
+        var offset = 0
+        val buf = ByteArray(8192)
+        while (offset < content.size) {
+          val n = bounded.read(buf, 0, minOf(buf.size, content.size - offset))
+          if (n == -1) break
+          System.arraycopy(buf, 0, content, offset, n)
+          offset += n
+        }
+      }
+      Ok(content)
     } catch (e: Exception) {
       Err(FileStoreError.IoError(e.message ?: "Read failed"))
     }
@@ -473,9 +539,5 @@ public class NoFollowFileStore(
 
   private fun unsanitizeRpId(sanitized: String): String {
     return sanitized
-  }
-
-  private companion object {
-    private const val MAX_FILE_SIZE = 1024 * 1024L
   }
 }
