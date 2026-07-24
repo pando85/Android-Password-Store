@@ -12,7 +12,7 @@ import java.io.OutputStream
 public interface ConfinedPasskeyFileStore {
 
   public suspend fun scanMetadata(
-    rpId: String?,
+    rpId: String?
   ): Result<List<ScannedCredentialFile>, FileStoreError>
 
   public suspend fun openExact(
@@ -28,7 +28,7 @@ public interface ConfinedPasskeyFileStore {
   public suspend fun deleteExact(ref: PasskeyFileRef): Result<Boolean, FileStoreError>
 
   public suspend fun resolveVersion(
-    ref: PasskeyFileRef,
+    ref: PasskeyFileRef
   ): Result<CredentialSourceVersion?, FileStoreError>
 }
 

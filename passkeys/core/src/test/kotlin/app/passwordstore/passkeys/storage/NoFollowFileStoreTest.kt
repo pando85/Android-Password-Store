@@ -10,7 +10,6 @@ import java.io.File
 import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 
@@ -111,11 +110,12 @@ class NoFollowFileStoreTest {
         outsideDir.toPath(),
       )
 
-      val ref = PasskeyFileRef(
-        canonicalRpId = "evil.com",
-        credentialId = byteArrayOf(0xaa.toByte(), 0xbb.toByte()),
-        relativePath = "evil.com/aabb.gpg",
-      )
+      val ref =
+        PasskeyFileRef(
+          canonicalRpId = "evil.com",
+          credentialId = byteArrayOf(0xaa.toByte(), 0xbb.toByte()),
+          relativePath = "evil.com/aabb.gpg",
+        )
 
       val result = store.openExact(ref)
       result.fold(
@@ -141,11 +141,12 @@ class NoFollowFileStoreTest {
       val passkeyDir = File(repoRoot, "fido2")
       passkeyDir.mkdirs()
 
-      val ref = PasskeyFileRef(
-        canonicalRpId = "example.com",
-        credentialId = byteArrayOf(0xaa.toByte(), 0xbb.toByte()),
-        relativePath = "example.com/aabb.gpg",
-      )
+      val ref =
+        PasskeyFileRef(
+          canonicalRpId = "example.com",
+          credentialId = byteArrayOf(0xaa.toByte(), 0xbb.toByte()),
+          relativePath = "example.com/aabb.gpg",
+        )
 
       val result = store.openExact(ref)
       result.fold(
@@ -334,17 +335,22 @@ class NoFollowFileStoreTest {
           assertEquals(1, files.size)
           val file = files[0]
           assertEquals("example.com", file.ref.canonicalRpId)
-          assertTrue(file.ref.credentialId.contentEquals(byteArrayOf(0xaa.toByte(), 0xbb.toByte(), 0xcc.toByte(), 0xdd.toByte())))
+          assertTrue(
+            file.ref.credentialId.contentEquals(
+              byteArrayOf(0xaa.toByte(), 0xbb.toByte(), 0xcc.toByte(), 0xdd.toByte())
+            )
+          )
           assertEquals("example.com/aabbccdd.gpg", file.ref.relativePath)
         },
         failure = { throw AssertionError("Scan should succeed: $it") },
       )
 
-      val ref = PasskeyFileRef(
-        canonicalRpId = "example.com",
-        credentialId = byteArrayOf(0xaa.toByte(), 0xbb.toByte(), 0xcc.toByte(), 0xdd.toByte()),
-        relativePath = "example.com/aabbccdd.gpg",
-      )
+      val ref =
+        PasskeyFileRef(
+          canonicalRpId = "example.com",
+          credentialId = byteArrayOf(0xaa.toByte(), 0xbb.toByte(), 0xcc.toByte(), 0xdd.toByte()),
+          relativePath = "example.com/aabbccdd.gpg",
+        )
 
       val openResult = store.openExact(ref)
       openResult.fold(
@@ -374,19 +380,21 @@ class NoFollowFileStoreTest {
       val credBytes = byteArrayOf(1, 2, 3, 4)
       File(rpDir, "aabb.gpg").writeBytes(credBytes)
 
-      val ref = PasskeyFileRef(
-        canonicalRpId = "example.com",
-        credentialId = byteArrayOf(0xaa.toByte(), 0xbb.toByte()),
-        relativePath = "example.com/aabb.gpg",
-      )
+      val ref =
+        PasskeyFileRef(
+          canonicalRpId = "example.com",
+          credentialId = byteArrayOf(0xaa.toByte(), 0xbb.toByte()),
+          relativePath = "example.com/aabb.gpg",
+        )
 
-      val wrongVersion = CredentialSourceVersion(
-        repositoryGeneration = RepositoryGeneration("test", null, 0),
-        canonicalPath = "wrong",
-        fileSize = 999,
-        modifiedAtMillis = 0,
-        ciphertextDigest = byteArrayOf(0),
-      )
+      val wrongVersion =
+        CredentialSourceVersion(
+          repositoryGeneration = RepositoryGeneration("test", null, 0),
+          canonicalPath = "wrong",
+          fileSize = 999,
+          modifiedAtMillis = 0,
+          ciphertextDigest = byteArrayOf(0),
+        )
 
       val result = store.openExact(ref, expectedVersion = wrongVersion)
       result.fold(
@@ -409,11 +417,12 @@ class NoFollowFileStoreTest {
       val passkeyDir = File(repoRoot, "fido2")
       passkeyDir.mkdirs()
 
-      val ref = PasskeyFileRef(
-        canonicalRpId = "example.com",
-        credentialId = byteArrayOf(0xaa.toByte(), 0xbb.toByte()),
-        relativePath = "example.com/aabb.gpg",
-      )
+      val ref =
+        PasskeyFileRef(
+          canonicalRpId = "example.com",
+          credentialId = byteArrayOf(0xaa.toByte(), 0xbb.toByte()),
+          relativePath = "example.com/aabb.gpg",
+        )
 
       val result = store.resolveVersion(ref)
       result.fold(

@@ -151,7 +151,7 @@ public class IndexedPasskeyStorage(
   }
 
   override suspend fun listMetadataWithRefs(
-    rpId: String?,
+    rpId: String?
   ): Result<List<PasskeyMetadataWithRef>, Throwable> {
     ensureIndexLoaded()
 
@@ -163,13 +163,15 @@ public class IndexedPasskeyStorage(
           } else {
             metadataIndex.values.toList()
           }
-        Ok(entries.map { entry ->
-          PasskeyMetadataWithRef(
-            metadata = entry.metadata,
-            fileRef = entry.fileRef,
-            sourceVersion = entry.sourceVersion,
-          )
-        })
+        Ok(
+          entries.map { entry ->
+            PasskeyMetadataWithRef(
+              metadata = entry.metadata,
+              fileRef = entry.fileRef,
+              sourceVersion = entry.sourceVersion,
+            )
+          }
+        )
       } catch (e: Exception) {
         Err(e)
       }
@@ -197,12 +199,12 @@ public class IndexedPasskeyStorage(
   }
 
   public suspend fun loadForSigningFromIndex(
-    credentialId: ByteArray,
+    credentialId: ByteArray
   ): Result<SensitivePasskeyCredential, Throwable> {
     ensureIndexLoaded()
     val key = credentialKey(credentialId)
-    val entry = metadataIndex[key]
-      ?: return Err(IllegalArgumentException("Credential not found in index"))
+    val entry =
+      metadataIndex[key] ?: return Err(IllegalArgumentException("Credential not found in index"))
 
     return if (entry.fileRef != null) {
       delegate.loadForSigningExact(entry.fileRef, entry.sourceVersion)
@@ -228,11 +230,12 @@ public class IndexedPasskeyStorage(
     val key = credentialKey(credentialId)
     val entry = metadataIndex[key]
 
-    val deleteResult = if (entry?.fileRef != null) {
-      delegate.deleteCredentialExact(entry.fileRef)
-    } else {
-      delegate.deleteCredential(credentialId)
-    }
+    val deleteResult =
+      if (entry?.fileRef != null) {
+        delegate.deleteCredentialExact(entry.fileRef)
+      } else {
+        delegate.deleteCredential(credentialId)
+      }
 
     return deleteResult.fold(
       success = { deleted ->
@@ -249,22 +252,24 @@ public class IndexedPasskeyStorage(
   }
 
   override suspend fun deleteCredentialExact(ref: PasskeyFileRef): Result<Boolean, Throwable> {
-    return delegate.deleteCredentialExact(ref).fold(
-      success = { deleted ->
-        if (deleted) {
-          val key = credentialKey(ref.credentialId)
-          val entry = metadataIndex[key]
-          if (entry != null) {
-            removeFromIndex(entry.metadata)
+    return delegate
+      .deleteCredentialExact(ref)
+      .fold(
+        success = { deleted ->
+          if (deleted) {
+            val key = credentialKey(ref.credentialId)
+            val entry = metadataIndex[key]
+            if (entry != null) {
+              removeFromIndex(entry.metadata)
+            }
           }
-        }
-        if (deleted && generationProvider != null) {
-          trackedGeneration = resolveCurrentGeneration()
-        }
-        Ok(deleted)
-      },
-      failure = { Err(it) },
-    )
+          if (deleted && generationProvider != null) {
+            trackedGeneration = resolveCurrentGeneration()
+          }
+          Ok(deleted)
+        },
+        failure = { Err(it) },
+      )
   }
 
   override suspend fun updateSignCount(
@@ -278,7 +283,8 @@ public class IndexedPasskeyStorage(
       delegate.updateSignCount(credentialId, newSignCount).also { result ->
         if (result.isOk) {
           val updatedMetadata = existing.metadata.copy(signCount = newSignCount)
-          metadataIndex[key] = IndexedEntry(updatedMetadata, existing.sourceVersion, existing.fileRef)
+          metadataIndex[key] =
+            IndexedEntry(updatedMetadata, existing.sourceVersion, existing.fileRef)
         }
       }
     } else {

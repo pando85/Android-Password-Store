@@ -14,7 +14,6 @@ import java.io.OutputStream
 import java.nio.file.Files
 import java.nio.file.LinkOption
 import java.nio.file.Path
-import java.nio.file.StandardOpenOption
 import java.security.MessageDigest
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -39,7 +38,7 @@ public class NoFollowFileStore(
     get() = rootPath.resolve(passkeyDirectory)
 
   override suspend fun scanMetadata(
-    rpId: String?,
+    rpId: String?
   ): Result<List<ScannedCredentialFile>, FileStoreError> {
     return readMutex.withLock {
       try {
@@ -52,19 +51,20 @@ public class NoFollowFileStore(
           return@withLock Ok(emptyList())
         }
 
-        val dirsToScan = if (rpId != null) {
-          val sanitized = sanitizeRpId(rpId)
-          val rpDir = passkeyRoot.resolve(sanitized)
-          if (!safeIsDirectory(rpDir)) {
-            return@withLock Ok(emptyList())
+        val dirsToScan =
+          if (rpId != null) {
+            val sanitized = sanitizeRpId(rpId)
+            val rpDir = passkeyRoot.resolve(sanitized)
+            if (!safeIsDirectory(rpDir)) {
+              return@withLock Ok(emptyList())
+            }
+            if (hasSymlinkComponent(rpDir, passkeyRoot)) {
+              return@withLock Err(FileStoreError.SymlinkInPath)
+            }
+            listOf(sanitized to rpId)
+          } else {
+            collectRpDirectories(passkeyRoot)
           }
-          if (hasSymlinkComponent(rpDir, passkeyRoot)) {
-            return@withLock Err(FileStoreError.SymlinkInPath)
-          }
-          listOf(sanitized to rpId)
-        } else {
-          collectRpDirectories(passkeyRoot)
-        }
 
         val results = mutableListOf<ScannedCredentialFile>()
         val seenCredentialIds = HashMap<String, MutableList<PasskeyFileRef>>()
@@ -99,24 +99,26 @@ public class NoFollowFileStore(
 
             if (!Files.isRegularFile(entryPath, LinkOption.NOFOLLOW_LINKS)) continue
 
-            val ref = PasskeyFileRef(
-              canonicalRpId = rawRpId,
-              credentialId = credentialId,
-              relativePath = "$rpDirName/$fileName",
-            )
+            val ref =
+              PasskeyFileRef(
+                canonicalRpId = rawRpId,
+                credentialId = credentialId,
+                relativePath = "$rpDirName/$fileName",
+              )
 
             val idKey = hexId
             seenCredentialIds.getOrPut(idKey) { mutableListOf() }.add(ref)
 
-            val attrs = try {
-              Files.readAttributes(
-                entryPath,
-                java.nio.file.attribute.BasicFileAttributes::class.java,
-                LinkOption.NOFOLLOW_LINKS,
-              )
-            } catch (_: Exception) {
-              continue
-            }
+            val attrs =
+              try {
+                Files.readAttributes(
+                  entryPath,
+                  java.nio.file.attribute.BasicFileAttributes::class.java,
+                  LinkOption.NOFOLLOW_LINKS,
+                )
+              } catch (_: Exception) {
+                continue
+              }
 
             results.add(
               ScannedCredentialFile(
@@ -152,26 +154,34 @@ public class NoFollowFileStore(
           return@withLock Err(FileStoreError.RepositoryRootSymlinked)
         }
 
-        val filePath = resolveAndValidate(ref)
-          .fold(
-            success = { it },
-            failure = { return@withLock Err(it) },
-          )
+        val filePath =
+          resolveAndValidate(ref)
+            .fold(
+              success = { it },
+              failure = {
+                return@withLock Err(it)
+              },
+            )
 
-        val contentBytes = safeReadFile(filePath)
-          .fold(
-            success = { it },
-            failure = { return@withLock Err(it) },
-          )
+        val contentBytes =
+          safeReadFile(filePath)
+            .fold(
+              success = { it },
+              failure = {
+                return@withLock Err(it)
+              },
+            )
 
         val digest = MessageDigest.getInstance("SHA-256").digest(contentBytes)
-        val version = CredentialSourceVersion(
-          repositoryGeneration = currentRepositoryGeneration(),
-          canonicalPath = filePath.toString(),
-          fileSize = contentBytes.size.toLong(),
-          modifiedAtMillis = Files.getLastModifiedTime(filePath, LinkOption.NOFOLLOW_LINKS).toMillis(),
-          ciphertextDigest = digest,
-        )
+        val version =
+          CredentialSourceVersion(
+            repositoryGeneration = currentRepositoryGeneration(),
+            canonicalPath = filePath.toString(),
+            fileSize = contentBytes.size.toLong(),
+            modifiedAtMillis =
+              Files.getLastModifiedTime(filePath, LinkOption.NOFOLLOW_LINKS).toMillis(),
+            ciphertextDigest = digest,
+          )
 
         if (expectedVersion != null && expectedVersion != version) {
           contentBytes.fill(0)
@@ -196,11 +206,14 @@ public class NoFollowFileStore(
           return@withLock Err(FileStoreError.RepositoryRootSymlinked)
         }
 
-        val filePath = resolveAndValidate(ref)
-          .fold(
-            success = { it },
-            failure = { return@withLock Err(it) },
-          )
+        val filePath =
+          resolveAndValidate(ref)
+            .fold(
+              success = { it },
+              failure = {
+                return@withLock Err(it)
+              },
+            )
 
         val targetFile = filePath.toFile()
         val parentDir = targetFile.parentFile
@@ -236,11 +249,14 @@ public class NoFollowFileStore(
           return@withLock Err(FileStoreError.RepositoryRootSymlinked)
         }
 
-        val filePath = resolveAndValidate(ref)
-          .fold(
-            success = { it },
-            failure = { return@withLock Err(it) },
-          )
+        val filePath =
+          resolveAndValidate(ref)
+            .fold(
+              success = { it },
+              failure = {
+                return@withLock Err(it)
+              },
+            )
 
         val targetFile = filePath.toFile()
         if (!targetFile.exists()) {
@@ -261,7 +277,7 @@ public class NoFollowFileStore(
   }
 
   override suspend fun resolveVersion(
-    ref: PasskeyFileRef,
+    ref: PasskeyFileRef
   ): Result<CredentialSourceVersion?, FileStoreError> {
     return readMutex.withLock {
       try {
@@ -269,11 +285,14 @@ public class NoFollowFileStore(
           return@withLock Err(FileStoreError.RepositoryRootSymlinked)
         }
 
-        val filePath = resolveAndValidate(ref)
-          .fold(
-            success = { it },
-            failure = { return@withLock Err(it) },
-          )
+        val filePath =
+          resolveAndValidate(ref)
+            .fold(
+              success = { it },
+              failure = {
+                return@withLock Err(it)
+              },
+            )
 
         if (!Files.exists(filePath, LinkOption.NOFOLLOW_LINKS)) {
           return@withLock Ok(null)
@@ -287,21 +306,26 @@ public class NoFollowFileStore(
           return@withLock Err(FileStoreError.NotRegularFile)
         }
 
-        val contentBytes = safeReadFile(filePath)
-          .fold(
-            success = { it },
-            failure = { return@withLock Err(it) },
-          )
+        val contentBytes =
+          safeReadFile(filePath)
+            .fold(
+              success = { it },
+              failure = {
+                return@withLock Err(it)
+              },
+            )
 
         try {
           val digest = MessageDigest.getInstance("SHA-256").digest(contentBytes)
-          val version = CredentialSourceVersion(
-            repositoryGeneration = currentRepositoryGeneration(),
-            canonicalPath = filePath.toString(),
-            fileSize = contentBytes.size.toLong(),
-            modifiedAtMillis = Files.getLastModifiedTime(filePath, LinkOption.NOFOLLOW_LINKS).toMillis(),
-            ciphertextDigest = digest,
-          )
+          val version =
+            CredentialSourceVersion(
+              repositoryGeneration = currentRepositoryGeneration(),
+              canonicalPath = filePath.toString(),
+              fileSize = contentBytes.size.toLong(),
+              modifiedAtMillis =
+                Files.getLastModifiedTime(filePath, LinkOption.NOFOLLOW_LINKS).toMillis(),
+              ciphertextDigest = digest,
+            )
           Ok(version)
         } finally {
           contentBytes.fill(0)
@@ -393,11 +417,12 @@ public class NoFollowFileStore(
       if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) {
         return Err(FileStoreError.NotRegularFile)
       }
-      val attrs = Files.readAttributes(
-        path,
-        java.nio.file.attribute.BasicFileAttributes::class.java,
-        LinkOption.NOFOLLOW_LINKS,
-      )
+      val attrs =
+        Files.readAttributes(
+          path,
+          java.nio.file.attribute.BasicFileAttributes::class.java,
+          LinkOption.NOFOLLOW_LINKS,
+        )
       if (attrs.size() > MAX_FILE_SIZE) {
         return Err(FileStoreError.IoError("File exceeds maximum size limit"))
       }

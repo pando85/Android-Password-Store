@@ -10,7 +10,6 @@ import app.passwordstore.passkeys.model.StoredCredential
 import app.passwordstore.passkeys.model.User
 import com.github.michaelbull.result.fold
 import kotlin.test.Test
-import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class PayloadBindingValidatorTest {
@@ -54,12 +53,13 @@ class PayloadBindingValidatorTest {
     val ref = makeRef()
     val stored = makeStoredCredential()
 
-    val result = PayloadBindingValidator.validate(
-      requestRpId = "example.com",
-      requestCredentialId = validCredentialId,
-      fileRef = ref,
-      stored = stored,
-    )
+    val result =
+      PayloadBindingValidator.validate(
+        requestRpId = "example.com",
+        requestCredentialId = validCredentialId,
+        fileRef = ref,
+        stored = stored,
+      )
 
     result.fold(
       success = { /* expected */ },
@@ -72,12 +72,13 @@ class PayloadBindingValidatorTest {
     val ref = makeRef(rpId = "example.com")
     val stored = makeStoredCredential(rpId = "example.com")
 
-    val result = PayloadBindingValidator.validate(
-      requestRpId = "evil.com",
-      requestCredentialId = validCredentialId,
-      fileRef = ref,
-      stored = stored,
-    )
+    val result =
+      PayloadBindingValidator.validate(
+        requestRpId = "evil.com",
+        requestCredentialId = validCredentialId,
+        fileRef = ref,
+        stored = stored,
+      )
 
     result.fold(
       success = { throw AssertionError("Mismatched RP ID should be rejected") },
@@ -92,12 +93,13 @@ class PayloadBindingValidatorTest {
     val ref = makeRef(rpId = "evil.com")
     val stored = makeStoredCredential(rpId = "example.com")
 
-    val result = PayloadBindingValidator.validate(
-      requestRpId = "evil.com",
-      requestCredentialId = validCredentialId,
-      fileRef = ref,
-      stored = stored,
-    )
+    val result =
+      PayloadBindingValidator.validate(
+        requestRpId = "evil.com",
+        requestCredentialId = validCredentialId,
+        fileRef = ref,
+        stored = stored,
+      )
 
     result.fold(
       success = { throw AssertionError("Directory/decrypted RP mismatch should be rejected") },
@@ -109,19 +111,21 @@ class PayloadBindingValidatorTest {
 
   @Test
   fun `filename ID differs from decrypted CBOR ID is rejected`() {
-    val ref = PasskeyFileRef(
-      canonicalRpId = "example.com",
-      credentialId = byteArrayOf(0x11, 0x22),
-      relativePath = "example.com/1122.gpg",
-    )
+    val ref =
+      PasskeyFileRef(
+        canonicalRpId = "example.com",
+        credentialId = byteArrayOf(0x11, 0x22),
+        relativePath = "example.com/1122.gpg",
+      )
     val stored = makeStoredCredential(credentialId = byteArrayOf(0x33, 0x44))
 
-    val result = PayloadBindingValidator.validate(
-      requestRpId = "example.com",
-      requestCredentialId = byteArrayOf(0x11, 0x22),
-      fileRef = ref,
-      stored = stored,
-    )
+    val result =
+      PayloadBindingValidator.validate(
+        requestRpId = "example.com",
+        requestCredentialId = byteArrayOf(0x11, 0x22),
+        fileRef = ref,
+        stored = stored,
+      )
 
     result.fold(
       success = { throw AssertionError("Filename/decrypted ID mismatch should be rejected") },
@@ -136,12 +140,13 @@ class PayloadBindingValidatorTest {
     val ref = makeRef()
     val stored = makeStoredCredential(alg = -257)
 
-    val result = PayloadBindingValidator.validate(
-      requestRpId = "example.com",
-      requestCredentialId = validCredentialId,
-      fileRef = ref,
-      stored = stored,
-    )
+    val result =
+      PayloadBindingValidator.validate(
+        requestRpId = "example.com",
+        requestCredentialId = validCredentialId,
+        fileRef = ref,
+        stored = stored,
+      )
 
     result.fold(
       success = { throw AssertionError("Unsupported algorithm should be rejected") },
@@ -157,12 +162,13 @@ class PayloadBindingValidatorTest {
     val ref = makeRef()
     val stored = makeStoredCredential(privateKey = ByteArray(16) { it.toByte() })
 
-    val result = PayloadBindingValidator.validate(
-      requestRpId = "example.com",
-      requestCredentialId = validCredentialId,
-      fileRef = ref,
-      stored = stored,
-    )
+    val result =
+      PayloadBindingValidator.validate(
+        requestRpId = "example.com",
+        requestCredentialId = validCredentialId,
+        fileRef = ref,
+        stored = stored,
+      )
 
     result.fold(
       success = { throw AssertionError("Invalid scalar size should be rejected") },
@@ -179,12 +185,13 @@ class PayloadBindingValidatorTest {
     val wrongPublicKey = ByteArray(65) { 0x04 }
     val stored = makeStoredCredential(publicKey = wrongPublicKey)
 
-    val result = PayloadBindingValidator.validate(
-      requestRpId = "example.com",
-      requestCredentialId = validCredentialId,
-      fileRef = ref,
-      stored = stored,
-    )
+    val result =
+      PayloadBindingValidator.validate(
+        requestRpId = "example.com",
+        requestCredentialId = validCredentialId,
+        fileRef = ref,
+        stored = stored,
+      )
 
     result.fold(
       success = { throw AssertionError("Mismatched public key should be rejected") },
@@ -201,12 +208,13 @@ class PayloadBindingValidatorTest {
     val zeroScalar = ByteArray(32)
     val stored = makeStoredCredential(privateKey = zeroScalar)
 
-    val result = PayloadBindingValidator.validate(
-      requestRpId = "example.com",
-      requestCredentialId = validCredentialId,
-      fileRef = ref,
-      stored = stored,
-    )
+    val result =
+      PayloadBindingValidator.validate(
+        requestRpId = "example.com",
+        requestCredentialId = validCredentialId,
+        fileRef = ref,
+        stored = stored,
+      )
 
     result.fold(
       success = { throw AssertionError("Zero scalar should be rejected") },
@@ -220,26 +228,30 @@ class PayloadBindingValidatorTest {
   @Test
   fun `empty credential ID in stored credential is rejected`() {
     val ref = makeRef(credentialId = byteArrayOf(0x01))
-    val stored = StoredCredential(
-      id = ByteArray(0),
-      rp = RelyingParty(id = "example.com"),
-      user = User(id = "uid".toByteArray()),
-      signCount = 0u,
-      alg = StoredCredential.ALG_ES256,
-      privateKey = validPrivateKey,
-      publicKey = validPublicKey,
-      created = 1000L,
-    )
+    val stored =
+      StoredCredential(
+        id = ByteArray(0),
+        rp = RelyingParty(id = "example.com"),
+        user = User(id = "uid".toByteArray()),
+        signCount = 0u,
+        alg = StoredCredential.ALG_ES256,
+        privateKey = validPrivateKey,
+        publicKey = validPublicKey,
+        created = 1000L,
+      )
 
-    val result = PayloadBindingValidator.validate(
-      requestRpId = "example.com",
-      requestCredentialId = byteArrayOf(0x01),
-      fileRef = ref,
-      stored = stored,
-    )
+    val result =
+      PayloadBindingValidator.validate(
+        requestRpId = "example.com",
+        requestCredentialId = byteArrayOf(0x01),
+        fileRef = ref,
+        stored = stored,
+      )
 
     result.fold(
-      success = { throw AssertionError("Empty credential ID in stored credential should be rejected") },
+      success = {
+        throw AssertionError("Empty credential ID in stored credential should be rejected")
+      },
       failure = {
         assertTrue(it is FileStoreError.PayloadBindingMismatch)
       },

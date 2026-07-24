@@ -54,14 +54,15 @@ public interface PasskeyStorage {
   }
 
   public suspend fun listMetadataWithRefs(
-    rpId: String? = null,
+    rpId: String? = null
   ): Result<List<PasskeyMetadataWithRef>, Throwable> {
-    return listMetadata(rpId).fold(
-      success = { list ->
-        Ok(list.map { PasskeyMetadataWithRef(metadata = it, fileRef = null) })
-      },
-      failure = { Err(it) },
-    )
+    return listMetadata(rpId)
+      .fold(
+        success = { list ->
+          Ok(list.map { PasskeyMetadataWithRef(metadata = it, fileRef = null) })
+        },
+        failure = { Err(it) },
+      )
   }
 }
 

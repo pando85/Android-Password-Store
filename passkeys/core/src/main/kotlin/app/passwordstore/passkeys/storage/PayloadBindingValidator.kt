@@ -77,11 +77,7 @@ public object PayloadBindingValidator {
     }
 
     if (stored.alg != StoredCredential.ALG_ES256) {
-      return Err(
-        FileStoreError.PayloadBindingMismatch(
-          "Unsupported algorithm: ${stored.alg}"
-        )
-      )
+      return Err(FileStoreError.PayloadBindingMismatch("Unsupported algorithm: ${stored.alg}"))
     }
 
     if (stored.privateKey.size != 32) {
@@ -92,12 +88,13 @@ public object PayloadBindingValidator {
       )
     }
 
-    val n = try {
-      val curve = org.bouncycastle.crypto.ec.CustomNamedCurves.getByName("secp256r1")
-      curve.n
-    } catch (_: Exception) {
-      return Err(FileStoreError.IoError("P-256 curve not available"))
-    }
+    val n =
+      try {
+        val curve = org.bouncycastle.crypto.ec.CustomNamedCurves.getByName("secp256r1")
+        curve.n
+      } catch (_: Exception) {
+        return Err(FileStoreError.IoError("P-256 curve not available"))
+      }
 
     val d = java.math.BigInteger(1, stored.privateKey)
     if (d < java.math.BigInteger.ONE || d >= n) {
@@ -107,13 +104,14 @@ public object PayloadBindingValidator {
     }
 
     if (stored.publicKey != null) {
-      val derived = try {
-        StoredCredential.deriveP256PublicKey(stored.privateKey)
-      } catch (_: Exception) {
-        return Err(
-          FileStoreError.PayloadBindingMismatch("Failed to derive public key from private scalar")
-        )
-      }
+      val derived =
+        try {
+          StoredCredential.deriveP256PublicKey(stored.privateKey)
+        } catch (_: Exception) {
+          return Err(
+            FileStoreError.PayloadBindingMismatch("Failed to derive public key from private scalar")
+          )
+        }
       if (!derived.contentEquals(stored.publicKey)) {
         return Err(
           FileStoreError.PayloadBindingMismatch(
@@ -133,5 +131,4 @@ public object PayloadBindingValidator {
 
     return Ok(Unit)
   }
-
 }

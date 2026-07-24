@@ -22,7 +22,6 @@ import com.github.michaelbull.result.Result
 import com.github.michaelbull.result.fold
 import java.io.ByteArrayInputStream
 import java.io.File
-import java.security.MessageDigest
 import kotlin.time.Instant
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -58,17 +57,19 @@ public class FilePasskeyStorage<
         .scanMetadata(rpId)
         .fold(
           success = { scanned ->
-            Ok(scanned.map { file ->
-              PasskeyMetadata(
-                credentialId = file.ref.credentialId.copyOf(),
-                rpId = file.ref.canonicalRpId,
-                userName = "",
-                userDisplayName = "",
-                createdAt = Instant.fromEpochMilliseconds(file.lastModifiedMillis),
-                signCount = 0u,
-                fileLastModified = file.lastModifiedMillis,
-              )
-            })
+            Ok(
+              scanned.map { file ->
+                PasskeyMetadata(
+                  credentialId = file.ref.credentialId.copyOf(),
+                  rpId = file.ref.canonicalRpId,
+                  userName = "",
+                  userDisplayName = "",
+                  createdAt = Instant.fromEpochMilliseconds(file.lastModifiedMillis),
+                  signCount = 0u,
+                  fileLastModified = file.lastModifiedMillis,
+                )
+              }
+            )
           },
           failure = { error ->
             logcat(LogPriority.ERROR) { "Metadata scan failed: ${error.message}" }
@@ -78,7 +79,7 @@ public class FilePasskeyStorage<
     }
 
   override suspend fun listMetadataWithRefs(
-    rpId: String?,
+    rpId: String?
   ): Result<List<PasskeyMetadataWithRef>, Throwable> =
     withContext(Dispatchers.IO) {
       confinedStore
@@ -87,21 +88,25 @@ public class FilePasskeyStorage<
           success = { scanned ->
             val results = mutableListOf<PasskeyMetadataWithRef>()
             for (file in scanned) {
-              val version = confinedStore.resolveVersion(file.ref).fold(
-                success = { it },
-                failure = { null },
-              )
+              val version =
+                confinedStore
+                  .resolveVersion(file.ref)
+                  .fold(
+                    success = { it },
+                    failure = { null },
+                  )
               results.add(
                 PasskeyMetadataWithRef(
-                  metadata = PasskeyMetadata(
-                    credentialId = file.ref.credentialId.copyOf(),
-                    rpId = file.ref.canonicalRpId,
-                    userName = "",
-                    userDisplayName = "",
-                    createdAt = Instant.fromEpochMilliseconds(file.lastModifiedMillis),
-                    signCount = 0u,
-                    fileLastModified = file.lastModifiedMillis,
-                  ),
+                  metadata =
+                    PasskeyMetadata(
+                      credentialId = file.ref.credentialId.copyOf(),
+                      rpId = file.ref.canonicalRpId,
+                      userName = "",
+                      userDisplayName = "",
+                      createdAt = Instant.fromEpochMilliseconds(file.lastModifiedMillis),
+                      signCount = 0u,
+                      fileLastModified = file.lastModifiedMillis,
+                    ),
                   fileRef = file.ref,
                   sourceVersion = version,
                 )
@@ -152,30 +157,35 @@ public class FilePasskeyStorage<
         try {
           val contentBytes = file.readBytes()
           val decryptResult = passkeyPgpDecryptor.decryptFromBytes(contentBytes, pgpUnlockContext)
-          val plaintext = decryptResult.fold(
-            success = { it },
-            failure = { error ->
-              return Err(IllegalStateException("Decryption failed: ${formatDecryptionError(error)}"))
-            },
-          )
+          val plaintext =
+            decryptResult.fold(
+              success = { it },
+              failure = { error ->
+                return Err(
+                  IllegalStateException("Decryption failed: ${formatDecryptionError(error)}")
+                )
+              },
+            )
 
-          val stored = try {
-            StoredCredential.fromCbor(plaintext)
-          } finally {
-            plaintext.fill(0)
-          }
+          val stored =
+            try {
+              StoredCredential.fromCbor(plaintext)
+            } finally {
+              plaintext.fill(0)
+            }
 
           PayloadBindingValidator.validate(
-            requestRpId = ref.canonicalRpId,
-            requestCredentialId = ref.credentialId,
-            fileRef = ref,
-            stored = stored,
-          ).fold(
-            success = { },
-            failure = { error ->
-              return Err(SecurityException("Payload binding validation failed: ${error.message}"))
-            },
-          )
+              requestRpId = ref.canonicalRpId,
+              requestCredentialId = ref.credentialId,
+              fileRef = ref,
+              stored = stored,
+            )
+            .fold(
+              success = {},
+              failure = { error ->
+                return Err(SecurityException("Payload binding validation failed: ${error.message}"))
+              },
+            )
 
           Ok(SensitivePasskeyCredential.fromStoredCredential(stored, file.version.modifiedAtMillis))
         } finally {
@@ -186,16 +196,13 @@ public class FilePasskeyStorage<
         when (error) {
           is FileStoreError.VersionMismatch ->
             Err(SecurityException("File version changed between validation and open"))
-          is FileStoreError.SymlinkInPath ->
-            Err(SecurityException("Symlink rejected"))
-          is FileStoreError.FileNotFound ->
-            Err(IllegalArgumentException("Credential not found"))
+          is FileStoreError.SymlinkInPath -> Err(SecurityException("Symlink rejected"))
+          is FileStoreError.FileNotFound -> Err(IllegalArgumentException("Credential not found"))
           is FileStoreError.RepositoryRootSymlinked ->
             Err(SecurityException("Repository root is symlinked"))
           is FileStoreError.PathOutsideRepository ->
             Err(SecurityException("Path outside repository"))
-          is FileStoreError.NotRegularFile ->
-            Err(SecurityException("Not a regular file"))
+          is FileStoreError.NotRegularFile -> Err(SecurityException("Not a regular file"))
           else -> Err(RuntimeException(error.message))
         }
       },
@@ -221,12 +228,13 @@ public class FilePasskeyStorage<
           }
         }
 
-        val ref = PasskeyFileRef.fromRpIdAndCredentialId(
-          rpId = credential.rpId,
-          credentialId = storedCred.id,
-          sanitizedRpDir = sanitizedRpDir,
-          fileExtension = config.fileExtension,
-        )
+        val ref =
+          PasskeyFileRef.fromRpIdAndCredentialId(
+            rpId = credential.rpId,
+            credentialId = storedCred.id,
+            sanitizedRpDir = sanitizedRpDir,
+            fileExtension = config.fileExtension,
+          )
 
         val plaintext = storedCred.toCbor()
 
@@ -320,9 +328,7 @@ public class FilePasskeyStorage<
           success = { deleted ->
             if (deleted) {
               logcat { "Deleted passkey ${ref.credentialIdHex()}" }
-              cleanupEmptyDirectories(
-                File(passkeyDir, ref.relativePath.substringBeforeLast('/'))
-              )
+              cleanupEmptyDirectories(File(passkeyDir, ref.relativePath.substringBeforeLast('/')))
             }
             Ok(deleted)
           },
@@ -365,31 +371,42 @@ public class FilePasskeyStorage<
         success = { file ->
           try {
             val contentBytes = file.readBytes()
-            val plaintext = passkeyPgpDecryptor.decryptFromBytes(contentBytes, pgpUnlockContext).fold(
-              success = { it },
-              failure = { error ->
-                return@withContext Err(IllegalStateException("Decryption failed: ${formatDecryptionError(error)}")) as Result<Unit, Throwable>
-              },
-            )
+            val plaintext =
+              passkeyPgpDecryptor
+                .decryptFromBytes(contentBytes, pgpUnlockContext)
+                .fold(
+                  success = { it },
+                  failure = { error ->
+                    return@withContext Err(
+                      IllegalStateException("Decryption failed: ${formatDecryptionError(error)}")
+                    )
+                      as Result<Unit, Throwable>
+                  },
+                )
 
-            val credential = try {
-              StoredCredential.fromCbor(plaintext)
-            } finally {
-              plaintext.fill(0)
-            }
+            val credential =
+              try {
+                StoredCredential.fromCbor(plaintext)
+              } finally {
+                plaintext.fill(0)
+              }
 
             val updated = credential.copy(signCount = newSignCount.toUInt())
             val updatedPlaintext = updated.toCbor()
 
             try {
-              val recipients = recipientResolver
-                .resolveFor(File(repositoryRoot, "${config.passkeyDirectory}/${ref.relativePath}"))
-                .fold(
-                  success = { it },
-                  failure = { error ->
-                    return@withContext Err(recipientPolicyErrorToException(error)) as Result<Unit, Throwable>
-                  },
-                )
+              val recipients =
+                recipientResolver
+                  .resolveFor(
+                    File(repositoryRoot, "${config.passkeyDirectory}/${ref.relativePath}")
+                  )
+                  .fold(
+                    success = { it },
+                    failure = { error ->
+                      return@withContext Err(recipientPolicyErrorToException(error))
+                        as Result<Unit, Throwable>
+                    },
+                  )
 
               confinedStore
                 .createOrReplace(ref) { outputStream ->
@@ -440,12 +457,17 @@ public class FilePasskeyStorage<
             return@withContext Ok(null) as Result<CredentialSourceVersion?, Throwable>
           }
           if (matches.size > 1) {
-            return@withContext Err(SecurityException("Duplicate credential ID detected")) as Result<CredentialSourceVersion?, Throwable>
+            return@withContext Err(SecurityException("Duplicate credential ID detected"))
+              as Result<CredentialSourceVersion?, Throwable>
           }
-          confinedStore.resolveVersion(matches.first().ref).fold(
-            success = { Ok(it) as Result<CredentialSourceVersion?, Throwable> },
-            failure = { Err(RuntimeException(it.message)) as Result<CredentialSourceVersion?, Throwable> },
-          )
+          confinedStore
+            .resolveVersion(matches.first().ref)
+            .fold(
+              success = { Ok(it) as Result<CredentialSourceVersion?, Throwable> },
+              failure = {
+                Err(RuntimeException(it.message)) as Result<CredentialSourceVersion?, Throwable>
+              },
+            )
         },
         failure = { error -> mapScanError(error) as Result<CredentialSourceVersion?, Throwable> },
       )
@@ -455,10 +477,14 @@ public class FilePasskeyStorage<
     ref: PasskeyFileRef
   ): Result<CredentialSourceVersion?, Throwable> =
     withContext(Dispatchers.IO) {
-      confinedStore.resolveVersion(ref).fold(
-        success = { Ok(it) as Result<CredentialSourceVersion?, Throwable> },
-        failure = { Err(RuntimeException(it.message)) as Result<CredentialSourceVersion?, Throwable> },
-      )
+      confinedStore
+        .resolveVersion(ref)
+        .fold(
+          success = { Ok(it) as Result<CredentialSourceVersion?, Throwable> },
+          failure = {
+            Err(RuntimeException(it.message)) as Result<CredentialSourceVersion?, Throwable>
+          },
+        )
     }
 
   public suspend fun recoverStaleArtifacts(): List<File> {
@@ -471,8 +497,7 @@ public class FilePasskeyStorage<
     return when (error) {
       is FileStoreError.DuplicateCredentialId ->
         Err(SecurityException("Duplicate credential ID detected"))
-      is FileStoreError.SymlinkInPath ->
-        Err(SecurityException("Symlink rejected"))
+      is FileStoreError.SymlinkInPath -> Err(SecurityException("Symlink rejected"))
       is FileStoreError.RepositoryRootSymlinked ->
         Err(SecurityException("Repository root is symlinked"))
       else -> Err(RuntimeException(error.message))
