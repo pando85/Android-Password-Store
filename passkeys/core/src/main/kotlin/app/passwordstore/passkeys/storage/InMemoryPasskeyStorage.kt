@@ -107,7 +107,7 @@ public class InMemoryPasskeyStorage : PasskeyStorage {
 
   override suspend fun resolveSourceVersion(
     credentialId: ByteArray
-  ): Result<CredentialSourceVersion?, Throwable> =
+  ): Result<SourceVersionResult, Throwable> =
     withContext(Dispatchers.Default) {
       val key = credentialIdKey(credentialId)
       val credential = publicCredentials[key]
@@ -115,21 +115,23 @@ public class InMemoryPasskeyStorage : PasskeyStorage {
       if (credential != null && privateKey != null) {
         val digest = MessageDigest.getInstance("SHA-256").digest(privateKey)
         Ok(
-          CredentialSourceVersion(
-            repositoryGeneration =
-              RepositoryGeneration(
-                repositoryIdentity = "in-memory",
-                gitHead = null,
-                worktreeGeneration = publicCredentials.size.toLong(),
-              ),
-            canonicalPath = "in-memory://$key",
-            fileSize = privateKey.size.toLong(),
-            modifiedAtMillis = Clock.System.now().toEpochMilliseconds(),
-            ciphertextDigest = digest,
+          SourceVersionResult.Stable(
+            CredentialSourceVersion(
+              repositoryGeneration =
+                RepositoryGeneration(
+                  repositoryIdentity = "in-memory",
+                  gitHead = null,
+                  worktreeGeneration = publicCredentials.size.toLong(),
+                ),
+              canonicalPath = "in-memory://$key",
+              fileSize = privateKey.size.toLong(),
+              modifiedAtMillis = Clock.System.now().toEpochMilliseconds(),
+              ciphertextDigest = digest,
+            )
           )
         )
       } else {
-        Ok(null)
+        Ok(SourceVersionResult.Missing)
       }
     }
 
