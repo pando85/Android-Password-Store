@@ -29,6 +29,9 @@ public sealed interface ClientDataBinding {
       result = 31 * result + responseClientDataJson.contentHashCode()
       return result
     }
+
+    override fun toString(): String =
+      "FrameworkHash(hash=<${hash.size} bytes>, responseClientDataJson=<${responseClientDataJson.size} bytes>)"
   }
 
   public data class ProviderConstructed(
@@ -54,6 +57,9 @@ public sealed interface ClientDataBinding {
       result = 31 * result + crossOrigin.hashCode()
       return result
     }
+
+    override fun toString(): String =
+      "ProviderConstructed(type=$type, challenge=<${challenge.size} bytes>, origin=$origin, crossOrigin=$crossOrigin)"
   }
 }
 
