@@ -150,21 +150,27 @@ public class ES256CryptoHandler : PasskeyCryptoHandler {
 
     return try {
       val (privateKey, publicKey) = generateKeyPair()
-      val credentialId = generateCredentialId()
+      val sensitivePrivateKey = SensitiveBytes(privateKey)
+      try {
+        val credentialId = generateCredentialId()
 
-      val publicCredential =
-        PasskeyCredential(
-          credentialId = credentialId,
-          publicKey = publicKey,
-          rpId = rpId,
-          user = FidoUser(id = userId, name = userName, displayName = userDisplayName),
-          signCount = 0u,
-          createdAt = Clock.System.now(),
-          transports = listOf("internal"),
-          uvInitialized = true,
-        )
+        val publicCredential =
+          PasskeyCredential(
+            credentialId = credentialId,
+            publicKey = publicKey,
+            rpId = rpId,
+            user = FidoUser(id = userId, name = userName, displayName = userDisplayName),
+            signCount = 0u,
+            createdAt = Clock.System.now(),
+            transports = listOf("internal"),
+            uvInitialized = true,
+          )
 
-      Ok(CreatedPasskeyCredential(publicCredential, SensitiveBytes(privateKey)))
+        Ok(CreatedPasskeyCredential(publicCredential, sensitivePrivateKey))
+      } catch (e: Throwable) {
+        sensitivePrivateKey.close()
+        throw e
+      }
     } catch (e: Exception) {
       Err(e)
     }

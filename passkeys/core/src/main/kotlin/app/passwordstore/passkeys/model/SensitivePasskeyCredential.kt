@@ -67,26 +67,31 @@ public class SensitivePasskeyCredential(
     ): SensitivePasskeyCredential {
       val keyCopy = stored.privateKey.copyOf()
       val sensitiveKey = SensitiveBytes(keyCopy)
-      return SensitivePasskeyCredential(
-        credentialId = stored.id.copyOf(),
-        publicKey =
-          stored.publicKey?.copyOf() ?: StoredCredential.deriveP256PublicKey(stored.privateKey),
-        rpId = stored.rp.id,
-        user =
-          FidoUser(
-            id = stored.user.id.copyOf(),
-            name = stored.user.name ?: "",
-            displayName = stored.user.displayName ?: "",
-          ),
-        signCount = stored.signCount.toULong(),
-        createdAt = Instant.fromEpochSeconds(stored.created),
-        transports = listOf("internal"),
-        uvInitialized = true,
-        backupEligible = stored.backupEligible,
-        backupState = stored.backupState,
-        fileLastModified = fileLastModified,
-        privateKey = sensitiveKey,
-      )
+      try {
+        return SensitivePasskeyCredential(
+          credentialId = stored.id.copyOf(),
+          publicKey =
+            stored.publicKey?.copyOf() ?: StoredCredential.deriveP256PublicKey(stored.privateKey),
+          rpId = stored.rp.id,
+          user =
+            FidoUser(
+              id = stored.user.id.copyOf(),
+              name = stored.user.name ?: "",
+              displayName = stored.user.displayName ?: "",
+            ),
+          signCount = stored.signCount.toULong(),
+          createdAt = Instant.fromEpochSeconds(stored.created),
+          transports = listOf("internal"),
+          uvInitialized = true,
+          backupEligible = stored.backupEligible,
+          backupState = stored.backupState,
+          fileLastModified = fileLastModified,
+          privateKey = sensitiveKey,
+        )
+      } catch (e: Throwable) {
+        sensitiveKey.close()
+        throw e
+      }
     }
   }
 }
