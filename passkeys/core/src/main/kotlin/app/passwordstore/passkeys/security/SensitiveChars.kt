@@ -5,7 +5,7 @@
 
 package app.passwordstore.passkeys.security
 
-public class SensitiveChars private constructor(private var chars: CharArray?) : AutoCloseable {
+public class SensitiveChars private constructor(@PublishedApi internal var chars: CharArray?) : AutoCloseable {
 
   @Volatile private var released = false
 

@@ -49,7 +49,7 @@ class PasskeyIntegrationTest {
         .getOrElse { throw AssertionError("Create failed") }
     val credential = created.credential
 
-    val saveResult = created.usePrivateKey { privateKey ->
+    val saveResult = created.usePrivateKeySuspend { privateKey ->
       storage.saveCredential(credential, privateKey)
     }
     assertTrue(saveResult.isOk, "Save should succeed")
@@ -226,7 +226,7 @@ class PasskeyIntegrationTest {
         )
         .getOrElse { throw AssertionError("Create failed") }
 
-    created.usePrivateKey { privateKey ->
+    created.usePrivateKeySuspend { privateKey ->
       storage.saveCredential(created.credential, privateKey)
     }
     return created.credential

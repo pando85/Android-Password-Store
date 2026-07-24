@@ -68,6 +68,10 @@ public class CreatedPasskeyCredential(
     return privateKey.borrow { key -> block(key) }
   }
 
+  public suspend fun <T> usePrivateKeySuspend(block: suspend (ByteArray) -> T): T {
+    return privateKey.borrow { key -> block(key) }
+  }
+
   override fun close() {
     privateKey.close()
   }

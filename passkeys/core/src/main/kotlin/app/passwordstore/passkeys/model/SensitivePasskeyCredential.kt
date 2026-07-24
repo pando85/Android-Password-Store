@@ -32,6 +32,11 @@ public class SensitivePasskeyCredential(
     return keyOwner.borrow { key -> block(key) }
   }
 
+  public suspend fun <T> usePrivateKeySuspend(block: suspend (ByteArray) -> T): T {
+    val keyOwner = privateKey ?: throw IllegalStateException("Credential has been closed")
+    return keyOwner.borrow { key -> block(key) }
+  }
+
   public fun toPublicCredential(): PasskeyCredential {
     return PasskeyCredential(
       credentialId = credentialId.copyOf(),

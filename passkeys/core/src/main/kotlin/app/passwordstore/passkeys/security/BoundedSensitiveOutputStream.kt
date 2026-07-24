@@ -56,7 +56,7 @@ public class BoundedSensitiveOutputStream(private val maxBytes: Int) :
   }
 }
 
-public class SensitiveBytes(private var data: ByteArray?) : AutoCloseable {
+public class SensitiveBytes(@PublishedApi internal var data: ByteArray?) : AutoCloseable {
 
   @Volatile private var released = false
 

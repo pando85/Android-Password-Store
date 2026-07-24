@@ -506,7 +506,7 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
           )
 
         val saveResult =
-          createdCredential.usePrivateKey { privateKey ->
+          createdCredential.usePrivateKeySuspend { privateKey ->
             passkeyStorage.saveCredential(credentialWithBinding, privateKey)
           }
         if (saveResult.isErr) {
