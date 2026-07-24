@@ -8,12 +8,15 @@ package app.passwordstore.passkeys
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import androidx.credentials.CreatePublicKeyCredentialRequest
+import androidx.credentials.GetPublicKeyCredentialOption
 import androidx.credentials.provider.CallingAppInfo
 import androidx.credentials.provider.ProviderCreateCredentialRequest
 import androidx.credentials.provider.ProviderGetCredentialRequest
 import app.passwordstore.passkeys.crypto.CallerType
 import app.passwordstore.passkeys.crypto.CallerVerificationDiagnostic
 import app.passwordstore.passkeys.crypto.CallerVerificationError
+import app.passwordstore.passkeys.crypto.ClientDataBinding
 import app.passwordstore.passkeys.crypto.RpIdValidator
 import app.passwordstore.passkeys.crypto.VerifiedWebAuthnContext
 import app.passwordstore.passkeys.provider.caller.BrowserAllowlist
@@ -43,20 +46,26 @@ internal class DefaultWebAuthnCallerVerifier(
     request: ProviderGetCredentialRequest,
     rpId: String,
   ): Result<VerifiedWebAuthnContext, CallerVerificationError> {
-    return verifyCaller(request.callingAppInfo, rpId, "get")
+    val option =
+      request.credentialOptions.filterIsInstance<GetPublicKeyCredentialOption>().firstOrNull()
+    val clientDataHash = option?.clientDataHash
+    return verifyCaller(request.callingAppInfo, rpId, "get", clientDataHash)
   }
 
   override suspend fun verifyCreateRequest(
     request: ProviderCreateCredentialRequest,
     rpId: String,
   ): Result<VerifiedWebAuthnContext, CallerVerificationError> {
-    return verifyCaller(request.callingAppInfo, rpId, "create")
+    val createRequest = request.callingRequest as? CreatePublicKeyCredentialRequest
+    val clientDataHash = createRequest?.clientDataHash
+    return verifyCaller(request.callingAppInfo, rpId, "create", clientDataHash)
   }
 
   private suspend fun verifyCaller(
     callingAppInfo: CallingAppInfo?,
     rpId: String,
     stage: String,
+    frameworkClientDataHash: ByteArray?,
   ): Result<VerifiedWebAuthnContext, CallerVerificationError> {
     val normalizedRpId = rpId.trim().lowercase()
     if (!RpIdValidator.validateRpIdSyntax(normalizedRpId)) {
@@ -90,7 +99,7 @@ internal class DefaultWebAuthnCallerVerifier(
 
     val browserEntry = BrowserAllowlist.findEntry(browserAllowlist, packageName)
     if (browserEntry != null) {
-      return verifyBrowserCaller(callingAppInfo, browserEntry, normalizedRpId, stage)
+      return verifyBrowserCaller(callingAppInfo, browserEntry, normalizedRpId, stage, frameworkClientDataHash)
     }
 
     return verifyNativeCaller(callingAppInfo, packageName, normalizedRpId, stage)
@@ -101,6 +110,7 @@ internal class DefaultWebAuthnCallerVerifier(
     browserEntry: TrustedBrowserEntry,
     rpId: String,
     stage: String,
+    frameworkClientDataHash: ByteArray?,
   ): Result<VerifiedWebAuthnContext, CallerVerificationError> {
     val packageName = callingAppInfo.packageName
     val certDigests = getSigningCertificateDigests(packageName)
@@ -144,14 +154,46 @@ internal class DefaultWebAuthnCallerVerifier(
       RpIdValidator.canonicalizeWebOrigin(verifiedOrigin)
         ?: return Err(CallerVerificationError.OriginRpIdMismatch(verifiedOrigin, rpId))
 
+    if (frameworkClientDataHash == null) {
+      emitDiagnostic(
+        packageName,
+        CallerType.PRIVILEGED_BROWSER,
+        rpId,
+        stage,
+        "MISSING_CLIENT_DATA_HASH",
+        "Privileged browser request has no clientDataHash",
+      )
+      return Err(CallerVerificationError.MissingClientDataHash(stage))
+    }
+
+    if (frameworkClientDataHash.size != 32) {
+      emitDiagnostic(
+        packageName,
+        CallerType.PRIVILEGED_BROWSER,
+        rpId,
+        stage,
+        "INVALID_CLIENT_DATA_HASH_LENGTH",
+        "Expected 32 bytes, got ${frameworkClientDataHash.size}",
+      )
+      return Err(
+        CallerVerificationError.InvalidClientDataHashLength(32, frameworkClientDataHash.size)
+      )
+    }
+
+    val responseClientDataJson = buildResponseClientDataJson(canonicalOrigin)
+
     logcat { "Browser caller verified: pkg=$packageName, rpId=$rpId, origin=$canonicalOrigin" }
     return Ok(
       VerifiedWebAuthnContext(
         callingPackage = packageName,
         origin = canonicalOrigin,
-        clientDataHash = null,
         callerType = CallerType.PRIVILEGED_BROWSER,
         signingCertificateDigests = certDigests,
+        clientDataBinding =
+          ClientDataBinding.FrameworkHash(
+            hash = frameworkClientDataHash,
+            responseClientDataJson = responseClientDataJson,
+          ),
       )
     )
   }
@@ -177,9 +219,14 @@ internal class DefaultWebAuthnCallerVerifier(
         VerifiedWebAuthnContext(
           callingPackage = packageName,
           origin = androidOrigin,
-          clientDataHash = null,
           callerType = CallerType.NATIVE_APP,
           signingCertificateDigests = certDigests,
+          clientDataBinding =
+            ClientDataBinding.ProviderConstructed(
+              type = "",
+              challenge = ByteArray(0),
+              origin = androidOrigin,
+            ),
         )
       )
     }
@@ -214,9 +261,14 @@ internal class DefaultWebAuthnCallerVerifier(
       VerifiedWebAuthnContext(
         callingPackage = packageName,
         origin = androidOrigin,
-        clientDataHash = null,
         callerType = CallerType.NATIVE_APP,
         signingCertificateDigests = certDigests,
+        clientDataBinding =
+          ClientDataBinding.ProviderConstructed(
+            type = "",
+            challenge = ByteArray(0),
+            origin = androidOrigin,
+          ),
       )
     )
   }
@@ -275,6 +327,11 @@ internal class DefaultWebAuthnCallerVerifier(
         message = message,
       )
     )
+  }
+
+  private fun buildResponseClientDataJson(origin: String): ByteArray {
+    return """{"type":"webauthn.get","origin":"$origin","crossOrigin":false}"""
+      .toByteArray()
   }
 }
 
