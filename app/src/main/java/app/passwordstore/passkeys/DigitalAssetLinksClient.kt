@@ -152,7 +152,7 @@ internal class DigitalAssetLinksClient(
   }
 }
 
-internal sealed class AssetLinkFetchError(val reason: String) {
+internal sealed class AssetLinkFetchError(val reason: String) : RuntimeException(reason) {
   class Timeout(reason: String) : AssetLinkFetchError(reason)
 
   class TlsError(reason: String) : AssetLinkFetchError(reason)
