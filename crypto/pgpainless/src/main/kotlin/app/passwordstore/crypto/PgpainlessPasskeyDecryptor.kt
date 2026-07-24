@@ -168,9 +168,9 @@ public class PgpainlessPasskeyDecryptor(
           "Incorrect passphrase for key ${keyId}, trying next matching key"
         }
         continue
-      } catch (e: PasskeyDecryptionError.PlaintextTooLarge) {
+      } catch (e: app.passwordstore.passkeys.security.BoundedOutputLimitExceededException) {
         passphrase?.fill('\u0000')
-        return Err(e)
+        return Err(PasskeyDecryptionError.PlaintextTooLarge(limits.maxPlaintextBytes))
       } catch (e: Exception) {
         passphrase?.fill('\u0000')
         lastError = mapExceptionToError(e)
@@ -237,7 +237,7 @@ public class PgpainlessPasskeyDecryptor(
           failure = { throw it },
         )
     } catch (e: app.passwordstore.passkeys.security.BoundedOutputLimitExceededException) {
-      throw PasskeyDecryptionError.PlaintextTooLarge(limits.maxPlaintextBytes)
+      throw e
     } finally {
       outputStream.close()
     }
@@ -251,7 +251,8 @@ public class PgpainlessPasskeyDecryptor(
       is IncorrectPassphraseException -> PasskeyDecryptionError.IncorrectPassphrase("unknown")
       is org.pgpainless.exception.MessageNotIntegrityProtectedException ->
         PasskeyDecryptionError.IntegrityCheckFailed
-      is PasskeyDecryptionError.PlaintextTooLarge -> e
+      is app.passwordstore.passkeys.security.BoundedOutputLimitExceededException ->
+        PasskeyDecryptionError.PlaintextTooLarge(e.maxBytes)
       is org.bouncycastle.openpgp.PGPException -> {
         if (e.message?.contains("modification detection code") == true) {
           PasskeyDecryptionError.IntegrityCheckFailed
