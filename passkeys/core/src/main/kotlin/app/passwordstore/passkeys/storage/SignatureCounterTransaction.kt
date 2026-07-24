@@ -68,28 +68,13 @@ public class SignatureCounterTransaction(
     }
 
     val preSignStable =
-      when (preSignVersion) {
-        is SourceVersionResult.Stable -> preSignVersion.version
-        is SourceVersionResult.Missing -> return Err(SignatureCounterError.FileChangedSinceSelection)
-        is SourceVersionResult.Unavailable -> return Err(SignatureCounterError.PersistenceFailed)
-      }
-
-    val currentVersionResult =
-      storage
-        .resolveSourceVersion(credentialId)
-        .fold(
-          success = { it },
-          failure = {
-            return Err(SignatureCounterError.PersistenceFailed)
-          },
-        )
+      preSignVersion.toStableOrError().fold(success = { it }, failure = { return Err(it) })
 
     val currentStable =
-      when (currentVersionResult) {
-        is SourceVersionResult.Stable -> currentVersionResult.version
-        is SourceVersionResult.Missing -> return Err(SignatureCounterError.FileChangedSinceSelection)
-        is SourceVersionResult.Unavailable -> return Err(SignatureCounterError.PersistenceFailed)
-      }
+      requireStableVersion(credentialId).fold(
+        success = { it },
+        failure = { return Err(it) },
+      )
 
     if (preSignStable != currentStable) {
       return Err(SignatureCounterError.FileChangedSinceSelection)
@@ -118,28 +103,13 @@ public class SignatureCounterTransaction(
     }
 
     val preSignStable =
-      when (preSignVersion) {
-        is SourceVersionResult.Stable -> preSignVersion.version
-        is SourceVersionResult.Missing -> return Err(SignatureCounterError.FileChangedSinceSelection)
-        is SourceVersionResult.Unavailable -> return Err(SignatureCounterError.PersistenceFailed)
-      }
-
-    val currentVersionResult =
-      storage
-        .resolveSourceVersionExact(ref)
-        .fold(
-          success = { it },
-          failure = {
-            return Err(SignatureCounterError.PersistenceFailed)
-          },
-        )
+      preSignVersion.toStableOrError().fold(success = { it }, failure = { return Err(it) })
 
     val currentStable =
-      when (currentVersionResult) {
-        is SourceVersionResult.Stable -> currentVersionResult.version
-        is SourceVersionResult.Missing -> return Err(SignatureCounterError.FileChangedSinceSelection)
-        is SourceVersionResult.Unavailable -> return Err(SignatureCounterError.PersistenceFailed)
-      }
+      requireStableVersionExact(ref).fold(
+        success = { it },
+        failure = { return Err(it) },
+      )
 
     if (preSignStable != currentStable) {
       return Err(SignatureCounterError.FileChangedSinceSelection)
@@ -157,6 +127,27 @@ public class SignatureCounterTransaction(
 
     return finalizeAssertion(ref.credentialId, freshCredential)
   }
+
+  private suspend fun requireStableVersion(
+    credentialId: ByteArray
+  ): Result<CredentialSourceVersion, SignatureCounterError> =
+    storage
+      .resolveSourceVersion(credentialId)
+      .fold(success = { it.toStableOrError() }, failure = { Err(SignatureCounterError.PersistenceFailed) })
+
+  private suspend fun requireStableVersionExact(
+    ref: PasskeyFileRef
+  ): Result<CredentialSourceVersion, SignatureCounterError> =
+    storage
+      .resolveSourceVersionExact(ref)
+      .fold(success = { it.toStableOrError() }, failure = { Err(SignatureCounterError.PersistenceFailed) })
+
+  private fun SourceVersionResult.toStableOrError(): Result<CredentialSourceVersion, SignatureCounterError> =
+    when (this) {
+      is SourceVersionResult.Stable -> Ok(version)
+      is SourceVersionResult.Missing -> Err(SignatureCounterError.FileChangedSinceSelection)
+      is SourceVersionResult.Unavailable -> Err(SignatureCounterError.PersistenceFailed)
+    }
 
   private suspend fun finalizeAssertion(
     credentialId: ByteArray,

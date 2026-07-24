@@ -98,7 +98,7 @@ public class IndexedPasskeyStorage(
         if (generationProvider != null) {
           inMergeConflict = generationProvider.isInMergeOrRebaseState()
         }
-          delegate
+        delegate
           .listMetadataWithRefs()
           .fold(
             success = { entries ->
@@ -329,6 +329,7 @@ public class IndexedPasskeyStorage(
       }
     }
   }
+
   override suspend fun resolveSourceVersion(
     credentialId: ByteArray
   ): Result<SourceVersionResult, Throwable> {
