@@ -75,3 +75,18 @@ public data class PasskeyMetadataWithRef(
   val fileRef: PasskeyFileRef?,
   val sourceVersion: CredentialSourceVersion? = null,
 )
+
+internal fun hexToBytes(hex: String): ByteArray? {
+  if (hex.length % 2 != 0) return null
+  return try {
+    ByteArray(hex.length / 2) { i ->
+      hex.substring(i * 2, i * 2 + 2).toInt(16).toByte()
+    }
+  } catch (_: Exception) {
+    null
+  }
+}
+
+internal fun sanitizeRpId(rpId: String): String {
+  return rpId.replace("/", "_").replace("\\", "_").replace("..", "_")
+}

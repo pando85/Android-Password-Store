@@ -446,23 +446,8 @@ public class NoFollowFileStore(
     )
   }
 
-  private fun sanitizeRpId(rpId: String): String {
-    return rpId.replace("/", "_").replace("\\", "_").replace("..", "_")
-  }
-
   private fun unsanitizeRpId(sanitized: String): String {
     return sanitized
-  }
-
-  private fun hexToBytes(hex: String): ByteArray? {
-    if (hex.length % 2 != 0) return null
-    return try {
-      ByteArray(hex.length / 2) { i ->
-        hex.substring(i * 2, i * 2 + 2).toInt(16).toByte()
-      }
-    } catch (_: Exception) {
-      null
-    }
   }
 
   private companion object {
