@@ -45,21 +45,11 @@ public class PgpainlessPasskeyDecryptor(
           return@withContext Err(PasskeyDecryptionError.MalformedCiphertext)
         }
         if (fileLen > limits.maxCiphertextBytes) {
-          return@withContext Err(
-            PasskeyDecryptionError.PlaintextTooLarge(limits.maxPlaintextBytes)
-          )
+          return@withContext Err(PasskeyDecryptionError.MalformedCiphertext)
         }
-        val ciphertext = ByteArray(fileLen.toInt())
-        file.inputStream().use { fis ->
+        val ciphertext = file.inputStream().use { fis ->
           val bounded = BoundedInputStream(fis, limits.maxCiphertextBytes)
-          var offset = 0
-          val buf = ByteArray(8192)
-          while (offset < ciphertext.size) {
-            val n = bounded.read(buf, 0, minOf(buf.size, ciphertext.size - offset))
-            if (n == -1) break
-            System.arraycopy(buf, 0, ciphertext, offset, n)
-            offset += n
-          }
+          bounded.readBoundedBytes(fileLen.toInt())
         }
         try {
           decryptCiphertext(ciphertext, unlockContext, file.name, limits)
@@ -80,9 +70,7 @@ public class PgpainlessPasskeyDecryptor(
     withContext(Dispatchers.IO) {
       try {
         if (ciphertext.size > limits.maxCiphertextBytes) {
-          return@withContext Err(
-            PasskeyDecryptionError.PlaintextTooLarge(limits.maxPlaintextBytes)
-          )
+          return@withContext Err(PasskeyDecryptionError.MalformedCiphertext)
         }
         decryptCiphertext(ciphertext, unlockContext, "<bytes>", limits)
       } catch (e: Exception) {
@@ -100,20 +88,10 @@ public class PgpainlessPasskeyDecryptor(
     withContext(Dispatchers.IO) {
       try {
         if (ciphertextLength > limits.maxCiphertextBytes) {
-          return@withContext Err(
-            PasskeyDecryptionError.PlaintextTooLarge(limits.maxPlaintextBytes)
-          )
+          return@withContext Err(PasskeyDecryptionError.MalformedCiphertext)
         }
-        val ciphertext = ByteArray(ciphertextLength.toInt())
-        val bounded = BoundedInputStream(ciphertextStream, limits.maxCiphertextBytes)
-        var offset = 0
-        val buf = ByteArray(8192)
-        while (offset < ciphertext.size) {
-          val n = bounded.read(buf, 0, minOf(buf.size, ciphertext.size - offset))
-          if (n == -1) break
-          System.arraycopy(buf, 0, ciphertext, offset, n)
-          offset += n
-        }
+        val ciphertext = BoundedInputStream(ciphertextStream, limits.maxCiphertextBytes)
+          .readBoundedBytes(ciphertextLength.toInt())
         try {
           decryptCiphertext(ciphertext, unlockContext, "<stream>", limits)
         } finally {
