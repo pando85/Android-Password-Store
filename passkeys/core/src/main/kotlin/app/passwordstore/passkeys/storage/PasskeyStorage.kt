@@ -8,7 +8,10 @@ package app.passwordstore.passkeys.storage
 import app.passwordstore.passkeys.model.PasskeyCredential
 import app.passwordstore.passkeys.model.PasskeyMetadata
 import app.passwordstore.passkeys.model.SensitivePasskeyCredential
+import com.github.michaelbull.result.Err
+import com.github.michaelbull.result.Ok
 import com.github.michaelbull.result.Result
+import com.github.michaelbull.result.fold
 
 public interface PasskeyStorage {
 
@@ -18,9 +21,20 @@ public interface PasskeyStorage {
     credentialId: ByteArray
   ): Result<SensitivePasskeyCredential, Throwable>
 
+  public suspend fun loadForSigningExact(
+    ref: PasskeyFileRef,
+    expectedVersion: CredentialSourceVersion? = null,
+  ): Result<SensitivePasskeyCredential, Throwable> {
+    return loadForSigning(ref.credentialId)
+  }
+
   public suspend fun saveCredential(credential: PasskeyCredential): Result<Unit, Throwable>
 
   public suspend fun deleteCredential(credentialId: ByteArray): Result<Boolean, Throwable>
+
+  public suspend fun deleteCredentialExact(ref: PasskeyFileRef): Result<Boolean, Throwable> {
+    return deleteCredential(ref.credentialId)
+  }
 
   public suspend fun updateSignCount(
     credentialId: ByteArray,
@@ -30,11 +44,34 @@ public interface PasskeyStorage {
   public suspend fun resolveSourceVersion(
     credentialId: ByteArray
   ): Result<CredentialSourceVersion?, Throwable> {
-    return com.github.michaelbull.result.Ok(null)
+    return Ok(null)
+  }
+
+  public suspend fun resolveSourceVersionExact(
+    ref: PasskeyFileRef
+  ): Result<CredentialSourceVersion?, Throwable> {
+    return resolveSourceVersion(ref.credentialId)
+  }
+
+  public suspend fun listMetadataWithRefs(
+    rpId: String? = null,
+  ): Result<List<PasskeyMetadataWithRef>, Throwable> {
+    return listMetadata(rpId).fold(
+      success = { list ->
+        Ok(list.map { PasskeyMetadataWithRef(metadata = it, fileRef = null) })
+      },
+      failure = { Err(it) },
+    )
   }
 }
 
 public data class PasskeyStorageConfig(
   public val passkeyDirectory: String = "fido2",
   public val fileExtension: String = ".gpg",
+)
+
+public data class PasskeyMetadataWithRef(
+  val metadata: PasskeyMetadata,
+  val fileRef: PasskeyFileRef?,
+  val sourceVersion: CredentialSourceVersion? = null,
 )

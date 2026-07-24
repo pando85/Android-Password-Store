@@ -37,17 +37,41 @@ public class PgpainlessPasskeyDecryptor(
     withContext(Dispatchers.IO) {
       try {
         val ciphertext = file.readBytes()
+        decryptCiphertext(ciphertext, unlockContext, file.name)
+      } catch (e: Exception) {
+        logcat(LogPriority.ERROR) { "Unexpected error decrypting ${file.name}: ${e.message}" }
+        Err(mapExceptionToError(e))
+      }
+    }
 
+  override suspend fun decryptFromBytes(
+    ciphertext: ByteArray,
+    unlockContext: PgpUnlockContext,
+  ): Result<ByteArray, PasskeyDecryptionError> =
+    withContext(Dispatchers.IO) {
+      try {
+        decryptCiphertext(ciphertext, unlockContext, "<bytes>")
+      } catch (e: Exception) {
+        logcat(LogPriority.ERROR) { "Unexpected error decrypting bytes: ${e.message}" }
+        Err(mapExceptionToError(e))
+      }
+    }
+
+  private suspend fun decryptCiphertext(
+    ciphertext: ByteArray,
+    unlockContext: PgpUnlockContext,
+    sourceName: String,
+  ): Result<ByteArray, PasskeyDecryptionError> {
         val recipientKeyIds = inspectRecipientKeyIds(ciphertext)
         if (recipientKeyIds.isEmpty()) {
-          return@withContext Err(PasskeyDecryptionError.NoRecipientPackets)
+          return Err(PasskeyDecryptionError.NoRecipientPackets)
         }
 
         val allKeys = keyManager.getAllKeys().get() ?: emptyList()
         val matchingKeys = findMatchingSecretKeys(allKeys, recipientKeyIds)
 
         if (matchingKeys.isEmpty()) {
-          return@withContext Err(
+          return Err(
             PasskeyDecryptionError.MissingSecretKey(recipientKeyIds.map { it.toString() }.toSet())
           )
         }
@@ -60,7 +84,7 @@ public class PgpainlessPasskeyDecryptor(
           try {
             val plaintext = attemptDecryption(key, passphrase, ciphertext)
             passphrase?.fill('\u0000')
-            return@withContext Ok(plaintext)
+            return Ok(plaintext)
           } catch (e: WrongPassphraseException) {
             passphrase?.fill('\u0000')
             lastError = PasskeyDecryptionError.IncorrectPassphrase(keyId.toString())
@@ -86,11 +110,7 @@ public class PgpainlessPasskeyDecryptor(
         }
 
         Err(lastError ?: PasskeyDecryptionError.MalformedCiphertext)
-      } catch (e: Exception) {
-        logcat(LogPriority.ERROR) { "Unexpected error decrypting ${file.name}: ${e.message}" }
-        Err(mapExceptionToError(e))
-      }
-    }
+  }
 
   private fun findMatchingSecretKeys(
     allKeys: List<PGPKey>,
