@@ -319,45 +319,49 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
 
         val effectiveBackupState =
           passkeyRepositoryState.effectiveBackupState(sensitiveCredential.backupEligible)
-        val credentialForSigning =
+        val publicCredential =
           sensitiveCredential
-            .toPasskeyCredential()
+            .toPublicCredential()
             .copy(signCount = newSignCount, backupState = effectiveBackupState)
         val requestJson = option.requestJson
         val assertion =
-          when (val binding = verifiedContext.clientDataBinding) {
-            is ClientDataBinding.FrameworkHash ->
-              cryptoHandler
-                .getAssertionWithFrameworkHash(
-                  credential = credentialForSigning,
-                  rpId = sensitiveCredential.rpId,
-                  clientDataHash = binding.hash,
-                  responseClientDataJson = binding.responseClientDataJson,
-                )
-                .fold(
-                  success = { it },
-                  failure = {
-                    logcat(LogPriority.ERROR) {
-                      "Failed building assertion with framework hash: $it"
-                    }
-                    null
-                  },
-                )
-            is ClientDataBinding.ProviderConstructed ->
-              cryptoHandler
-                .getAssertion(
-                  credential = credentialForSigning,
-                  rpId = sensitiveCredential.rpId,
-                  challenge = PasskeyProviderUtils.decodeBase64Url(parsedRequest.challenge),
-                  origin = verifiedContext.origin,
-                )
-                .fold(
-                  success = { it },
-                  failure = {
-                    logcat(LogPriority.ERROR) { "Failed building assertion: $it" }
-                    null
-                  },
-                )
+          sensitiveCredential.usePrivateKey { privateKey ->
+            when (val binding = verifiedContext.clientDataBinding) {
+              is ClientDataBinding.FrameworkHash ->
+                cryptoHandler
+                  .getAssertionWithFrameworkHash(
+                    credential = publicCredential,
+                    privateKey = privateKey,
+                    rpId = sensitiveCredential.rpId,
+                    clientDataHash = binding.hash,
+                    responseClientDataJson = binding.responseClientDataJson,
+                  )
+                  .fold(
+                    success = { it },
+                    failure = {
+                      logcat(LogPriority.ERROR) {
+                        "Failed building assertion with framework hash: $it"
+                      }
+                      null
+                    },
+                  )
+              is ClientDataBinding.ProviderConstructed ->
+                cryptoHandler
+                  .getAssertion(
+                    credential = publicCredential,
+                    privateKey = privateKey,
+                    rpId = sensitiveCredential.rpId,
+                    challenge = PasskeyProviderUtils.decodeBase64Url(parsedRequest.challenge),
+                    origin = verifiedContext.origin,
+                  )
+                  .fold(
+                    success = { it },
+                    failure = {
+                      logcat(LogPriority.ERROR) { "Failed building assertion: $it" }
+                      null
+                    },
+                  )
+            }
           }
         if (assertion == null) {
           finishWithGetError(GetCredentialUnknownException("Failed generating passkey assertion"))
@@ -367,7 +371,7 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
         val responseJson =
           PasskeyProviderUtils.buildAssertionResponse(
             assertion,
-            credentialForSigning,
+            publicCredential,
             requestJson,
           )
         val resultIntent = Intent()
@@ -491,41 +495,49 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
         return
       }
 
-      val credentialWithBinding =
-        createdCredential.copy(
-          createdByCallerType = verifiedContext.callerType,
-          createdByPackage = verifiedContext.callingPackage,
-          createdByCertificateDigest = verifiedContext.signingCertificateDigests.firstOrNull(),
-          verifiedOrigin = verifiedContext.origin,
-        )
+      try {
+        val publicCredential = createdCredential.credential
+        val credentialWithBinding =
+          publicCredential.copy(
+            createdByCallerType = verifiedContext.callerType,
+            createdByPackage = verifiedContext.callingPackage,
+            createdByCertificateDigest = verifiedContext.signingCertificateDigests.firstOrNull(),
+            verifiedOrigin = verifiedContext.origin,
+          )
 
-      val saveResult = passkeyStorage.saveCredential(credentialWithBinding)
-      if (saveResult.isErr) {
-        saveResult.fold(
-          success = {},
-          failure = { logcat(LogPriority.ERROR) { "Failed storing passkey: $it" } },
+        val saveResult =
+          createdCredential.usePrivateKey { privateKey ->
+            passkeyStorage.saveCredential(credentialWithBinding, privateKey)
+          }
+        if (saveResult.isErr) {
+          saveResult.fold(
+            success = {},
+            failure = { logcat(LogPriority.ERROR) { "Failed storing passkey: $it" } },
+          )
+          finishWithCreateError(CreateCredentialUnknownException("Failed storing passkey"))
+          return
+        }
+
+        passkeyRepositoryState.onCredentialSaved()
+        generationProvider.bumpWorktreeGeneration()
+
+        val responseJson =
+          PasskeyProviderUtils.buildAttestationResponse(
+            credentialWithBinding,
+            createRequest.requestJson,
+            verifiedContext,
+          )
+        val resultIntent = Intent()
+        PendingIntentHandler.setCreateCredentialResponse(
+          resultIntent,
+          CreatePublicKeyCredentialResponse(responseJson),
         )
-        finishWithCreateError(CreateCredentialUnknownException("Failed storing passkey"))
-        return
+        setResult(Activity.RESULT_OK, resultIntent)
+        maybeSyncToGit()
+        finish()
+      } finally {
+        createdCredential.close()
       }
-
-      passkeyRepositoryState.onCredentialSaved()
-      generationProvider.bumpWorktreeGeneration()
-
-      val responseJson =
-        PasskeyProviderUtils.buildAttestationResponse(
-          credentialWithBinding,
-          createRequest.requestJson,
-          verifiedContext,
-        )
-      val resultIntent = Intent()
-      PendingIntentHandler.setCreateCredentialResponse(
-        resultIntent,
-        CreatePublicKeyCredentialResponse(responseJson),
-      )
-      setResult(Activity.RESULT_OK, resultIntent)
-      maybeSyncToGit()
-      finish()
     } catch (e: Exception) {
       logcat(LogPriority.ERROR) { "handleCreateCredential unexpected error: $e" }
       finishWithCreateError(CreateCredentialUnknownException("Unexpected error"))

@@ -71,7 +71,6 @@ public data class StoredCredential(
   public fun toPasskeyCredential(): PasskeyCredential {
     return PasskeyCredential(
       credentialId = id,
-      privateKey = privateKey,
       publicKey = publicKey ?: deriveP256PublicKey(privateKey),
       rpId = rp.id,
       user = FidoUser(id = user.id, name = user.name ?: "", displayName = user.displayName ?: ""),
@@ -205,7 +204,10 @@ public data class StoredCredential(
       )
     }
 
-    public fun fromPasskeyCredential(credential: PasskeyCredential): StoredCredential {
+    public fun fromPasskeyCredential(
+      credential: PasskeyCredential,
+      privateKey: ByteArray,
+    ): StoredCredential {
       return StoredCredential(
         id = credential.credentialId,
         rp = RelyingParty(id = credential.rpId, name = null),
@@ -217,7 +219,7 @@ public data class StoredCredential(
           ),
         signCount = credential.signCount.toUInt(),
         alg = ALG_ES256,
-        privateKey = credential.privateKey,
+        privateKey = privateKey,
         publicKey = credential.publicKey,
         created = credential.createdAt.epochSeconds,
         discoverable = true,

@@ -236,7 +236,10 @@ public class FilePasskeyStorage<
     )
   }
 
-  override suspend fun saveCredential(credential: PasskeyCredential): Result<Unit, Throwable> =
+  override suspend fun saveCredential(
+    credential: PasskeyCredential,
+    privateKey: ByteArray,
+  ): Result<Unit, Throwable> =
     withContext(Dispatchers.IO) {
       try {
         val dir = passkeyDir
@@ -246,7 +249,7 @@ public class FilePasskeyStorage<
           }
         }
 
-        val storedCred = StoredCredential.fromPasskeyCredential(credential)
+        val storedCred = StoredCredential.fromPasskeyCredential(credential, privateKey)
         val sanitizedRpDir = sanitizeRpId(credential.rpId)
         val rpDir = File(dir, sanitizedRpDir)
         if (!rpDir.exists()) {
