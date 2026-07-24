@@ -7,6 +7,9 @@ package app.passwordstore.passkeys.storage
 
 import java.io.File
 import java.io.FileDescriptor
+import java.nio.channels.FileChannel
+import java.nio.file.Path
+import java.nio.file.StandardOpenOption
 import logcat.LogPriority
 import logcat.logcat
 
@@ -25,7 +28,7 @@ internal class PlatformDirectorySyncer : DirectorySyncer {
     val path = dir.absolutePath
     val androidOsSyncResult = tryAndroidOsSync(path)
     if (androidOsSyncResult) return
-    syncViaUnixNativeDispatcher(path)
+    syncViaFileChannel(path)
   }
 
   private fun tryAndroidOsSync(path: String): Boolean {
@@ -59,50 +62,29 @@ internal class PlatformDirectorySyncer : DirectorySyncer {
     }
   }
 
-  private fun syncViaUnixNativeDispatcher(path: String) {
-    try {
-      val nativeDispatcherClass = Class.forName("sun.nio.fs.UnixNativeDispatcher")
-      val openMethod =
-        nativeDispatcherClass.getDeclaredMethod(
-          "open",
-          ByteArray::class.java,
-          Int::class.javaPrimitiveType,
-          Int::class.javaPrimitiveType,
-        )
-      openMethod.isAccessible = true
-      val pathBytes = path.toByteArray()
-      val fd = openMethod.invoke(null, pathBytes, 0, 0) as Int
-      if (fd < 0) {
-        throw DirectorySyncException("Failed to open directory fd for $path: fd=$fd")
-      }
+  private fun syncViaFileChannel(path: String) {
+    val channel =
       try {
-        val fsyncMethod =
-          nativeDispatcherClass.getDeclaredMethod("fsync", Int::class.javaPrimitiveType)
-        fsyncMethod.isAccessible = true
-        fsyncMethod.invoke(null, fd)
-      } finally {
-        try {
-          val closeMethod =
-            nativeDispatcherClass.getDeclaredMethod("close", Int::class.javaPrimitiveType)
-          closeMethod.isAccessible = true
-          closeMethod.invoke(null, fd)
-        } catch (e: Exception) {
-          logcat(LogPriority.WARN) { "Failed to close directory fd: ${e.message}" }
-        }
+        FileChannel.open(Path.of(path), StandardOpenOption.READ)
+      } catch (e: Exception) {
+        throw DirectorySyncException(
+          "Failed to open directory for fsync: $path: ${e.message}",
+          e,
+        )
       }
-    } catch (e: DirectorySyncException) {
-      throw e
-    } catch (e: ClassNotFoundException) {
+    try {
+      channel.force(true)
+    } catch (e: Exception) {
       throw DirectorySyncException(
-        "Directory fsync not available on this platform: $path",
+        "Directory fsync failed for $path: ${e.message}",
         e,
       )
-    } catch (e: Exception) {
-      val cause = e.cause ?: e
-      throw DirectorySyncException(
-        "Directory fsync failed for $path: ${cause.message}",
-        cause,
-      )
+    } finally {
+      try {
+        channel.close()
+      } catch (e: Exception) {
+        logcat(LogPriority.WARN) { "Failed to close directory channel: ${e.message}" }
+      }
     }
   }
 }
