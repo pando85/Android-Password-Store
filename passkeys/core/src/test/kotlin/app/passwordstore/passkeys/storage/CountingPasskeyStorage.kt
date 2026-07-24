@@ -61,6 +61,12 @@ class CountingPasskeyStorage : PasskeyStorage {
     return delegate.updateSignCount(credentialId, newSignCount)
   }
 
+  override suspend fun resolveSourceVersion(
+    credentialId: ByteArray
+  ): Result<SourceVersionResult, Throwable> {
+    return delegate.resolveSourceVersion(credentialId)
+  }
+
   fun clear() {
     delegate.clear()
   }
