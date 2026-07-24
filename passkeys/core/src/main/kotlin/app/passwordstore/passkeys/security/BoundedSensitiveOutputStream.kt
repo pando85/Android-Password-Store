@@ -58,18 +58,37 @@ public class BoundedSensitiveOutputStream(private val maxBytes: Int) :
 
 public class SensitiveBytes(private var data: ByteArray?) : AutoCloseable {
 
+  @Volatile private var released = false
+
   public fun bytes(): ByteArray = data ?: throw IllegalStateException("Bytes have been released")
 
   public fun size(): Int = data?.size ?: 0
 
+  public fun isReleased(): Boolean = released
+
+  public inline fun <T> borrow(block: (ByteArray) -> T): T {
+    val buf = data ?: throw IllegalStateException("Bytes have been released")
+    return block(buf)
+  }
+
+  public fun move(): SensitiveBytes {
+    val buf = data ?: throw IllegalStateException("Bytes have been released")
+    data = null
+    released = true
+    return SensitiveBytes(buf)
+  }
+
   public fun release() {
     data?.fill(0)
     data = null
+    released = true
   }
 
   override fun close() {
     release()
   }
+
+  override fun toString(): String = "SensitiveBytes(<REDACTED>)"
 }
 
 public class BoundedOutputLimitExceededException(public val maxBytes: Long) :
