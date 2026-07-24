@@ -28,8 +28,6 @@ public sealed interface AtomicWriteError {
 
   public data class RenameFailed(override val message: String) : AtomicWriteError
 
-  public data class DirectorySyncFailed(override val message: String) : AtomicWriteError
-
   public data object ConcurrentModification : AtomicWriteError {
     override val message: String = "Concurrent modification detected for this credential"
   }

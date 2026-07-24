@@ -235,12 +235,7 @@ public class IndexedPasskeyStorage(
           }
         },
         failure = { error ->
-          if (error is DurabilityIndeterminateException) {
-            logcat(LogPriority.ERROR) {
-              "Durability indeterminate after save, invalidating index: ${error.message}"
-            }
-            invalidate(InvalidationReason.DURABILITY_FAILURE)
-          }
+          invalidateOnDurabilityFailure(error, "save")
         },
       )
     }
@@ -268,12 +263,7 @@ public class IndexedPasskeyStorage(
         Ok(deleted)
       },
       failure = { error ->
-        if (error is DurabilityIndeterminateException) {
-          logcat(LogPriority.ERROR) {
-            "Durability indeterminate after delete, invalidating index: ${error.message}"
-          }
-          invalidate(InvalidationReason.DURABILITY_FAILURE)
-        }
+        invalidateOnDurabilityFailure(error, "delete")
         Err(error)
       },
     )
@@ -297,12 +287,7 @@ public class IndexedPasskeyStorage(
           Ok(deleted)
         },
         failure = { error ->
-          if (error is DurabilityIndeterminateException) {
-            logcat(LogPriority.ERROR) {
-              "Durability indeterminate after delete, invalidating index: ${error.message}"
-            }
-            invalidate(InvalidationReason.DURABILITY_FAILURE)
-          }
+          invalidateOnDurabilityFailure(error, "delete")
           Err(error)
         },
       )
@@ -324,12 +309,7 @@ public class IndexedPasskeyStorage(
               IndexedEntry(updatedMetadata, existing.sourceVersion, existing.fileRef)
           },
           failure = { error ->
-            if (error is DurabilityIndeterminateException) {
-              logcat(LogPriority.ERROR) {
-                "Durability indeterminate after counter update, invalidating index: ${error.message}"
-              }
-              invalidate(InvalidationReason.DURABILITY_FAILURE)
-            }
+            invalidateOnDurabilityFailure(error, "counter update")
           },
         )
       }
@@ -338,9 +318,7 @@ public class IndexedPasskeyStorage(
         result.fold(
           success = {},
           failure = { error ->
-            if (error is DurabilityIndeterminateException) {
-              invalidate(InvalidationReason.DURABILITY_FAILURE)
-            }
+            invalidateOnDurabilityFailure(error, "counter update")
           },
         )
       }
@@ -451,6 +429,15 @@ public class IndexedPasskeyStorage(
     if (!credentialBackupEligible) return false
     if (inMergeConflict) return false
     return repositoryBackedUp
+  }
+
+  private suspend fun invalidateOnDurabilityFailure(error: Throwable, context: String) {
+    if (error is DurabilityIndeterminateException) {
+      logcat(LogPriority.ERROR) {
+        "Durability indeterminate after $context, invalidating index: ${error.message}"
+      }
+      invalidate(InvalidationReason.DURABILITY_FAILURE)
+    }
   }
 
   public fun clearIndex() {

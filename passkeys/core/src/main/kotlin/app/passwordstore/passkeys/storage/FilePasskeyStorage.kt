@@ -318,11 +318,7 @@ public class FilePasskeyStorage<
               },
               failure = { error ->
                 logcat(LogPriority.ERROR) { "Confined write failed: ${error.message}" }
-                when (error) {
-                  is FileStoreError.DurabilityIndeterminate ->
-                    Err(DurabilityIndeterminateException(error.observedVersion, error.message))
-                  else -> Err(RuntimeException(error.message))
-                }
+                mapFileStoreError(error)
               },
             )
         } finally {
@@ -361,11 +357,7 @@ public class FilePasskeyStorage<
               },
               failure = { error ->
                 logcat(LogPriority.ERROR) { "Confined delete failed: ${error.message}" }
-                when (error) {
-                  is FileStoreError.DurabilityIndeterminate ->
-                    Err(DurabilityIndeterminateException(error.observedVersion, error.message))
-                  else -> Err(RuntimeException(error.message))
-                }
+                mapFileStoreError(error)
               },
             )
         },
@@ -387,11 +379,7 @@ public class FilePasskeyStorage<
           },
           failure = { error ->
             logcat(LogPriority.ERROR) { "Confined delete failed: ${error.message}" }
-            when (error) {
-              is FileStoreError.DurabilityIndeterminate ->
-                Err(DurabilityIndeterminateException(error.observedVersion, error.message))
-              else -> Err(RuntimeException(error.message))
-            }
+            mapFileStoreError(error)
           },
         )
     }
@@ -498,13 +486,7 @@ public class FilePasskeyStorage<
                     Ok(Unit) as Result<Unit, Throwable>
                   },
                   failure = { error ->
-                    when (error) {
-                      is FileStoreError.DurabilityIndeterminate ->
-                        Err(DurabilityIndeterminateException(error.observedVersion, error.message))
-                          as Result<Unit, Throwable>
-                      else ->
-                        Err(RuntimeException(error.message)) as Result<Unit, Throwable>
-                    }
+                    mapFileStoreError(error) as Result<Unit, Throwable>
                   },
                 )
             } finally {
@@ -605,6 +587,14 @@ public class FilePasskeyStorage<
       } else {
         break
       }
+    }
+  }
+
+  private fun mapFileStoreError(error: FileStoreError): Result<Nothing, Throwable> {
+    return when (error) {
+      is FileStoreError.DurabilityIndeterminate ->
+        Err(DurabilityIndeterminateException(error.observedVersion, error.message))
+      else -> Err(RuntimeException(error.message))
     }
   }
 
