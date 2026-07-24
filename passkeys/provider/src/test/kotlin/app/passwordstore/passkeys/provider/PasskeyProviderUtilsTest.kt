@@ -155,12 +155,7 @@ class PasskeyProviderUtilsTest {
         origin = "https://example.com",
         callerType = CallerType.NATIVE_APP,
         signingCertificateDigests = setOf("testdigest"),
-        clientDataBinding =
-          ClientDataBinding.ProviderConstructed(
-            type = "",
-            challenge = ByteArray(0),
-            origin = "https://example.com",
-          ),
+        clientDataBinding = ClientDataBinding.ProviderConstructed,
       )
 
     val responseJson =

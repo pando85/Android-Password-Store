@@ -70,12 +70,7 @@ class WebAuthnProtocolTest {
         origin = "https://${credential.rpId}",
         callerType = CallerType.NATIVE_APP,
         signingCertificateDigests = setOf("test"),
-        clientDataBinding =
-          ClientDataBinding.ProviderConstructed(
-            type = "",
-            challenge = ByteArray(0),
-            origin = "https://${credential.rpId}",
-          ),
+        clientDataBinding = ClientDataBinding.ProviderConstructed,
       )
 
     val responseJson =
@@ -118,12 +113,7 @@ class WebAuthnProtocolTest {
         origin = "https://${credential.rpId}",
         callerType = CallerType.NATIVE_APP,
         signingCertificateDigests = setOf("test"),
-        clientDataBinding =
-          ClientDataBinding.ProviderConstructed(
-            type = "",
-            challenge = ByteArray(0),
-            origin = "https://${credential.rpId}",
-          ),
+        clientDataBinding = ClientDataBinding.ProviderConstructed,
       )
 
     val responseJson =
@@ -159,12 +149,7 @@ class WebAuthnProtocolTest {
         origin = "https://${credential.rpId}",
         callerType = CallerType.NATIVE_APP,
         signingCertificateDigests = setOf("test"),
-        clientDataBinding =
-          ClientDataBinding.ProviderConstructed(
-            type = "",
-            challenge = ByteArray(0),
-            origin = "https://${credential.rpId}",
-          ),
+        clientDataBinding = ClientDataBinding.ProviderConstructed,
       )
 
     val responseJson =

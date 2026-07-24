@@ -34,33 +34,7 @@ public sealed interface ClientDataBinding {
       "FrameworkHash(hash=<${hash.size} bytes>, responseClientDataJson=<${responseClientDataJson.size} bytes>)"
   }
 
-  public data class ProviderConstructed(
-    val type: String,
-    val challenge: ByteArray,
-    val origin: String,
-    val crossOrigin: Boolean = false,
-  ) : ClientDataBinding {
-    override fun equals(other: Any?): Boolean {
-      if (this === other) return true
-      if (other !is ProviderConstructed) return false
-      if (type != other.type) return false
-      if (!challenge.contentEquals(other.challenge)) return false
-      if (origin != other.origin) return false
-      if (crossOrigin != other.crossOrigin) return false
-      return true
-    }
-
-    override fun hashCode(): Int {
-      var result = type.hashCode()
-      result = 31 * result + challenge.contentHashCode()
-      result = 31 * result + origin.hashCode()
-      result = 31 * result + crossOrigin.hashCode()
-      return result
-    }
-
-    override fun toString(): String =
-      "ProviderConstructed(type=$type, challenge=<${challenge.size} bytes>, origin=$origin, crossOrigin=$crossOrigin)"
-  }
+  public data object ProviderConstructed : ClientDataBinding
 }
 
 public data class VerifiedWebAuthnContext(

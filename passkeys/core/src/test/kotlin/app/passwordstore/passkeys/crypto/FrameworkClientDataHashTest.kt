@@ -257,23 +257,11 @@ class FrameworkClientDataHashTest {
   }
 
   @Test
-  fun `ClientDataBinding ProviderConstructed equality works`() {
-    val binding1 =
-      ClientDataBinding.ProviderConstructed(
-        type = "webauthn.get",
-        challenge = ByteArray(32) { it.toByte() },
-        origin = "https://example.com",
-        crossOrigin = false,
-      )
-    val binding2 =
-      ClientDataBinding.ProviderConstructed(
-        type = "webauthn.get",
-        challenge = ByteArray(32) { it.toByte() },
-        origin = "https://example.com",
-        crossOrigin = false,
-      )
+  fun `ClientDataBinding ProviderConstructed is singleton`() {
+    val binding1 = ClientDataBinding.ProviderConstructed
+    val binding2 = ClientDataBinding.ProviderConstructed
 
-    assertEquals(binding1, binding2, "ProviderConstructed equality should compare by content")
+    assertEquals(binding1, binding2, "ProviderConstructed should be a singleton")
   }
 
   @Test

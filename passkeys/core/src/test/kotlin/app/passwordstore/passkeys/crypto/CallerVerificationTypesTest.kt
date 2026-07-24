@@ -41,12 +41,7 @@ class CallerVerificationTypesTest {
 
   @Test
   fun `VerifiedWebAuthnContext inequality on different origin`() {
-    val binding =
-      ClientDataBinding.ProviderConstructed(
-        type = "",
-        challenge = ByteArray(0),
-        origin = "android:apk-key-hash:abc",
-      )
+    val binding = ClientDataBinding.ProviderConstructed
     val ctx1 =
       VerifiedWebAuthnContext(
         callingPackage = "com.example",

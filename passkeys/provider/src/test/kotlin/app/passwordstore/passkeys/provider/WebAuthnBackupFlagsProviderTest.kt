@@ -113,12 +113,7 @@ class WebAuthnBackupFlagsProviderTest {
         origin = "https://example.com",
         callerType = CallerType.NATIVE_APP,
         signingCertificateDigests = setOf("test"),
-        clientDataBinding =
-          ClientDataBinding.ProviderConstructed(
-            type = "",
-            challenge = ByteArray(0),
-            origin = "https://example.com",
-          ),
+        clientDataBinding = ClientDataBinding.ProviderConstructed,
       )
     return PasskeyProviderUtils.buildAttestationResponse(credential, requestJson, verifiedContext)
   }
