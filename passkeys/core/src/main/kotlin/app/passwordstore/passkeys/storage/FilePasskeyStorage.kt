@@ -18,6 +18,7 @@ import app.passwordstore.passkeys.model.SensitivePasskeyCredential
 import app.passwordstore.passkeys.model.StoredCredential
 import app.passwordstore.passkeys.security.PasskeyConcurrencyLimiter
 import app.passwordstore.passkeys.security.PasskeyInputLimits
+import app.passwordstore.passkeys.security.SensitiveBytes
 import com.github.michaelbull.result.Err
 import com.github.michaelbull.result.Ok
 import com.github.michaelbull.result.Result
@@ -180,7 +181,7 @@ public class FilePasskeyStorage<
                 concurrencyLimiter.decryptionSemaphore.release()
               }
 
-            val plaintext =
+            val sensitivePlaintext =
               decryptResult.fold(
                 success = { it },
                 failure = { error ->
@@ -192,9 +193,11 @@ public class FilePasskeyStorage<
 
             val stored =
               try {
-                StoredCredential.fromCbor(plaintext)
+                sensitivePlaintext.borrow { plaintext ->
+                  StoredCredential.fromCbor(plaintext)
+                }
               } finally {
-                plaintext.fill(0)
+                sensitivePlaintext.close()
               }
 
             PayloadBindingValidator.validate(
@@ -401,7 +404,7 @@ public class FilePasskeyStorage<
         success = { file ->
           try {
             concurrencyLimiter.decryptionSemaphore.acquire()
-            val plaintext =
+            val sensitivePlaintext =
               try {
                 val fileSize = file.fileSize()
                 val stream = file.inputStream()
@@ -422,9 +425,11 @@ public class FilePasskeyStorage<
 
             val credential =
               try {
-                StoredCredential.fromCbor(plaintext)
+                sensitivePlaintext.borrow { plaintext ->
+                  StoredCredential.fromCbor(plaintext)
+                }
               } finally {
-                plaintext.fill(0)
+                sensitivePlaintext.close()
               }
 
             val updated = credential.copy(signCount = newSignCount.toUInt())

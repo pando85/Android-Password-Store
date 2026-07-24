@@ -12,6 +12,7 @@ import app.passwordstore.passkeys.crypto.PgpUnlockContext
 import app.passwordstore.passkeys.security.BoundedInputStream
 import app.passwordstore.passkeys.security.BoundedSensitiveOutputStream
 import app.passwordstore.passkeys.security.PasskeyInputLimits
+import app.passwordstore.passkeys.security.SensitiveBytes
 import com.github.michaelbull.result.Err
 import com.github.michaelbull.result.Ok
 import com.github.michaelbull.result.Result
@@ -37,7 +38,7 @@ public class PgpainlessPasskeyDecryptor(
     file: File,
     unlockContext: PgpUnlockContext,
     limits: PasskeyInputLimits,
-  ): Result<ByteArray, PasskeyDecryptionError> =
+  ): Result<SensitiveBytes, PasskeyDecryptionError> =
     withContext(Dispatchers.IO) {
       try {
         val fileLen = file.length()
@@ -69,7 +70,7 @@ public class PgpainlessPasskeyDecryptor(
     ciphertext: ByteArray,
     unlockContext: PgpUnlockContext,
     limits: PasskeyInputLimits,
-  ): Result<ByteArray, PasskeyDecryptionError> =
+  ): Result<SensitiveBytes, PasskeyDecryptionError> =
     withContext(Dispatchers.IO) {
       try {
         if (ciphertext.size > limits.maxCiphertextBytes) {
@@ -92,7 +93,7 @@ public class PgpainlessPasskeyDecryptor(
     ciphertextLength: Long,
     unlockContext: PgpUnlockContext,
     limits: PasskeyInputLimits,
-  ): Result<ByteArray, PasskeyDecryptionError> =
+  ): Result<SensitiveBytes, PasskeyDecryptionError> =
     withContext(Dispatchers.IO) {
       try {
         if (ciphertextLength > limits.maxCiphertextBytes) {
@@ -119,7 +120,7 @@ public class PgpainlessPasskeyDecryptor(
     unlockContext: PgpUnlockContext,
     sourceName: String,
     limits: PasskeyInputLimits,
-  ): Result<ByteArray, PasskeyDecryptionError> {
+  ): Result<SensitiveBytes, PasskeyDecryptionError> {
     val recipientKeyIds = inspectRecipientKeyIds(ciphertext, limits)
     if (recipientKeyIds.isEmpty()) {
       return Err(PasskeyDecryptionError.NoRecipientPackets)
@@ -203,7 +204,7 @@ public class PgpainlessPasskeyDecryptor(
     passphrase: CharArray?,
     ciphertext: ByteArray,
     limits: PasskeyInputLimits,
-  ): ByteArray {
+  ): SensitiveBytes {
     val inputStream = ByteArrayInputStream(ciphertext)
     val outputStream = BoundedSensitiveOutputStream(limits.maxPlaintextBytes.toInt())
 
@@ -218,10 +219,7 @@ public class PgpainlessPasskeyDecryptor(
         )
         .fold(
           success = {
-            val sensitive = outputStream.takeBytes()
-            val result = sensitive.bytes()
-            sensitive.release()
-            return result
+            return outputStream.transferOwnership()
           },
           failure = { throw it },
         )

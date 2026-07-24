@@ -43,6 +43,14 @@ public class BoundedSensitiveOutputStream(private val maxBytes: Int) :
     return SensitiveBytes(result)
   }
 
+  public fun transferOwnership(): SensitiveBytes {
+    check(!closed) { "Stream is closed" }
+    val buf = buffer ?: throw IllegalStateException("Buffer has been released")
+    buffer = null
+    closed = true
+    return SensitiveBytes(buf, position)
+  }
+
   override fun close() {
     if (!closed) {
       closed = true
@@ -56,13 +64,16 @@ public class BoundedSensitiveOutputStream(private val maxBytes: Int) :
   }
 }
 
-public class SensitiveBytes(@PublishedApi internal var data: ByteArray?) : AutoCloseable {
+public class SensitiveBytes(
+  @PublishedApi internal var data: ByteArray?,
+  @PublishedApi internal val dataSize: Int = data?.size ?: 0,
+) : AutoCloseable {
 
   @Volatile private var released = false
 
   public fun bytes(): ByteArray = data ?: throw IllegalStateException("Bytes have been released")
 
-  public fun size(): Int = data?.size ?: 0
+  public fun size(): Int = if (data != null) dataSize else 0
 
   public fun isReleased(): Boolean = released
 
@@ -73,9 +84,10 @@ public class SensitiveBytes(@PublishedApi internal var data: ByteArray?) : AutoC
 
   public fun move(): SensitiveBytes {
     val buf = data ?: throw IllegalStateException("Bytes have been released")
+    val size = dataSize
     data = null
     released = true
-    return SensitiveBytes(buf)
+    return SensitiveBytes(buf, size)
   }
 
   public fun release() {
