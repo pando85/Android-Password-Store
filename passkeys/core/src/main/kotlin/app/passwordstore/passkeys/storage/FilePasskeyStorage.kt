@@ -49,7 +49,13 @@ public class FilePasskeyStorage<
   private val atomicWriter: DefaultAtomicCredentialWriter =
     DefaultAtomicCredentialWriter(repositoryRoot),
   private val confinedStore: NoFollowFileStore =
-    NoFollowFileStore(repositoryRoot, config.passkeyDirectory, config.fileExtension, atomicWriter, inputLimits),
+    NoFollowFileStore(
+      repositoryRoot,
+      config.passkeyDirectory,
+      config.fileExtension,
+      atomicWriter,
+      inputLimits,
+    ),
 ) : PasskeyStorage {
 
   private val passkeyDir: File
@@ -165,7 +171,12 @@ public class FilePasskeyStorage<
               val fileSize = file.fileSize()
               val stream = file.inputStream()
               val decryptResult =
-                passkeyPgpDecryptor.decryptFromStream(stream, fileSize, pgpUnlockContext, inputLimits)
+                passkeyPgpDecryptor.decryptFromStream(
+                  stream,
+                  fileSize,
+                  pgpUnlockContext,
+                  inputLimits,
+                )
               decryptResult.fold(
                 success = { it },
                 failure = { error ->
@@ -194,7 +205,9 @@ public class FilePasskeyStorage<
             .fold(
               success = {},
               failure = { error ->
-                return@withContext Err(SecurityException("Payload binding validation failed: ${error.message}"))
+                return@withContext Err(
+                  SecurityException("Payload binding validation failed: ${error.message}")
+                )
               },
             )
 

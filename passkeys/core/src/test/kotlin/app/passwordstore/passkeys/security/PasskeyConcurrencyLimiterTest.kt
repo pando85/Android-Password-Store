@@ -23,23 +23,24 @@ class PasskeyConcurrencyLimiterTest {
     var maxConcurrent = 0
 
     coroutineScope {
-      val jobs = (1..5).map {
-        async {
-          limiter.decryptionSemaphore.acquire()
-          try {
-            synchronized(this@PasskeyConcurrencyLimiterTest) {
-              concurrent++
-              if (concurrent > maxConcurrent) maxConcurrent = concurrent
+      val jobs =
+        (1..5).map {
+          async {
+            limiter.decryptionSemaphore.acquire()
+            try {
+              synchronized(this@PasskeyConcurrencyLimiterTest) {
+                concurrent++
+                if (concurrent > maxConcurrent) maxConcurrent = concurrent
+              }
+              delay(50)
+            } finally {
+              synchronized(this@PasskeyConcurrencyLimiterTest) {
+                concurrent--
+              }
+              limiter.decryptionSemaphore.release()
             }
-            delay(50)
-          } finally {
-            synchronized(this@PasskeyConcurrencyLimiterTest) {
-              concurrent--
-            }
-            limiter.decryptionSemaphore.release()
           }
         }
-      }
       jobs.awaitAll()
     }
 
@@ -53,23 +54,24 @@ class PasskeyConcurrencyLimiterTest {
     var maxConcurrent = 0
 
     coroutineScope {
-      val jobs = (1..8).map {
-        async {
-          limiter.dalFetchSemaphore.acquire()
-          try {
-            synchronized(this@PasskeyConcurrencyLimiterTest) {
-              concurrent++
-              if (concurrent > maxConcurrent) maxConcurrent = concurrent
+      val jobs =
+        (1..8).map {
+          async {
+            limiter.dalFetchSemaphore.acquire()
+            try {
+              synchronized(this@PasskeyConcurrencyLimiterTest) {
+                concurrent++
+                if (concurrent > maxConcurrent) maxConcurrent = concurrent
+              }
+              delay(30)
+            } finally {
+              synchronized(this@PasskeyConcurrencyLimiterTest) {
+                concurrent--
+              }
+              limiter.dalFetchSemaphore.release()
             }
-            delay(30)
-          } finally {
-            synchronized(this@PasskeyConcurrencyLimiterTest) {
-              concurrent--
-            }
-            limiter.dalFetchSemaphore.release()
           }
         }
-      }
       jobs.awaitAll()
     }
 
@@ -83,23 +85,24 @@ class PasskeyConcurrencyLimiterTest {
     var maxConcurrent = 0
 
     coroutineScope {
-      val jobs = (1..3).map {
-        async {
-          limiter.indexRebuildSemaphore.acquire()
-          try {
-            synchronized(this@PasskeyConcurrencyLimiterTest) {
-              concurrent++
-              if (concurrent > maxConcurrent) maxConcurrent = concurrent
+      val jobs =
+        (1..3).map {
+          async {
+            limiter.indexRebuildSemaphore.acquire()
+            try {
+              synchronized(this@PasskeyConcurrencyLimiterTest) {
+                concurrent++
+                if (concurrent > maxConcurrent) maxConcurrent = concurrent
+              }
+              delay(30)
+            } finally {
+              synchronized(this@PasskeyConcurrencyLimiterTest) {
+                concurrent--
+              }
+              limiter.indexRebuildSemaphore.release()
             }
-            delay(30)
-          } finally {
-            synchronized(this@PasskeyConcurrencyLimiterTest) {
-              concurrent--
-            }
-            limiter.indexRebuildSemaphore.release()
           }
         }
-      }
       jobs.awaitAll()
     }
 
@@ -108,11 +111,12 @@ class PasskeyConcurrencyLimiterTest {
 
   @Test
   fun `custom concurrency limits are accepted`() {
-    val limiter = PasskeyConcurrencyLimiter(
-      maxConcurrentDecryptions = 4,
-      maxConcurrentDalFetches = 8,
-      maxConcurrentIndexRebuilds = 2,
-    )
+    val limiter =
+      PasskeyConcurrencyLimiter(
+        maxConcurrentDecryptions = 4,
+        maxConcurrentDalFetches = 8,
+        maxConcurrentIndexRebuilds = 2,
+      )
     assertEquals(4, limiter.maxConcurrentDecryptions)
     assertEquals(8, limiter.maxConcurrentDalFetches)
     assertEquals(2, limiter.maxConcurrentIndexRebuilds)

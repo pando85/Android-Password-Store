@@ -25,9 +25,7 @@ class CborSecurityTest {
 
   @Test
   fun `trailing data after root object is rejected`() {
-    val map = CborMap.from(
-      mapOf("key" to CborValue.TextString("value"))
-    )
+    val map = CborMap.from(mapOf("key" to CborValue.TextString("value")))
     val bytes = Cbor.fromMap(map).toBytes()
     val withTrailing = bytes + byteArrayOf(0x00, 0x01, 0x02)
     try {
@@ -40,9 +38,7 @@ class CborSecurityTest {
 
   @Test
   fun `trailing data allowed when option disabled`() {
-    val map = CborMap.from(
-      mapOf("key" to CborValue.TextString("value"))
-    )
+    val map = CborMap.from(mapOf("key" to CborValue.TextString("value")))
     val bytes = Cbor.fromMap(map).toBytes()
     val withTrailing = bytes + byteArrayOf(0x00, 0x01, 0x02)
     val options = CborParseOptions(rejectTrailingData = false)
@@ -114,12 +110,13 @@ class CborSecurityTest {
 
   @Test
   fun `indefinite length array is rejected`() {
-    val indefiniteArray = byteArrayOf(
-      0x9f.toByte(),
-      0x01,
-      0x02,
-      0xff.toByte(),
-    )
+    val indefiniteArray =
+      byteArrayOf(
+        0x9f.toByte(),
+        0x01,
+        0x02,
+        0xff.toByte(),
+      )
     try {
       Cbor.parse(indefiniteArray)
       fail("Expected CborException for indefinite length")
@@ -147,14 +144,24 @@ class CborSecurityTest {
       return Cbor.fromArray(CborArray.from(listOf())).toBytes()
     }
     val inner = buildNestedArray(depth - 1)
-    val array = CborValue.Array(CborArray.from(listOf(Cbor.parse(inner, CborParseOptions(rejectTrailingData = false)).asArray().toList().let { CborValue.Array(CborArray.from(it)) })))
+    val array =
+      CborValue.Array(
+        CborArray.from(
+          listOf(
+            Cbor.parse(inner, CborParseOptions(rejectTrailingData = false)).asArray().toList().let {
+              CborValue.Array(CborArray.from(it))
+            }
+          )
+        )
+      )
     return Cbor.fromValue(array).toBytes()
   }
 
   private fun buildArray(items: Int): ByteArray {
-    val elements = (0 until items).map {
-      CborValue.UnsignedInteger(java.math.BigInteger.valueOf(it.toLong()))
-    }
+    val elements =
+      (0 until items).map {
+        CborValue.UnsignedInteger(java.math.BigInteger.valueOf(it.toLong()))
+      }
     return Cbor.fromArray(CborArray.from(elements)).toBytes()
   }
 

@@ -20,7 +20,8 @@ public sealed interface PasskeyDecryptionError {
 
   public data class UnsupportedFormat(val reason: String) : PasskeyDecryptionError
 
-  public data class CiphertextTooLarge(val actual: Long, val maximum: Long) : PasskeyDecryptionError {
+  public data class CiphertextTooLarge(val actual: Long, val maximum: Long) :
+    PasskeyDecryptionError {
     override fun toString(): String = "CiphertextTooLarge(actual=$actual, maximum=$maximum)"
   }
 

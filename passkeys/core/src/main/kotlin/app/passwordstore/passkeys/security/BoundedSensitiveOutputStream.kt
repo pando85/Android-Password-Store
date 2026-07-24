@@ -7,9 +7,8 @@ package app.passwordstore.passkeys.security
 
 import java.io.OutputStream
 
-public class BoundedSensitiveOutputStream(
-  private val maxBytes: Int,
-) : OutputStream(), AutoCloseable {
+public class BoundedSensitiveOutputStream(private val maxBytes: Int) :
+  OutputStream(), AutoCloseable {
 
   private var buffer: ByteArray? = ByteArray(maxBytes)
   private var position: Int = 0
@@ -57,9 +56,7 @@ public class BoundedSensitiveOutputStream(
   }
 }
 
-public class SensitiveBytes(
-  private var data: ByteArray?,
-) : AutoCloseable {
+public class SensitiveBytes(private var data: ByteArray?) : AutoCloseable {
 
   public fun bytes(): ByteArray = data ?: throw IllegalStateException("Bytes have been released")
 
@@ -75,6 +72,5 @@ public class SensitiveBytes(
   }
 }
 
-public class BoundedOutputLimitExceededException(
-  public val maxBytes: Long,
-) : Exception("Output exceeded maximum of $maxBytes bytes")
+public class BoundedOutputLimitExceededException(public val maxBytes: Long) :
+  Exception("Output exceeded maximum of $maxBytes bytes")

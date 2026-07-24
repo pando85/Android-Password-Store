@@ -15,7 +15,8 @@ public class BoundedInputStream(
 
   private var bytesRead: Long = 0L
 
-  public val totalBytesRead: Long get() = bytesRead
+  public val totalBytesRead: Long
+    get() = bytesRead
 
   override fun read(): Int {
     if (bytesRead >= maxBytes) {
@@ -76,6 +77,5 @@ public class BoundedInputStream(
   }
 }
 
-public class BoundedInputLimitExceededException(
-  public val maxBytes: Long,
-) : Exception("Read exceeded maximum of $maxBytes bytes")
+public class BoundedInputLimitExceededException(public val maxBytes: Long) :
+  Exception("Read exceeded maximum of $maxBytes bytes")

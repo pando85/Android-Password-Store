@@ -189,10 +189,11 @@ public class NoFollowFileStore(
         }
 
         val digest = MessageDigest.getInstance("SHA-256")
-        val contentBytes = Files.newInputStream(filePath, LinkOption.NOFOLLOW_LINKS).use { rawStream ->
-          val bounded = BoundedInputStream(rawStream, inputLimits.maxCiphertextBytes)
-          bounded.readBoundedBytes(attrs.size().toInt())
-        }
+        val contentBytes =
+          Files.newInputStream(filePath, LinkOption.NOFOLLOW_LINKS).use { rawStream ->
+            val bounded = BoundedInputStream(rawStream, inputLimits.maxCiphertextBytes)
+            bounded.readBoundedBytes(attrs.size().toInt())
+          }
         digest.update(contentBytes)
 
         val version =

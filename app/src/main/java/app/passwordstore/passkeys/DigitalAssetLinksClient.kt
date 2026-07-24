@@ -79,17 +79,13 @@ internal class DigitalAssetLinksClient(
         }
 
       if (statements.size > inputLimits.maxAssetLinkStatements) {
-        return Err(
-          AssetLinkFetchError.TooManyStatements(inputLimits.maxAssetLinkStatements)
-        )
+        return Err(AssetLinkFetchError.TooManyStatements(inputLimits.maxAssetLinkStatements))
       }
 
       for (statement in statements) {
         val relationCount = statement.relation?.size ?: 0
         if (relationCount > inputLimits.maxRelationsPerStatement) {
-          return Err(
-            AssetLinkFetchError.TooManyRelations(inputLimits.maxRelationsPerStatement)
-          )
+          return Err(AssetLinkFetchError.TooManyRelations(inputLimits.maxRelationsPerStatement))
         }
         val fingerprintCount = statement.target?.sha256CertFingerprints?.size ?: 0
         if (fingerprintCount > inputLimits.maxFingerprintsPerStatement) {

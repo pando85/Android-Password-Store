@@ -74,8 +74,7 @@ class BoundedSensitiveOutputStreamTest {
     try {
       out.takeBytes()
       throw AssertionError("Expected IllegalStateException after close")
-    } catch (_: IllegalStateException) {
-    }
+    } catch (_: IllegalStateException) {}
   }
 
   @Test

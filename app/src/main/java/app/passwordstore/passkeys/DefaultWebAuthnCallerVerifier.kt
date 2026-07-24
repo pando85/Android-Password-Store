@@ -237,16 +237,17 @@ internal class DefaultWebAuthnCallerVerifier(
       )
     }
 
-    val assetLinksResult = withContext(Dispatchers.IO) {
-      dalFetchDeduplicator.deduplicate(rpId) {
-        concurrencyLimiter.dalFetchSemaphore.acquire()
-        try {
-          assetLinksClient.fetchAssetLinks(rpId)
-        } finally {
-          concurrencyLimiter.dalFetchSemaphore.release()
+    val assetLinksResult =
+      withContext(Dispatchers.IO) {
+        dalFetchDeduplicator.deduplicate(rpId) {
+          concurrencyLimiter.dalFetchSemaphore.acquire()
+          try {
+            assetLinksClient.fetchAssetLinks(rpId)
+          } finally {
+            concurrencyLimiter.dalFetchSemaphore.release()
+          }
         }
       }
-    }
 
     val statements =
       assetLinksResult.fold(

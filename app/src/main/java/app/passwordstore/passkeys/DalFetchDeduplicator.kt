@@ -5,7 +5,6 @@
 
 package app.passwordstore.passkeys
 
-import com.github.michaelbull.result.Result
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock

@@ -25,18 +25,15 @@ public sealed interface PasskeyInputError {
   }
 
   public data class TooManyAssetLinkStatements(val maximum: Int) : PasskeyInputError {
-    override val message: String =
-      "Asset Links statement count exceeds maximum $maximum"
+    override val message: String = "Asset Links statement count exceeds maximum $maximum"
   }
 
   public data class TooManyAssetLinkRelations(val maximum: Int) : PasskeyInputError {
-    override val message: String =
-      "Asset Links relation count exceeds maximum $maximum"
+    override val message: String = "Asset Links relation count exceeds maximum $maximum"
   }
 
   public data class TooManyAssetLinkFingerprints(val maximum: Int) : PasskeyInputError {
-    override val message: String =
-      "Asset Links fingerprint count exceeds maximum $maximum"
+    override val message: String = "Asset Links fingerprint count exceeds maximum $maximum"
   }
 
   public data class CborLimitExceeded(val kind: String, val maximum: Long) : PasskeyInputError {

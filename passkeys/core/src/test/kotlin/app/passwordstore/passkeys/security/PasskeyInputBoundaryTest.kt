@@ -190,12 +190,13 @@ class PasskeyInputBoundaryTest {
     val maxStringBytes = 100
     val options = CborParseOptions(maxStringBytes = maxStringBytes)
     val hugeKey = ByteArray(maxStringBytes + 1) { it.toByte() }
-    val map = CborMap.from(
-      mapOf(
-        "alg" to CborValue.UnsignedInteger(BigInteger.valueOf(9999)),
-        "key" to CborValue.ByteString(hugeKey),
+    val map =
+      CborMap.from(
+        mapOf(
+          "alg" to CborValue.UnsignedInteger(BigInteger.valueOf(9999)),
+          "key" to CborValue.ByteString(hugeKey),
+        )
       )
-    )
     val bytes = Cbor.fromMap(map).toBytes()
     try {
       Cbor.parse(bytes, options)
@@ -208,14 +209,16 @@ class PasskeyInputBoundaryTest {
   @Test
   fun `15 asset links body at maximum is parseable`() {
     val limits = PasskeyInputLimits(maxAssetLinksBytes = 256)
-    val body = """[{"relation":["delegate_permission/common.handle_all_urls"],"target":{"namespace":"android_app","package_name":"com.example","sha256_cert_fingerprints":["AA:BB"]}}]"""
+    val body =
+      """[{"relation":["delegate_permission/common.handle_all_urls"],"target":{"namespace":"android_app","package_name":"com.example","sha256_cert_fingerprints":["AA:BB"]}}]"""
     assertTrue(body.toByteArray().size <= limits.maxAssetLinksBytes)
   }
 
   @Test
   fun `16 asset links body exceeding maximum is detected`() {
     val limits = PasskeyInputLimits(maxAssetLinksBytes = 10)
-    val body = """[{"relation":["delegate_permission/common.handle_all_urls"],"target":{"namespace":"android_app","package_name":"com.example","sha256_cert_fingerprints":["AA:BB"]}}]"""
+    val body =
+      """[{"relation":["delegate_permission/common.handle_all_urls"],"target":{"namespace":"android_app","package_name":"com.example","sha256_cert_fingerprints":["AA:BB"]}}]"""
     assertTrue(body.toByteArray().size > limits.maxAssetLinksBytes)
   }
 
@@ -303,18 +306,15 @@ class PasskeyInputBoundaryTest {
     try {
       PasskeyInputLimits(maxCiphertextBytes = 0)
       fail("Expected IllegalArgumentException")
-    } catch (_: IllegalArgumentException) {
-    }
+    } catch (_: IllegalArgumentException) {}
     try {
       PasskeyInputLimits(maxPlaintextBytes = -1)
       fail("Expected IllegalArgumentException")
-    } catch (_: IllegalArgumentException) {
-    }
+    } catch (_: IllegalArgumentException) {}
     try {
       PasskeyInputLimits(maxCborDepth = 0)
       fail("Expected IllegalArgumentException")
-    } catch (_: IllegalArgumentException) {
-    }
+    } catch (_: IllegalArgumentException) {}
   }
 
   @Test
@@ -352,17 +352,26 @@ class PasskeyInputBoundaryTest {
       return Cbor.fromArray(CborArray.from(listOf())).toBytes()
     }
     val inner = buildNestedArrayCbor(depth - 1)
-    val innerValue = Cbor.parse(inner, CborParseOptions(rejectTrailingData = false, maxDepth = depth + 1))
-    val wrapped = CborValue.Array(CborArray.from(listOf(innerValue.asArray().toList().let {
-      CborValue.Array(CborArray.from(it))
-    })))
+    val innerValue =
+      Cbor.parse(inner, CborParseOptions(rejectTrailingData = false, maxDepth = depth + 1))
+    val wrapped =
+      CborValue.Array(
+        CborArray.from(
+          listOf(
+            innerValue.asArray().toList().let {
+              CborValue.Array(CborArray.from(it))
+            }
+          )
+        )
+      )
     return Cbor.fromValue(wrapped).toBytes()
   }
 
   private fun buildArrayCbor(items: Int): ByteArray {
-    val elements = (0 until items).map {
-      CborValue.UnsignedInteger(BigInteger.valueOf(it.toLong()))
-    }
+    val elements =
+      (0 until items).map {
+        CborValue.UnsignedInteger(BigInteger.valueOf(it.toLong()))
+      }
     return Cbor.fromArray(CborArray.from(elements)).toBytes()
   }
 }

@@ -5,7 +5,6 @@
 
 package app.passwordstore.passkeys
 
-import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -25,21 +24,22 @@ class DalFetchDeduplicatorTest {
     val lock = Any()
 
     coroutineScope {
-      val jobs = (1..5).map {
-        async {
-          deduplicator.deduplicate("rp1") {
-            synchronized(lock) {
-              concurrent++
-              if (concurrent > maxConcurrent) maxConcurrent = concurrent
+      val jobs =
+        (1..5).map {
+          async {
+            deduplicator.deduplicate("rp1") {
+              synchronized(lock) {
+                concurrent++
+                if (concurrent > maxConcurrent) maxConcurrent = concurrent
+              }
+              delay(30)
+              synchronized(lock) {
+                concurrent--
+              }
+              "result"
             }
-            delay(30)
-            synchronized(lock) {
-              concurrent--
-            }
-            "result"
           }
         }
-      }
       jobs.awaitAll()
     }
 
@@ -54,21 +54,22 @@ class DalFetchDeduplicatorTest {
     val lock = Any()
 
     coroutineScope {
-      val jobs = (1..4).map { i ->
-        async {
-          deduplicator.deduplicate("rp$i") {
-            synchronized(lock) {
-              concurrent++
-              if (concurrent > maxConcurrent) maxConcurrent = concurrent
+      val jobs =
+        (1..4).map { i ->
+          async {
+            deduplicator.deduplicate("rp$i") {
+              synchronized(lock) {
+                concurrent++
+                if (concurrent > maxConcurrent) maxConcurrent = concurrent
+              }
+              delay(50)
+              synchronized(lock) {
+                concurrent--
+              }
+              "result-$i"
             }
-            delay(50)
-            synchronized(lock) {
-              concurrent--
-            }
-            "result-$i"
           }
         }
-      }
       jobs.awaitAll()
     }
 

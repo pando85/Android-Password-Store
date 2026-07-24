@@ -81,7 +81,8 @@ class PasskeyPgpDecryptorIntegrationTest {
           ciphertextLength: Long,
           unlockContext: PgpUnlockContext,
           limits: PasskeyInputLimits,
-        ): Result<ByteArray, PasskeyDecryptionError> = Err(PasskeyDecryptionError.MissingSecretKey(setOf()))
+        ): Result<ByteArray, PasskeyDecryptionError> =
+          Err(PasskeyDecryptionError.MissingSecretKey(setOf()))
       }
 
     val file = File.createTempFile("test", ".gpg")
@@ -117,7 +118,8 @@ class PasskeyPgpDecryptorIntegrationTest {
           ciphertextLength: Long,
           unlockContext: PgpUnlockContext,
           limits: PasskeyInputLimits,
-        ): Result<ByteArray, PasskeyDecryptionError> = Err(PasskeyDecryptionError.MalformedCiphertext)
+        ): Result<ByteArray, PasskeyDecryptionError> =
+          Err(PasskeyDecryptionError.MalformedCiphertext)
       }
 
     val file = File.createTempFile("test", ".gpg")
@@ -153,7 +155,8 @@ class PasskeyPgpDecryptorIntegrationTest {
           ciphertextLength: Long,
           unlockContext: PgpUnlockContext,
           limits: PasskeyInputLimits,
-        ): Result<ByteArray, PasskeyDecryptionError> = Err(PasskeyDecryptionError.IntegrityCheckFailed)
+        ): Result<ByteArray, PasskeyDecryptionError> =
+          Err(PasskeyDecryptionError.IntegrityCheckFailed)
       }
 
     val file = File.createTempFile("test", ".gpg")
@@ -189,7 +192,8 @@ class PasskeyPgpDecryptorIntegrationTest {
           ciphertextLength: Long,
           unlockContext: PgpUnlockContext,
           limits: PasskeyInputLimits,
-        ): Result<ByteArray, PasskeyDecryptionError> = Err(PasskeyDecryptionError.MalformedCiphertext)
+        ): Result<ByteArray, PasskeyDecryptionError> =
+          Err(PasskeyDecryptionError.MalformedCiphertext)
       }
 
     val file = File.createTempFile("test", ".gpg")
