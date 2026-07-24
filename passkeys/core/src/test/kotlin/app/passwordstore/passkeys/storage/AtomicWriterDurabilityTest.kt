@@ -53,7 +53,8 @@ class AtomicWriterDurabilityTest {
 
     override suspend fun afterCloseBeforeSync() {
       calls.add("afterCloseBeforeSync")
-      if (throwOn == "afterCloseBeforeSync") throw RuntimeException("Injected: afterCloseBeforeSync")
+      if (throwOn == "afterCloseBeforeSync")
+        throw RuntimeException("Injected: afterCloseBeforeSync")
     }
 
     override suspend fun afterFileSync() {
@@ -89,6 +90,7 @@ class AtomicWriterDurabilityTest {
 
   private class FailingDirectorySyncer : DirectorySyncer {
     val syncCount = AtomicInteger(0)
+
     override fun sync(dir: File) {
       syncCount.incrementAndGet()
       throw DirectorySyncException("Injected directory sync failure for ${dir.path}")
@@ -98,6 +100,7 @@ class AtomicWriterDurabilityTest {
   private class RecordingDirectorySyncer : DirectorySyncer {
     val syncCount = AtomicInteger(0)
     val syncedDirs = mutableListOf<String>()
+
     override fun sync(dir: File) {
       syncCount.incrementAndGet()
       syncedDirs.add(dir.absolutePath)
@@ -149,8 +152,12 @@ class AtomicWriterDurabilityTest {
     assertTrue(result.isErr)
     assertContentEquals(originalContent, target.readBytes())
     assertEquals(0, syncer.syncCount.get())
-    val tempFiles = target.parentFile.listFiles { f -> f.name.startsWith(".") && f.name.contains(".tmp-") }
-    assertTrue(tempFiles == null || tempFiles.isEmpty(), "Temp files should be cleaned after rename failure")
+    val tempFiles =
+      target.parentFile.listFiles { f -> f.name.startsWith(".") && f.name.contains(".tmp-") }
+    assertTrue(
+      tempFiles == null || tempFiles.isEmpty(),
+      "Temp files should be cleaned after rename failure",
+    )
   }
 
   @Test
@@ -201,8 +208,16 @@ class AtomicWriterDurabilityTest {
     assertTrue(injector.calls.contains("beforeDirectorySync"))
     assertTrue(injector.calls.contains("afterDirectorySync"))
     assertEquals(
-      listOf("beforeEncryption", "afterEncryptionBeforeClose", "afterCloseBeforeSync",
-        "afterFileSync", "beforeRename", "afterRename", "beforeDirectorySync", "afterDirectorySync"),
+      listOf(
+        "beforeEncryption",
+        "afterEncryptionBeforeClose",
+        "afterCloseBeforeSync",
+        "afterFileSync",
+        "beforeRename",
+        "afterRename",
+        "beforeDirectorySync",
+        "afterDirectorySync",
+      ),
       injector.calls,
     )
   }
@@ -286,7 +301,8 @@ class AtomicWriterDurabilityTest {
     assertTrue(result.isErr)
     assertContentEquals(originalContent, target.readBytes())
     assertEquals(0, syncer.syncCount.get())
-    val tempFiles = target.parentFile.listFiles { f -> f.name.startsWith(".") && f.name.contains(".tmp-") }
+    val tempFiles =
+      target.parentFile.listFiles { f -> f.name.startsWith(".") && f.name.contains(".tmp-") }
     assertTrue(tempFiles == null || tempFiles.isEmpty(), "No temp files should remain")
   }
 
@@ -308,7 +324,10 @@ class AtomicWriterDurabilityTest {
     assertNotNull(error.observedVersion)
     assertTrue(target.exists())
     assertContentEquals(content, target.readBytes())
-    assertContentEquals(error.observedVersion!!.ciphertextDigest, java.security.MessageDigest.getInstance("SHA-256").digest(content))
+    assertContentEquals(
+      error.observedVersion!!.ciphertextDigest,
+      java.security.MessageDigest.getInstance("SHA-256").digest(content),
+    )
   }
 
   @Test
