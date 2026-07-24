@@ -142,32 +142,29 @@ public class PgpainlessPasskeyDecryptor(
 
       try {
         val plaintext = attemptBoundedDecryption(key, passphrase, ciphertext, limits)
-        passphrase?.fill('\u0000')
         return Ok(plaintext)
       } catch (e: WrongPassphraseException) {
-        passphrase?.fill('\u0000')
         lastError = PasskeyDecryptionError.IncorrectPassphrase(keyId.toString())
         logcat(LogPriority.DEBUG) {
           "Wrong passphrase for key ${keyId}, trying next matching key"
         }
         continue
       } catch (e: IncorrectPassphraseException) {
-        passphrase?.fill('\u0000')
         lastError = PasskeyDecryptionError.IncorrectPassphrase(keyId.toString())
         logcat(LogPriority.DEBUG) {
           "Incorrect passphrase for key ${keyId}, trying next matching key"
         }
         continue
       } catch (e: app.passwordstore.passkeys.security.BoundedOutputLimitExceededException) {
-        passphrase?.fill('\u0000')
         return Err(PasskeyDecryptionError.PlaintextTooLarge(limits.maxPlaintextBytes))
       } catch (e: Exception) {
-        passphrase?.fill('\u0000')
         lastError = mapExceptionToError(e)
         logcat(LogPriority.DEBUG) {
           "Decryption failed with key ${keyId}: ${e.message}, trying next"
         }
         continue
+      } finally {
+        passphrase?.fill('\u0000')
       }
     }
 
