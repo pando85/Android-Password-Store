@@ -15,6 +15,8 @@ public sealed interface SourceVersionResult {
 
 public sealed interface SourceVersionError {
   public data object RepositoryRootSymlinked : SourceVersionError
+
   public data object IoError : SourceVersionError
+
   public data class FilesystemError(val detail: String) : SourceVersionError
 }

@@ -516,7 +516,8 @@ public class FilePasskeyStorage<
         success = { scanned ->
           val matches = scanned.filter { it.ref.credentialId.contentEquals(credentialId) }
           if (matches.isEmpty()) {
-            return@withContext Ok(SourceVersionResult.Missing) as Result<SourceVersionResult, Throwable>
+            return@withContext Ok(SourceVersionResult.Missing)
+              as Result<SourceVersionResult, Throwable>
           }
           if (matches.size > 1) {
             return@withContext Err(SecurityException("Duplicate credential ID detected"))

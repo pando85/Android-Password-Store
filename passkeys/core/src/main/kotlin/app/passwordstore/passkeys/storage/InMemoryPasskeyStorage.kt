@@ -153,22 +153,26 @@ public class InMemoryPasskeyStorage : PasskeyStorage {
         val metadata = PasskeyMetadata.fromPasskeyCredential(cred)
         val key = credentialIdKey(cred.credentialId)
         val privateKey = privateKeys[key]
-        val ref = PasskeyFileRef(
-          canonicalRpId = cred.rpId,
-          credentialId = cred.credentialId.copyOf(),
-          relativePath = "${sanitizeRpId(cred.rpId)}/${cred.credentialId.joinToString("") { "%02x".format(it) }}.gpg",
-        )
-        val version = if (privateKey != null) {
-          val digest = MessageDigest.getInstance("SHA-256").digest(privateKey)
-          val modTime = modificationTimestamps[key] ?: 0L
-          CredentialSourceVersion(
-            repositoryGeneration = RepositoryGeneration("in-memory", null, publicCredentials.size.toLong()),
-            canonicalPath = "in-memory://$key",
-            fileSize = privateKey.size.toLong(),
-            modifiedAtMillis = modTime,
-            ciphertextDigest = digest,
+        val ref =
+          PasskeyFileRef(
+            canonicalRpId = cred.rpId,
+            credentialId = cred.credentialId.copyOf(),
+            relativePath =
+              "${sanitizeRpId(cred.rpId)}/${cred.credentialId.joinToString("") { "%02x".format(it) }}.gpg",
           )
-        } else null
+        val version =
+          if (privateKey != null) {
+            val digest = MessageDigest.getInstance("SHA-256").digest(privateKey)
+            val modTime = modificationTimestamps[key] ?: 0L
+            CredentialSourceVersion(
+              repositoryGeneration =
+                RepositoryGeneration("in-memory", null, publicCredentials.size.toLong()),
+              canonicalPath = "in-memory://$key",
+              fileSize = privateKey.size.toLong(),
+              modifiedAtMillis = modTime,
+              ciphertextDigest = digest,
+            )
+          } else null
         PasskeyMetadataWithRef(metadata = metadata, fileRef = ref, sourceVersion = version)
       }
       Ok(results)

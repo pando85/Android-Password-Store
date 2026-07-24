@@ -226,11 +226,15 @@ public class IndexedPasskeyStorage(
       result.fold(
         success = {
           val metadata = PasskeyMetadata.fromPasskeyCredential(credential)
-          val versionResult = delegate.resolveSourceVersion(credential.credentialId).getOrElse { null }
+          val versionResult =
+            delegate.resolveSourceVersion(credential.credentialId).getOrElse { null }
           if (versionResult is SourceVersionResult.Stable) {
-            val ref = delegate.listMetadataWithRefs(credential.rpId).getOrElse { emptyList() }
-              .firstOrNull { it.metadata.credentialId.contentEquals(credential.credentialId) }
-              ?.fileRef
+            val ref =
+              delegate
+                .listMetadataWithRefs(credential.rpId)
+                .getOrElse { emptyList() }
+                .firstOrNull { it.metadata.credentialId.contentEquals(credential.credentialId) }
+                ?.fileRef
             if (ref != null) {
               indexMetadata(metadata, versionResult.version, ref)
             }

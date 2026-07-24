@@ -82,8 +82,7 @@ class SourceVersionFailClosedTest {
 
     storage.deleteCredential(credential.first.credentialId)
 
-    val afterDelete =
-      storage.resolveSourceVersion(credential.first.credentialId).getOrElse { null }
+    val afterDelete = storage.resolveSourceVersion(credential.first.credentialId).getOrElse { null }
     assertEquals(SourceVersionResult.Missing, afterDelete)
   }
 
@@ -97,8 +96,7 @@ class SourceVersionFailClosedTest {
     val credential = createCredential()
     storage.saveCredential(credential.first, credential.second)
 
-    val version =
-      storage.resolveSourceVersion(credential.first.credentialId).getOrElse { null }
+    val version = storage.resolveSourceVersion(credential.first.credentialId).getOrElse { null }
     assertIs<SourceVersionResult.Stable>(version)
 
     val sensitive =

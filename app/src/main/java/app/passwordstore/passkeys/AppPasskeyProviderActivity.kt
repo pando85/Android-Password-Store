@@ -187,7 +187,9 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
         passkeyStorage
           .listMetadataWithRefs(parsedRequest.rpId)
           .fold(
-            success = { list -> list.firstOrNull { it.metadata.credentialId.contentEquals(credentialId) } },
+            success = { list ->
+              list.firstOrNull { it.metadata.credentialId.contentEquals(credentialId) }
+            },
             failure = {
               logcat(LogPriority.ERROR) { "Failed reading passkey metadata: $it" }
               null
@@ -201,7 +203,9 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
       val metadata = metadataWithRef.metadata
       val fileRef = metadataWithRef.fileRef
       if (fileRef == null || metadataWithRef.sourceVersion == null) {
-        finishWithGetError(GetCredentialUnknownException("Selected passkey has no validated file reference"))
+        finishWithGetError(
+          GetCredentialUnknownException("Selected passkey has no validated file reference")
+        )
         return
       }
 
@@ -218,8 +222,11 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
             finishWithGetError(GetCredentialUnknownException("Selected passkey was deleted"))
             return
           }
-          is SourceVersionResult.Unavailable, null -> {
-            finishWithGetError(GetCredentialUnknownException("Selected passkey version is unavailable"))
+          is SourceVersionResult.Unavailable,
+          null -> {
+            finishWithGetError(
+              GetCredentialUnknownException("Selected passkey version is unavailable")
+            )
             return
           }
         }
@@ -258,15 +265,19 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
         return
       }
 
-      val preSignVersionResult = passkeyStorage.resolveSourceVersionExact(fileRef).getOrElse { null }
+      val preSignVersionResult =
+        passkeyStorage.resolveSourceVersionExact(fileRef).getOrElse { null }
       val preSignVersion =
         when (preSignVersionResult) {
           is SourceVersionResult.Stable -> preSignVersionResult
           is SourceVersionResult.Missing -> {
-            finishWithGetError(GetCredentialUnknownException("Selected passkey was deleted during authentication"))
+            finishWithGetError(
+              GetCredentialUnknownException("Selected passkey was deleted during authentication")
+            )
             return
           }
-          is SourceVersionResult.Unavailable, null -> {
+          is SourceVersionResult.Unavailable,
+          null -> {
             finishWithGetError(GetCredentialUnknownException("Credential version unavailable"))
             return
           }
