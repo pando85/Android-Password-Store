@@ -22,6 +22,7 @@ import com.github.michaelbull.result.Err
 import com.github.michaelbull.result.Ok
 import com.github.michaelbull.result.Result
 import com.github.michaelbull.result.fold
+import com.github.michaelbull.result.getOrElse
 import java.io.ByteArrayInputStream
 import java.io.File
 import kotlin.time.Instant
@@ -163,31 +164,26 @@ public class FilePasskeyStorage<
   ): Result<SensitivePasskeyCredential, Throwable> {
     val opened = confinedStore.openExact(ref, expectedVersion)
     return opened.fold(
-      success = { file ->
+      success = file@{ file ->
         try {
           concurrencyLimiter.decryptionSemaphore.acquire()
-          val plaintext =
+          val decryptResult =
             try {
               val fileSize = file.fileSize()
               val stream = file.inputStream()
-              val decryptResult =
-                passkeyPgpDecryptor.decryptFromStream(
-                  stream,
-                  fileSize,
-                  pgpUnlockContext,
-                  inputLimits,
-                )
-              decryptResult.fold(
-                success = { it },
-                failure = { error ->
-                  return@withContext Err(
-                    IllegalStateException("Decryption failed: ${formatDecryptionError(error)}")
-                  )
-                },
-              )
+              passkeyPgpDecryptor.decryptFromStream(stream, fileSize, pgpUnlockContext, inputLimits)
             } finally {
               concurrencyLimiter.decryptionSemaphore.release()
             }
+
+          val plaintext = decryptResult.fold(
+            success = { it },
+            failure = { error ->
+              return@file Err(
+                IllegalStateException("Decryption failed: ${formatDecryptionError(error)}")
+              )
+            },
+          )
 
           val stored =
             try {
@@ -197,19 +193,16 @@ public class FilePasskeyStorage<
             }
 
           PayloadBindingValidator.validate(
-              requestRpId = ref.canonicalRpId,
-              requestCredentialId = ref.credentialId,
-              fileRef = ref,
-              stored = stored,
-            )
-            .fold(
-              success = {},
-              failure = { error ->
-                return@withContext Err(
-                  SecurityException("Payload binding validation failed: ${error.message}")
-                )
-              },
-            )
+            requestRpId = ref.canonicalRpId,
+            requestCredentialId = ref.credentialId,
+            fileRef = ref,
+            stored = stored,
+          ).fold(
+            success = {},
+            failure = { error ->
+              return@file Err(SecurityException("Payload binding validation failed: ${error.message}"))
+            },
+          )
 
           Ok(SensitivePasskeyCredential.fromStoredCredential(stored, file.version.modifiedAtMillis))
         } finally {

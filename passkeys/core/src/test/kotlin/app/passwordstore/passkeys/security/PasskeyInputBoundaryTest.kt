@@ -292,7 +292,7 @@ class PasskeyInputBoundaryTest {
 
   @Test
   fun `CBOR indefinite length is rejected`() {
-    val indefiniteArray = byteArrayOf(0x9f, 0x01, 0x02, 0xff.toByte())
+    val indefiniteArray = byteArrayOf(0x9f.toByte(), 0x01, 0x02, 0xff.toByte())
     try {
       Cbor.parse(indefiniteArray)
       fail("Expected CborException for indefinite length")
