@@ -19,6 +19,8 @@ public class BoundedInputStream(
 
   override fun read(): Int {
     if (bytesRead >= maxBytes) {
+      val probe = `in`.read()
+      if (probe == -1) return -1
       throw BoundedInputLimitExceededException(maxBytes)
     }
     val result = `in`.read()
@@ -30,6 +32,8 @@ public class BoundedInputStream(
 
   override fun read(b: ByteArray, off: Int, len: Int): Int {
     if (bytesRead >= maxBytes) {
+      val probe = `in`.read()
+      if (probe == -1) return -1
       throw BoundedInputLimitExceededException(maxBytes)
     }
     val remaining = maxBytes - bytesRead
@@ -37,9 +41,6 @@ public class BoundedInputStream(
     val result = `in`.read(b, off, clampedLen)
     if (result > 0) {
       bytesRead += result
-    }
-    if (result == -1 && bytesRead >= maxBytes) {
-      return result
     }
     return result
   }

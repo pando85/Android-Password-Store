@@ -14,14 +14,7 @@ class CborSecurityTest {
 
   @Test
   fun `duplicate map key is rejected`() {
-    val map = CborMap.from(
-      mapOf(
-        "a" to CborValue.UnsignedInteger(java.math.BigInteger.ONE),
-        "b" to CborValue.UnsignedInteger(java.math.BigInteger.TWO),
-      )
-    )
-    val bytes = Cbor.fromMap(map).toBytes()
-    val duplicateMapBytes = injectDuplicateKey(bytes, "a", "b")
+    val duplicateMapBytes = buildMapWithDuplicateKeys()
     try {
       Cbor.parse(duplicateMapBytes)
       fail("Expected CborException for duplicate key")
@@ -135,16 +128,18 @@ class CborSecurityTest {
     }
   }
 
-  private fun injectDuplicateKey(originalBytes: ByteArray, existingKey: String, newKey: String): ByteArray {
-    val extraEntry = CborMap.from(
-      mapOf(newKey to CborValue.UnsignedInteger(java.math.BigInteger.valueOf(99)))
-    )
-    val extraBytes = Cbor.fromMap(extraEntry).toBytes()
-    val extraMapContent = extraBytes.copyOfRange(2, extraBytes.size)
-    val mapHeader = originalBytes[0].toInt() and 0xFF
-    val currentCount = mapHeader and 0x1F
-    val newHeader = (mapHeader and 0xE0) or (currentCount + 1)
-    return byteArrayOf(newHeader.toByte()) + originalBytes.copyOfRange(1, originalBytes.size) + extraMapContent
+  private fun buildMapWithDuplicateKeys(): ByteArray {
+    val out = java.io.ByteArrayOutputStream()
+    val data = java.io.DataOutputStream(out)
+    data.writeByte(0xa2)
+    data.writeByte(0x61)
+    data.writeByte('a'.code)
+    data.writeByte(0x01)
+    data.writeByte(0x61)
+    data.writeByte('a'.code)
+    data.writeByte(0x02)
+    data.flush()
+    return out.toByteArray()
   }
 
   private fun buildNestedArray(depth: Int): ByteArray {
