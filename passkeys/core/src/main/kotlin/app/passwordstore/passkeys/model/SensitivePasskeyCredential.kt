@@ -70,25 +70,26 @@ public class SensitivePasskeyCredential(
       val publicKeyCopy =
         stored.publicKey?.copyOf() ?: StoredCredential.deriveP256PublicKey(keyCopy)
       try {
-        val result = SensitivePasskeyCredential(
-          credentialId = stored.id.copyOf(),
-          publicKey = publicKeyCopy,
-          rpId = stored.rp.id,
-          user =
-            FidoUser(
-              id = stored.user.id.copyOf(),
-              name = stored.user.name ?: "",
-              displayName = stored.user.displayName ?: "",
-            ),
-          signCount = stored.signCount.toULong(),
-          createdAt = Instant.fromEpochSeconds(stored.created),
-          transports = listOf("internal"),
-          uvInitialized = true,
-          backupEligible = stored.backupEligible,
-          backupState = stored.backupState,
-          fileLastModified = fileLastModified,
-          privateKey = sensitiveKey,
-        )
+        val result =
+          SensitivePasskeyCredential(
+            credentialId = stored.id.copyOf(),
+            publicKey = publicKeyCopy,
+            rpId = stored.rp.id,
+            user =
+              FidoUser(
+                id = stored.user.id.copyOf(),
+                name = stored.user.name ?: "",
+                displayName = stored.user.displayName ?: "",
+              ),
+            signCount = stored.signCount.toULong(),
+            createdAt = Instant.fromEpochSeconds(stored.created),
+            transports = listOf("internal"),
+            uvInitialized = true,
+            backupEligible = stored.backupEligible,
+            backupState = stored.backupState,
+            fileLastModified = fileLastModified,
+            privateKey = sensitiveKey,
+          )
         stored.wipe()
         return result
       } catch (e: Throwable) {

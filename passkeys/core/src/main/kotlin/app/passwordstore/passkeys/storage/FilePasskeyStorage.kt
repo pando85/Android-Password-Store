@@ -216,7 +216,10 @@ public class FilePasskeyStorage<
                 )
 
               Ok(
-                SensitivePasskeyCredential.fromStoredCredential(stored, file.version.modifiedAtMillis)
+                SensitivePasskeyCredential.fromStoredCredential(
+                  stored,
+                  file.version.modifiedAtMillis,
+                )
               )
             } finally {
               stored.close()
