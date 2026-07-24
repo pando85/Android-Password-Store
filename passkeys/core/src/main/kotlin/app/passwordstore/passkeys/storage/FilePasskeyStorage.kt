@@ -16,6 +16,7 @@ import app.passwordstore.passkeys.model.PasskeyCredential
 import app.passwordstore.passkeys.model.PasskeyMetadata
 import app.passwordstore.passkeys.model.SensitivePasskeyCredential
 import app.passwordstore.passkeys.model.StoredCredential
+import app.passwordstore.passkeys.security.PasskeyConcurrencyLimiter
 import app.passwordstore.passkeys.security.PasskeyInputLimits
 import com.github.michaelbull.result.Err
 import com.github.michaelbull.result.Ok
@@ -44,6 +45,7 @@ public class FilePasskeyStorage<
   private val encryptionOptions: EncOpts,
   private val config: PasskeyStorageConfig = PasskeyStorageConfig(),
   private val inputLimits: PasskeyInputLimits = PasskeyInputLimits.DEFAULT,
+  private val concurrencyLimiter: PasskeyConcurrencyLimiter = PasskeyConcurrencyLimiter.DEFAULT,
   private val atomicWriter: DefaultAtomicCredentialWriter =
     DefaultAtomicCredentialWriter(repositoryRoot),
   private val confinedStore: NoFollowFileStore =
@@ -157,17 +159,24 @@ public class FilePasskeyStorage<
     return opened.fold(
       success = { file ->
         try {
-          val contentBytes = file.readBytes()
-          val decryptResult = passkeyPgpDecryptor.decryptFromBytes(contentBytes, pgpUnlockContext, inputLimits)
+          concurrencyLimiter.decryptionSemaphore.acquire()
           val plaintext =
-            decryptResult.fold(
-              success = { it },
-              failure = { error ->
-                return Err(
-                  IllegalStateException("Decryption failed: ${formatDecryptionError(error)}")
-                )
-              },
-            )
+            try {
+              val fileSize = file.fileSize()
+              val stream = file.inputStream()
+              val decryptResult =
+                passkeyPgpDecryptor.decryptFromStream(stream, fileSize, pgpUnlockContext, inputLimits)
+              decryptResult.fold(
+                success = { it },
+                failure = { error ->
+                  return@withContext Err(
+                    IllegalStateException("Decryption failed: ${formatDecryptionError(error)}")
+                  )
+                },
+              )
+            } finally {
+              concurrencyLimiter.decryptionSemaphore.release()
+            }
 
           val stored =
             try {
@@ -185,7 +194,7 @@ public class FilePasskeyStorage<
             .fold(
               success = {},
               failure = { error ->
-                return Err(SecurityException("Payload binding validation failed: ${error.message}"))
+                return@withContext Err(SecurityException("Payload binding validation failed: ${error.message}"))
               },
             )
 
@@ -372,19 +381,25 @@ public class FilePasskeyStorage<
       opened.fold(
         success = { file ->
           try {
-            val contentBytes = file.readBytes()
+            concurrencyLimiter.decryptionSemaphore.acquire()
             val plaintext =
-              passkeyPgpDecryptor
-                .decryptFromBytes(contentBytes, pgpUnlockContext, inputLimits)
-                .fold(
-                  success = { it },
-                  failure = { error ->
-                    return@withContext Err(
-                      IllegalStateException("Decryption failed: ${formatDecryptionError(error)}")
-                    )
-                      as Result<Unit, Throwable>
-                  },
-                )
+              try {
+                val fileSize = file.fileSize()
+                val stream = file.inputStream()
+                passkeyPgpDecryptor
+                  .decryptFromStream(stream, fileSize, pgpUnlockContext, inputLimits)
+                  .fold(
+                    success = { it },
+                    failure = { error ->
+                      return@withContext Err(
+                        IllegalStateException("Decryption failed: ${formatDecryptionError(error)}")
+                      )
+                        as Result<Unit, Throwable>
+                    },
+                  )
+              } finally {
+                concurrencyLimiter.decryptionSemaphore.release()
+              }
 
             val credential =
               try {
@@ -516,6 +531,8 @@ public class FilePasskeyStorage<
       is PasskeyDecryptionError.IntegrityCheckFailed -> "Integrity check failed"
       is PasskeyDecryptionError.MalformedCiphertext -> "Malformed ciphertext"
       is PasskeyDecryptionError.UnsupportedFormat -> "Unsupported format: ${error.reason}"
+      is PasskeyDecryptionError.CiphertextTooLarge ->
+        "Ciphertext size ${error.actual} exceeds maximum ${error.maximum} bytes"
       is PasskeyDecryptionError.PlaintextTooLarge ->
         "Plaintext exceeds maximum ${error.maximum} bytes"
     }

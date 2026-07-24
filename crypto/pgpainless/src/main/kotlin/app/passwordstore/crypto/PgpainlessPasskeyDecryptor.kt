@@ -45,7 +45,9 @@ public class PgpainlessPasskeyDecryptor(
           return@withContext Err(PasskeyDecryptionError.MalformedCiphertext)
         }
         if (fileLen > limits.maxCiphertextBytes) {
-          return@withContext Err(PasskeyDecryptionError.MalformedCiphertext)
+          return@withContext Err(
+            PasskeyDecryptionError.CiphertextTooLarge(fileLen, limits.maxCiphertextBytes)
+          )
         }
         val ciphertext = file.inputStream().use { fis ->
           val bounded = BoundedInputStream(fis, limits.maxCiphertextBytes)
@@ -70,7 +72,9 @@ public class PgpainlessPasskeyDecryptor(
     withContext(Dispatchers.IO) {
       try {
         if (ciphertext.size > limits.maxCiphertextBytes) {
-          return@withContext Err(PasskeyDecryptionError.MalformedCiphertext)
+          return@withContext Err(
+            PasskeyDecryptionError.CiphertextTooLarge(ciphertext.size.toLong(), limits.maxCiphertextBytes)
+          )
         }
         decryptCiphertext(ciphertext, unlockContext, "<bytes>", limits)
       } catch (e: Exception) {
@@ -88,7 +92,9 @@ public class PgpainlessPasskeyDecryptor(
     withContext(Dispatchers.IO) {
       try {
         if (ciphertextLength > limits.maxCiphertextBytes) {
-          return@withContext Err(PasskeyDecryptionError.MalformedCiphertext)
+          return@withContext Err(
+            PasskeyDecryptionError.CiphertextTooLarge(ciphertextLength, limits.maxCiphertextBytes)
+          )
         }
         val ciphertext = BoundedInputStream(ciphertextStream, limits.maxCiphertextBytes)
           .readBoundedBytes(ciphertextLength.toInt())
