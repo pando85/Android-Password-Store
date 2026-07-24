@@ -225,14 +225,24 @@ public class IndexedPasskeyStorage(
     privateKey: ByteArray,
   ): Result<Unit, Throwable> {
     return delegate.saveCredential(credential, privateKey).also { result ->
-      if (result.isOk) {
-        val metadata = PasskeyMetadata.fromPasskeyCredential(credential)
-        val version = delegate.resolveSourceVersion(credential.credentialId).getOrElse { null }
-        indexMetadata(metadata, version)
-        if (generationProvider != null) {
-          trackedGeneration = resolveCurrentGeneration()
-        }
-      }
+      result.fold(
+        success = {
+          val metadata = PasskeyMetadata.fromPasskeyCredential(credential)
+          val version = delegate.resolveSourceVersion(credential.credentialId).getOrElse { null }
+          indexMetadata(metadata, version)
+          if (generationProvider != null) {
+            trackedGeneration = resolveCurrentGeneration()
+          }
+        },
+        failure = { error ->
+          if (error is DurabilityIndeterminateException) {
+            logcat(LogPriority.ERROR) {
+              "Durability indeterminate after save, invalidating index: ${error.message}"
+            }
+            invalidate(InvalidationReason.DURABILITY_FAILURE)
+          }
+        },
+      )
     }
   }
 
@@ -257,7 +267,15 @@ public class IndexedPasskeyStorage(
         }
         Ok(deleted)
       },
-      failure = { Err(it) },
+      failure = { error ->
+        if (error is DurabilityIndeterminateException) {
+          logcat(LogPriority.ERROR) {
+            "Durability indeterminate after delete, invalidating index: ${error.message}"
+          }
+          invalidate(InvalidationReason.DURABILITY_FAILURE)
+        }
+        Err(error)
+      },
     )
   }
 
@@ -278,7 +296,15 @@ public class IndexedPasskeyStorage(
           }
           Ok(deleted)
         },
-        failure = { Err(it) },
+        failure = { error ->
+          if (error is DurabilityIndeterminateException) {
+            logcat(LogPriority.ERROR) {
+              "Durability indeterminate after delete, invalidating index: ${error.message}"
+            }
+            invalidate(InvalidationReason.DURABILITY_FAILURE)
+          }
+          Err(error)
+        },
       )
   }
 
@@ -291,14 +317,33 @@ public class IndexedPasskeyStorage(
 
     return if (existing != null) {
       delegate.updateSignCount(credentialId, newSignCount).also { result ->
-        if (result.isOk) {
-          val updatedMetadata = existing.metadata.copy(signCount = newSignCount)
-          metadataIndex[key] =
-            IndexedEntry(updatedMetadata, existing.sourceVersion, existing.fileRef)
-        }
+        result.fold(
+          success = {
+            val updatedMetadata = existing.metadata.copy(signCount = newSignCount)
+            metadataIndex[key] =
+              IndexedEntry(updatedMetadata, existing.sourceVersion, existing.fileRef)
+          },
+          failure = { error ->
+            if (error is DurabilityIndeterminateException) {
+              logcat(LogPriority.ERROR) {
+                "Durability indeterminate after counter update, invalidating index: ${error.message}"
+              }
+              invalidate(InvalidationReason.DURABILITY_FAILURE)
+            }
+          },
+        )
       }
     } else {
-      delegate.updateSignCount(credentialId, newSignCount)
+      delegate.updateSignCount(credentialId, newSignCount).also { result ->
+        result.fold(
+          success = {},
+          failure = { error ->
+            if (error is DurabilityIndeterminateException) {
+              invalidate(InvalidationReason.DURABILITY_FAILURE)
+            }
+          },
+        )
+      }
     }
   }
 

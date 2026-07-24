@@ -318,7 +318,11 @@ public class FilePasskeyStorage<
               },
               failure = { error ->
                 logcat(LogPriority.ERROR) { "Confined write failed: ${error.message}" }
-                Err(RuntimeException(error.message))
+                when (error) {
+                  is FileStoreError.DurabilityIndeterminate ->
+                    Err(DurabilityIndeterminateException(error.observedVersion, error.message))
+                  else -> Err(RuntimeException(error.message))
+                }
               },
             )
         } finally {
@@ -357,7 +361,11 @@ public class FilePasskeyStorage<
               },
               failure = { error ->
                 logcat(LogPriority.ERROR) { "Confined delete failed: ${error.message}" }
-                Err(RuntimeException(error.message))
+                when (error) {
+                  is FileStoreError.DurabilityIndeterminate ->
+                    Err(DurabilityIndeterminateException(error.observedVersion, error.message))
+                  else -> Err(RuntimeException(error.message))
+                }
               },
             )
         },
@@ -379,7 +387,11 @@ public class FilePasskeyStorage<
           },
           failure = { error ->
             logcat(LogPriority.ERROR) { "Confined delete failed: ${error.message}" }
-            Err(RuntimeException(error.message))
+            when (error) {
+              is FileStoreError.DurabilityIndeterminate ->
+                Err(DurabilityIndeterminateException(error.observedVersion, error.message))
+              else -> Err(RuntimeException(error.message))
+            }
           },
         )
     }
@@ -486,7 +498,13 @@ public class FilePasskeyStorage<
                     Ok(Unit) as Result<Unit, Throwable>
                   },
                   failure = { error ->
-                    Err(RuntimeException(error.message)) as Result<Unit, Throwable>
+                    when (error) {
+                      is FileStoreError.DurabilityIndeterminate ->
+                        Err(DurabilityIndeterminateException(error.observedVersion, error.message))
+                          as Result<Unit, Throwable>
+                      else ->
+                        Err(RuntimeException(error.message)) as Result<Unit, Throwable>
+                    }
                   },
                 )
             } finally {
