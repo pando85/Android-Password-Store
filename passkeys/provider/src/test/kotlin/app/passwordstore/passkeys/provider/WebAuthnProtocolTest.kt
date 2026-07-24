@@ -8,6 +8,7 @@
 package app.passwordstore.passkeys.provider
 
 import app.passwordstore.passkeys.crypto.CallerType
+import app.passwordstore.passkeys.crypto.ClientDataBinding
 import app.passwordstore.passkeys.crypto.ES256CryptoHandler
 import app.passwordstore.passkeys.crypto.VerifiedWebAuthnContext
 import app.passwordstore.passkeys.model.FidoUser
@@ -67,9 +68,14 @@ class WebAuthnProtocolTest {
       VerifiedWebAuthnContext(
         callingPackage = "com.test",
         origin = "https://${credential.rpId}",
-        clientDataHash = null,
         callerType = CallerType.NATIVE_APP,
         signingCertificateDigests = setOf("test"),
+        clientDataBinding =
+          ClientDataBinding.ProviderConstructed(
+            type = "",
+            challenge = ByteArray(0),
+            origin = "https://${credential.rpId}",
+          ),
       )
 
     val responseJson =
@@ -110,9 +116,14 @@ class WebAuthnProtocolTest {
       VerifiedWebAuthnContext(
         callingPackage = "com.test",
         origin = "https://${credential.rpId}",
-        clientDataHash = null,
         callerType = CallerType.NATIVE_APP,
         signingCertificateDigests = setOf("test"),
+        clientDataBinding =
+          ClientDataBinding.ProviderConstructed(
+            type = "",
+            challenge = ByteArray(0),
+            origin = "https://${credential.rpId}",
+          ),
       )
 
     val responseJson =
@@ -146,9 +157,14 @@ class WebAuthnProtocolTest {
       VerifiedWebAuthnContext(
         callingPackage = "com.test",
         origin = "https://${credential.rpId}",
-        clientDataHash = null,
         callerType = CallerType.NATIVE_APP,
         signingCertificateDigests = setOf("test"),
+        clientDataBinding =
+          ClientDataBinding.ProviderConstructed(
+            type = "",
+            challenge = ByteArray(0),
+            origin = "https://${credential.rpId}",
+          ),
       )
 
     val responseJson =
