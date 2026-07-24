@@ -30,6 +30,8 @@ import java.security.MessageDigest
 import java.util.Base64
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import logcat.LogPriority
 import logcat.logcat
 
@@ -221,12 +223,7 @@ internal class DefaultWebAuthnCallerVerifier(
           origin = androidOrigin,
           callerType = CallerType.NATIVE_APP,
           signingCertificateDigests = certDigests,
-          clientDataBinding =
-            ClientDataBinding.ProviderConstructed(
-              type = "",
-              challenge = ByteArray(0),
-              origin = androidOrigin,
-            ),
+          clientDataBinding = ClientDataBinding.ProviderConstructed,
         )
       )
     }
@@ -263,12 +260,7 @@ internal class DefaultWebAuthnCallerVerifier(
         origin = androidOrigin,
         callerType = CallerType.NATIVE_APP,
         signingCertificateDigests = certDigests,
-        clientDataBinding =
-          ClientDataBinding.ProviderConstructed(
-            type = "",
-            challenge = ByteArray(0),
-            origin = androidOrigin,
-          ),
+        clientDataBinding = ClientDataBinding.ProviderConstructed,
       )
     )
   }
@@ -330,7 +322,12 @@ internal class DefaultWebAuthnCallerVerifier(
   }
 
   private fun buildResponseClientDataJson(origin: String): ByteArray {
-    return """{"type":"webauthn.get","origin":"$origin","crossOrigin":false}"""
+    return buildJsonObject {
+        put("type", "webauthn.get")
+        put("origin", origin)
+        put("crossOrigin", false)
+      }
+      .toString()
       .toByteArray()
   }
 }

@@ -386,7 +386,7 @@ class ES256CryptoHandlerTest {
     assertTrue(clientDataJSON.contains("\"challenge\":\""), "Challenge should be present")
     assertTrue(!clientDataJSON.contains("\"challenge\":\"\""), "Challenge should not be empty")
 
-    assertTrue(clientDataJSON.contains("\"crossOrigin\":false), "Cross-origin should be false")
+    assertTrue(clientDataJSON.contains("\"crossOrigin\":false"), "Cross-origin should be false")
   }
 
   private fun hexStringToByteArray(hex: String): ByteArray {
