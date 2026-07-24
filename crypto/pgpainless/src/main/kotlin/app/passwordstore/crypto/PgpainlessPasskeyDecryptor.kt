@@ -9,14 +9,17 @@ import app.passwordstore.crypto.errors.IncorrectPassphraseException
 import app.passwordstore.passkeys.crypto.PasskeyDecryptionError
 import app.passwordstore.passkeys.crypto.PasskeyPgpDecryptor
 import app.passwordstore.passkeys.crypto.PgpUnlockContext
+import app.passwordstore.passkeys.security.BoundedInputStream
+import app.passwordstore.passkeys.security.BoundedSensitiveOutputStream
+import app.passwordstore.passkeys.security.PasskeyInputLimits
 import com.github.michaelbull.result.Err
 import com.github.michaelbull.result.Ok
 import com.github.michaelbull.result.Result
 import com.github.michaelbull.result.fold
 import com.github.michaelbull.result.get
 import java.io.ByteArrayInputStream
-import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.InputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import logcat.LogPriority
@@ -33,11 +36,36 @@ public class PgpainlessPasskeyDecryptor(
   override suspend fun decrypt(
     file: File,
     unlockContext: PgpUnlockContext,
+    limits: PasskeyInputLimits,
   ): Result<ByteArray, PasskeyDecryptionError> =
     withContext(Dispatchers.IO) {
       try {
-        val ciphertext = file.readBytes()
-        decryptCiphertext(ciphertext, unlockContext, file.name)
+        val fileLen = file.length()
+        if (fileLen == 0L) {
+          return@withContext Err(PasskeyDecryptionError.MalformedCiphertext)
+        }
+        if (fileLen > limits.maxCiphertextBytes) {
+          return@withContext Err(
+            PasskeyDecryptionError.PlaintextTooLarge(limits.maxPlaintextBytes)
+          )
+        }
+        val ciphertext = ByteArray(fileLen.toInt())
+        file.inputStream().use { fis ->
+          val bounded = BoundedInputStream(fis, limits.maxCiphertextBytes)
+          var offset = 0
+          val buf = ByteArray(8192)
+          while (offset < ciphertext.size) {
+            val n = bounded.read(buf, 0, minOf(buf.size, ciphertext.size - offset))
+            if (n == -1) break
+            System.arraycopy(buf, 0, ciphertext, offset, n)
+            offset += n
+          }
+        }
+        try {
+          decryptCiphertext(ciphertext, unlockContext, file.name, limits)
+        } finally {
+          ciphertext.fill(0)
+        }
       } catch (e: Exception) {
         logcat(LogPriority.ERROR) { "Unexpected error decrypting ${file.name}: ${e.message}" }
         Err(mapExceptionToError(e))
@@ -47,12 +75,52 @@ public class PgpainlessPasskeyDecryptor(
   override suspend fun decryptFromBytes(
     ciphertext: ByteArray,
     unlockContext: PgpUnlockContext,
+    limits: PasskeyInputLimits,
   ): Result<ByteArray, PasskeyDecryptionError> =
     withContext(Dispatchers.IO) {
       try {
-        decryptCiphertext(ciphertext, unlockContext, "<bytes>")
+        if (ciphertext.size > limits.maxCiphertextBytes) {
+          return@withContext Err(
+            PasskeyDecryptionError.PlaintextTooLarge(limits.maxPlaintextBytes)
+          )
+        }
+        decryptCiphertext(ciphertext, unlockContext, "<bytes>", limits)
       } catch (e: Exception) {
         logcat(LogPriority.ERROR) { "Unexpected error decrypting bytes: ${e.message}" }
+        Err(mapExceptionToError(e))
+      }
+    }
+
+  override suspend fun decryptFromStream(
+    ciphertextStream: InputStream,
+    ciphertextLength: Long,
+    unlockContext: PgpUnlockContext,
+    limits: PasskeyInputLimits,
+  ): Result<ByteArray, PasskeyDecryptionError> =
+    withContext(Dispatchers.IO) {
+      try {
+        if (ciphertextLength > limits.maxCiphertextBytes) {
+          return@withContext Err(
+            PasskeyDecryptionError.PlaintextTooLarge(limits.maxPlaintextBytes)
+          )
+        }
+        val ciphertext = ByteArray(ciphertextLength.toInt())
+        val bounded = BoundedInputStream(ciphertextStream, limits.maxCiphertextBytes)
+        var offset = 0
+        val buf = ByteArray(8192)
+        while (offset < ciphertext.size) {
+          val n = bounded.read(buf, 0, minOf(buf.size, ciphertext.size - offset))
+          if (n == -1) break
+          System.arraycopy(buf, 0, ciphertext, offset, n)
+          offset += n
+        }
+        try {
+          decryptCiphertext(ciphertext, unlockContext, "<stream>", limits)
+        } finally {
+          ciphertext.fill(0)
+        }
+      } catch (e: Exception) {
+        logcat(LogPriority.ERROR) { "Unexpected error decrypting stream: ${e.message}" }
         Err(mapExceptionToError(e))
       }
     }
@@ -61,8 +129,9 @@ public class PgpainlessPasskeyDecryptor(
     ciphertext: ByteArray,
     unlockContext: PgpUnlockContext,
     sourceName: String,
+    limits: PasskeyInputLimits,
   ): Result<ByteArray, PasskeyDecryptionError> {
-    val recipientKeyIds = inspectRecipientKeyIds(ciphertext)
+    val recipientKeyIds = inspectRecipientKeyIds(ciphertext, limits)
     if (recipientKeyIds.isEmpty()) {
       return Err(PasskeyDecryptionError.NoRecipientPackets)
     }
@@ -82,7 +151,7 @@ public class PgpainlessPasskeyDecryptor(
       val passphrase = unlockContext.unlockKey(keyId.toString())
 
       try {
-        val plaintext = attemptDecryption(key, passphrase, ciphertext)
+        val plaintext = attemptBoundedDecryption(key, passphrase, ciphertext, limits)
         passphrase?.fill('\u0000')
         return Ok(plaintext)
       } catch (e: WrongPassphraseException) {
@@ -99,6 +168,9 @@ public class PgpainlessPasskeyDecryptor(
           "Incorrect passphrase for key ${keyId}, trying next matching key"
         }
         continue
+      } catch (e: PasskeyDecryptionError.PlaintextTooLarge) {
+        passphrase?.fill('\u0000')
+        return Err(e)
       } catch (e: Exception) {
         passphrase?.fill('\u0000')
         lastError = mapExceptionToError(e)
@@ -137,28 +209,38 @@ public class PgpainlessPasskeyDecryptor(
     return matchingKeys
   }
 
-  private fun attemptDecryption(
+  private fun attemptBoundedDecryption(
     key: PGPKey,
     passphrase: CharArray?,
     ciphertext: ByteArray,
+    limits: PasskeyInputLimits,
   ): ByteArray {
     val inputStream = ByteArrayInputStream(ciphertext)
-    val outputStream = ByteArrayOutputStream()
+    val outputStream = BoundedSensitiveOutputStream(limits.maxPlaintextBytes.toInt())
 
-    cryptoHandler
-      .decrypt(
-        key = key,
-        passphrase = passphrase,
-        ciphertextStream = inputStream,
-        outputStream = outputStream,
-        options = PGPDecryptOptions.Builder().build(),
-      )
-      .fold(
-        success = {
-          return outputStream.toByteArray()
-        },
-        failure = { throw it },
-      )
+    try {
+      cryptoHandler
+        .decrypt(
+          key = key,
+          passphrase = passphrase,
+          ciphertextStream = inputStream,
+          outputStream = outputStream,
+          options = PGPDecryptOptions.Builder().build(),
+        )
+        .fold(
+          success = {
+            val sensitive = outputStream.takeBytes()
+            val result = sensitive.bytes()
+            sensitive.release()
+            return result
+          },
+          failure = { throw it },
+        )
+    } catch (e: app.passwordstore.passkeys.security.BoundedOutputLimitExceededException) {
+      throw PasskeyDecryptionError.PlaintextTooLarge(limits.maxPlaintextBytes)
+    } finally {
+      outputStream.close()
+    }
 
     throw IllegalStateException("Decryption failed without exception")
   }
@@ -169,6 +251,7 @@ public class PgpainlessPasskeyDecryptor(
       is IncorrectPassphraseException -> PasskeyDecryptionError.IncorrectPassphrase("unknown")
       is org.pgpainless.exception.MessageNotIntegrityProtectedException ->
         PasskeyDecryptionError.IntegrityCheckFailed
+      is PasskeyDecryptionError.PlaintextTooLarge -> e
       is org.bouncycastle.openpgp.PGPException -> {
         if (e.message?.contains("modification detection code") == true) {
           PasskeyDecryptionError.IntegrityCheckFailed
@@ -181,8 +264,14 @@ public class PgpainlessPasskeyDecryptor(
   }
 }
 
-internal fun inspectRecipientKeyIds(ciphertext: ByteArray): Set<Long> {
+internal fun inspectRecipientKeyIds(
+  ciphertext: ByteArray,
+  limits: PasskeyInputLimits = PasskeyInputLimits.DEFAULT,
+): Set<Long> {
   return try {
+    if (ciphertext.size > limits.maxCiphertextBytes) {
+      return emptySet()
+    }
     val info =
       MessageInspector().determineEncryptionInfoForMessage(ByteArrayInputStream(ciphertext))
     info.keyIds.toSet()

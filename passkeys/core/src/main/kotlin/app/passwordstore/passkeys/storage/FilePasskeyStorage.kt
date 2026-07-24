@@ -16,6 +16,7 @@ import app.passwordstore.passkeys.model.PasskeyCredential
 import app.passwordstore.passkeys.model.PasskeyMetadata
 import app.passwordstore.passkeys.model.SensitivePasskeyCredential
 import app.passwordstore.passkeys.model.StoredCredential
+import app.passwordstore.passkeys.security.PasskeyInputLimits
 import com.github.michaelbull.result.Err
 import com.github.michaelbull.result.Ok
 import com.github.michaelbull.result.Result
@@ -42,10 +43,11 @@ public class FilePasskeyStorage<
   private val recipientResolver: PassRecipientResolver<Key>,
   private val encryptionOptions: EncOpts,
   private val config: PasskeyStorageConfig = PasskeyStorageConfig(),
+  private val inputLimits: PasskeyInputLimits = PasskeyInputLimits.DEFAULT,
   private val atomicWriter: DefaultAtomicCredentialWriter =
     DefaultAtomicCredentialWriter(repositoryRoot),
   private val confinedStore: NoFollowFileStore =
-    NoFollowFileStore(repositoryRoot, config.passkeyDirectory, config.fileExtension, atomicWriter),
+    NoFollowFileStore(repositoryRoot, config.passkeyDirectory, config.fileExtension, atomicWriter, inputLimits),
 ) : PasskeyStorage {
 
   private val passkeyDir: File
@@ -156,7 +158,7 @@ public class FilePasskeyStorage<
       success = { file ->
         try {
           val contentBytes = file.readBytes()
-          val decryptResult = passkeyPgpDecryptor.decryptFromBytes(contentBytes, pgpUnlockContext)
+          val decryptResult = passkeyPgpDecryptor.decryptFromBytes(contentBytes, pgpUnlockContext, inputLimits)
           val plaintext =
             decryptResult.fold(
               success = { it },
@@ -373,7 +375,7 @@ public class FilePasskeyStorage<
             val contentBytes = file.readBytes()
             val plaintext =
               passkeyPgpDecryptor
-                .decryptFromBytes(contentBytes, pgpUnlockContext)
+                .decryptFromBytes(contentBytes, pgpUnlockContext, inputLimits)
                 .fold(
                   success = { it },
                   failure = { error ->
@@ -514,6 +516,8 @@ public class FilePasskeyStorage<
       is PasskeyDecryptionError.IntegrityCheckFailed -> "Integrity check failed"
       is PasskeyDecryptionError.MalformedCiphertext -> "Malformed ciphertext"
       is PasskeyDecryptionError.UnsupportedFormat -> "Unsupported format: ${error.reason}"
+      is PasskeyDecryptionError.PlaintextTooLarge ->
+        "Plaintext exceeds maximum ${error.maximum} bytes"
     }
   }
 

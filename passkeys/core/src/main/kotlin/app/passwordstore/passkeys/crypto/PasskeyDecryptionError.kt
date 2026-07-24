@@ -19,4 +19,8 @@ public sealed interface PasskeyDecryptionError {
   public data object MalformedCiphertext : PasskeyDecryptionError
 
   public data class UnsupportedFormat(val reason: String) : PasskeyDecryptionError
+
+  public data class PlaintextTooLarge(val maximum: Long) : PasskeyDecryptionError {
+    override fun toString(): String = "PlaintextTooLarge(maximum=$maximum)"
+  }
 }
