@@ -189,19 +189,11 @@ public class NoFollowFileStore(
         }
 
         val digest = MessageDigest.getInstance("SHA-256")
-        val contentBytes = ByteArray(attrs.size().toInt())
-        var offset = 0
-        Files.newInputStream(filePath, LinkOption.NOFOLLOW_LINKS).use { rawStream ->
+        val contentBytes = Files.newInputStream(filePath, LinkOption.NOFOLLOW_LINKS).use { rawStream ->
           val bounded = BoundedInputStream(rawStream, inputLimits.maxCiphertextBytes)
-          val buf = ByteArray(8192)
-          while (offset < contentBytes.size) {
-            val n = bounded.read(buf, 0, minOf(buf.size, contentBytes.size - offset))
-            if (n == -1) break
-            digest.update(buf, 0, n)
-            System.arraycopy(buf, 0, contentBytes, offset, n)
-            offset += n
-          }
+          bounded.readBoundedBytes(attrs.size().toInt())
         }
+        digest.update(contentBytes)
 
         val version =
           CredentialSourceVersion(
@@ -355,16 +347,11 @@ public class NoFollowFileStore(
         }
 
         val digest = MessageDigest.getInstance("SHA-256")
-        var totalRead = 0L
         Files.newInputStream(filePath, LinkOption.NOFOLLOW_LINKS).use { rawStream ->
           val bounded = BoundedInputStream(rawStream, inputLimits.maxCiphertextBytes)
-          val buf = ByteArray(8192)
-          while (true) {
-            val n = bounded.read(buf)
-            if (n == -1) break
-            digest.update(buf, 0, n)
-            totalRead += n
-          }
+          val contentBytes = bounded.readBoundedBytes(attrs.size().toInt())
+          digest.update(contentBytes)
+          contentBytes.fill(0)
         }
 
         val version =
@@ -454,48 +441,6 @@ public class NoFollowFileStore(
     }
 
     return false
-  }
-
-  private fun safeReadFile(path: Path): Result<ByteArray, FileStoreError> {
-    return try {
-      if (Files.isSymbolicLink(path)) {
-        return Err(FileStoreError.SymlinkInPath)
-      }
-      if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) {
-        return Err(FileStoreError.NotRegularFile)
-      }
-      val attrs =
-        Files.readAttributes(
-          path,
-          java.nio.file.attribute.BasicFileAttributes::class.java,
-          LinkOption.NOFOLLOW_LINKS,
-        )
-      if (attrs.size() == 0L) {
-        return Err(FileStoreError.IoError("File is empty"))
-      }
-      if (attrs.size() > inputLimits.maxCiphertextBytes) {
-        return Err(
-          FileStoreError.IoError(
-            "File exceeds maximum size limit of ${inputLimits.maxCiphertextBytes} bytes"
-          )
-        )
-      }
-      val content = ByteArray(attrs.size().toInt())
-      Files.newInputStream(path, LinkOption.NOFOLLOW_LINKS).use { rawStream ->
-        val bounded = BoundedInputStream(rawStream, inputLimits.maxCiphertextBytes)
-        var offset = 0
-        val buf = ByteArray(8192)
-        while (offset < content.size) {
-          val n = bounded.read(buf, 0, minOf(buf.size, content.size - offset))
-          if (n == -1) break
-          System.arraycopy(buf, 0, content, offset, n)
-          offset += n
-        }
-      }
-      Ok(content)
-    } catch (e: Exception) {
-      Err(FileStoreError.IoError(e.message ?: "Read failed"))
-    }
   }
 
   private fun safeListFiles(dir: Path): List<Path> {

@@ -58,7 +58,22 @@ public class BoundedInputStream(
     return minOf(`in`.available(), remaining)
   }
 
+  override fun markSupported(): Boolean = false
+
   public fun hasReachedLimit(): Boolean = bytesRead >= maxBytes
+
+  public fun readBoundedBytes(size: Int): ByteArray {
+    val result = ByteArray(size)
+    var offset = 0
+    val buf = ByteArray(minOf(8192, size))
+    while (offset < size) {
+      val n = read(buf, 0, minOf(buf.size, size - offset))
+      if (n == -1) break
+      System.arraycopy(buf, 0, result, offset, n)
+      offset += n
+    }
+    return if (offset == size) result else result.copyOf(offset)
+  }
 }
 
 public class BoundedInputLimitExceededException(
