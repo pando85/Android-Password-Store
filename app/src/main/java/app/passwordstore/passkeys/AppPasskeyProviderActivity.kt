@@ -324,45 +324,44 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
             .toPublicCredential()
             .copy(signCount = newSignCount, backupState = effectiveBackupState)
         val requestJson = option.requestJson
-        val assertion =
-          sensitiveCredential.usePrivateKey { privateKey ->
-            when (val binding = verifiedContext.clientDataBinding) {
-              is ClientDataBinding.FrameworkHash ->
-                cryptoHandler
-                  .getAssertionWithFrameworkHash(
-                    credential = publicCredential,
-                    privateKey = privateKey,
-                    rpId = sensitiveCredential.rpId,
-                    clientDataHash = binding.hash,
-                    responseClientDataJson = binding.responseClientDataJson,
-                  )
-                  .fold(
-                    success = { it },
-                    failure = {
-                      logcat(LogPriority.ERROR) {
-                        "Failed building assertion with framework hash: $it"
-                      }
-                      null
-                    },
-                  )
-              is ClientDataBinding.ProviderConstructed ->
-                cryptoHandler
-                  .getAssertion(
-                    credential = publicCredential,
-                    privateKey = privateKey,
-                    rpId = sensitiveCredential.rpId,
-                    challenge = PasskeyProviderUtils.decodeBase64Url(parsedRequest.challenge),
-                    origin = verifiedContext.origin,
-                  )
-                  .fold(
-                    success = { it },
-                    failure = {
-                      logcat(LogPriority.ERROR) { "Failed building assertion: $it" }
-                      null
-                    },
-                  )
-            }
+        val assertion = sensitiveCredential.usePrivateKey { privateKey ->
+          when (val binding = verifiedContext.clientDataBinding) {
+            is ClientDataBinding.FrameworkHash ->
+              cryptoHandler
+                .getAssertionWithFrameworkHash(
+                  credential = publicCredential,
+                  privateKey = privateKey,
+                  rpId = sensitiveCredential.rpId,
+                  clientDataHash = binding.hash,
+                  responseClientDataJson = binding.responseClientDataJson,
+                )
+                .fold(
+                  success = { it },
+                  failure = {
+                    logcat(LogPriority.ERROR) {
+                      "Failed building assertion with framework hash: $it"
+                    }
+                    null
+                  },
+                )
+            is ClientDataBinding.ProviderConstructed ->
+              cryptoHandler
+                .getAssertion(
+                  credential = publicCredential,
+                  privateKey = privateKey,
+                  rpId = sensitiveCredential.rpId,
+                  challenge = PasskeyProviderUtils.decodeBase64Url(parsedRequest.challenge),
+                  origin = verifiedContext.origin,
+                )
+                .fold(
+                  success = { it },
+                  failure = {
+                    logcat(LogPriority.ERROR) { "Failed building assertion: $it" }
+                    null
+                  },
+                )
           }
+        }
         if (assertion == null) {
           finishWithGetError(GetCredentialUnknownException("Failed generating passkey assertion"))
           return
@@ -505,10 +504,9 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
             verifiedOrigin = verifiedContext.origin,
           )
 
-        val saveResult =
-          createdCredential.usePrivateKeySuspend { privateKey ->
-            passkeyStorage.saveCredential(credentialWithBinding, privateKey)
-          }
+        val saveResult = createdCredential.usePrivateKeySuspend { privateKey ->
+          passkeyStorage.saveCredential(credentialWithBinding, privateKey)
+        }
         if (saveResult.isErr) {
           saveResult.fold(
             success = {},

@@ -82,7 +82,8 @@ class PasskeySecurityRegressionTest {
     val countingStorage = CountingPasskeyStorage()
     val indexed = IndexedPasskeyStorage(countingStorage)
 
-    val (cred, privateKey) = createTestCredential(rpId = "example.com", credentialId = "c1".toByteArray())
+    val (cred, privateKey) =
+      createTestCredential(rpId = "example.com", credentialId = "c1".toByteArray())
     countingStorage.saveCredential(cred, privateKey)
     indexed.clearIndex()
     countingStorage.resetCounters()

@@ -269,7 +269,9 @@ class PasskeyBackupStateTrackingTest {
         backupState = false,
       )
 
-    innerStorage.saveCredential(credential, privateKey).getOrElse { throw AssertionError("Save failed") }
+    innerStorage.saveCredential(credential, privateKey).getOrElse {
+      throw AssertionError("Save failed")
+    }
     storage.onCredentialSaved()
     assertFalse(storage.isRepositoryBackedUp(), "After save, not backed up")
     assertFalse(

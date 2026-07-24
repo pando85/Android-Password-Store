@@ -135,18 +135,17 @@ class PasskeyIntegrationTest {
       .getOrElse { throw AssertionError("Load failed") }
       .use { sensitive ->
         val credForSigning = sensitive.toPublicCredential()
-        val assertion =
-          sensitive.usePrivateKey { privateKey ->
-            cryptoHandler
-              .getAssertion(
-                credential = credForSigning,
-                privateKey = privateKey,
-                rpId = "example.com",
-                challenge = challenge,
-                origin = "https://example.com",
-              )
-              .getOrElse { throw AssertionError("Assertion failed") }
-          }
+        val assertion = sensitive.usePrivateKey { privateKey ->
+          cryptoHandler
+            .getAssertion(
+              credential = credForSigning,
+              privateKey = privateKey,
+              rpId = "example.com",
+              challenge = challenge,
+              origin = "https://example.com",
+            )
+            .getOrElse { throw AssertionError("Assertion failed") }
+        }
 
         assertEquals(
           credential.credentialIdBase64(),

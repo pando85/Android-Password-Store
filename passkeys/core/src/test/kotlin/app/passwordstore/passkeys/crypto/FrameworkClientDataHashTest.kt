@@ -197,8 +197,7 @@ class FrameworkClientDataHashTest {
     val expectedSignedData = assertion.authenticatorData + frameworkHash
     val expectedHash = MessageDigest.getInstance("SHA-256").digest(expectedSignedData)
 
-    val directSign =
-      cryptoHandler.sign(privateKey, assertion.authenticatorData, frameworkHash)
+    val directSign = cryptoHandler.sign(privateKey, assertion.authenticatorData, frameworkHash)
     val directSignature = directSign.getOrElse { throw AssertionError("Direct sign failed") }
 
     val verifyDirect =

@@ -195,7 +195,8 @@ class PasskeyProviderUtilsTest {
         credentialId = "credential-$userName".toByteArray(),
         publicKey = publicKey,
         rpId = "example.com",
-        user = FidoUser(id = "user-$userName".toByteArray(), name = userName, displayName = userName),
+        user =
+          FidoUser(id = "user-$userName".toByteArray(), name = userName, displayName = userName),
         createdAt = Clock.System.now(),
       )
     return Pair(credential, privateKey)

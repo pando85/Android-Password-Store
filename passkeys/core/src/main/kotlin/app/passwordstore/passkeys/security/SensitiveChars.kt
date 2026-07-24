@@ -5,12 +5,12 @@
 
 package app.passwordstore.passkeys.security
 
-public class SensitiveChars private constructor(@PublishedApi internal var chars: CharArray?) : AutoCloseable {
+public class SensitiveChars private constructor(@PublishedApi internal var chars: CharArray?) :
+  AutoCloseable {
 
   @Volatile private var released = false
 
-  public fun chars(): CharArray =
-    chars ?: throw IllegalStateException("Chars have been released")
+  public fun chars(): CharArray = chars ?: throw IllegalStateException("Chars have been released")
 
   public fun isReleased(): Boolean = released
 

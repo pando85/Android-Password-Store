@@ -19,7 +19,6 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Clock
-import kotlin.time.Instant
 
 class SensitiveZeroizationTest {
 
@@ -70,7 +69,7 @@ class SensitiveZeroizationTest {
     sensitive.close()
 
     assertFailsWith<IllegalStateException> { sensitive.bytes() }
-    assertFailsWith<IllegalStateException> { sensitive.borrow { } }
+    assertFailsWith<IllegalStateException> { sensitive.borrow {} }
     assertFailsWith<IllegalStateException> { sensitive.move() }
   }
 
@@ -182,7 +181,7 @@ class SensitiveZeroizationTest {
 
     credential.close()
     assertFailsWith<IllegalStateException> {
-      credential.usePrivateKey { }
+      credential.usePrivateKey {}
     }
   }
 

@@ -142,7 +142,9 @@ public class InMemoryPasskeyStorage : PasskeyStorage {
   public fun count(): Int = publicCredentials.size
 
   public companion object {
-    public fun withTestCredentials(vararg creds: Pair<PasskeyCredential, ByteArray>): InMemoryPasskeyStorage {
+    public fun withTestCredentials(
+      vararg creds: Pair<PasskeyCredential, ByteArray>
+    ): InMemoryPasskeyStorage {
       val storage = InMemoryPasskeyStorage()
       creds.forEach { (cred, key) ->
         val k = storage.credentialIdKey(cred.credentialId)

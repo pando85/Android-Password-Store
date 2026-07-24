@@ -109,7 +109,8 @@ class WebAuthnBackupFlagsTest {
 
   @Test
   fun `assertion flags include BE for syncable credential`() {
-    val (credential, privateKey) = createSyncableCredentialPair(backupEligible = true, backupState = false)
+    val (credential, privateKey) =
+      createSyncableCredentialPair(backupEligible = true, backupState = false)
 
     val assertion =
       cryptoHandler
@@ -131,7 +132,8 @@ class WebAuthnBackupFlagsTest {
 
   @Test
   fun `assertion flags include BE and BS for backed up credential`() {
-    val (credential, privateKey) = createSyncableCredentialPair(backupEligible = true, backupState = true)
+    val (credential, privateKey) =
+      createSyncableCredentialPair(backupEligible = true, backupState = true)
 
     val assertion =
       cryptoHandler
@@ -151,7 +153,8 @@ class WebAuthnBackupFlagsTest {
 
   @Test
   fun `assertion flags exclude BE for device-bound credential`() {
-    val (credential, privateKey) = createSyncableCredentialPair(backupEligible = false, backupState = false)
+    val (credential, privateKey) =
+      createSyncableCredentialPair(backupEligible = false, backupState = false)
 
     val assertion =
       cryptoHandler
@@ -249,7 +252,8 @@ class WebAuthnBackupFlagsTest {
 
   @Test
   fun `StoredCredential fromPasskeyCredential propagates backup fields`() {
-    val (credential, privateKey) = createSyncableCredentialPair(backupEligible = true, backupState = true)
+    val (credential, privateKey) =
+      createSyncableCredentialPair(backupEligible = true, backupState = true)
 
     val stored = StoredCredential.fromPasskeyCredential(credential, privateKey)
 

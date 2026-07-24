@@ -220,7 +220,10 @@ public class IndexedPasskeyStorage(
     }
   }
 
-  override suspend fun saveCredential(credential: PasskeyCredential, privateKey: ByteArray): Result<Unit, Throwable> {
+  override suspend fun saveCredential(
+    credential: PasskeyCredential,
+    privateKey: ByteArray,
+  ): Result<Unit, Throwable> {
     return delegate.saveCredential(credential, privateKey).also { result ->
       if (result.isOk) {
         val metadata = PasskeyMetadata.fromPasskeyCredential(credential)

@@ -186,8 +186,7 @@ public class ES256CryptoHandler : PasskeyCryptoHandler {
     if (rpId.isBlank()) return Err(IllegalArgumentException("RP ID cannot be blank"))
     if (challenge.isEmpty()) return Err(IllegalArgumentException("Challenge cannot be empty"))
     if (origin.isBlank()) return Err(IllegalArgumentException("Origin cannot be blank"))
-    if (privateKey.isEmpty())
-      return Err(IllegalArgumentException("Credential has no private key"))
+    if (privateKey.isEmpty()) return Err(IllegalArgumentException("Credential has no private key"))
 
     return try {
       val authenticatorData =
@@ -235,8 +234,7 @@ public class ES256CryptoHandler : PasskeyCryptoHandler {
       )
     if (responseClientDataJson.isEmpty())
       return Err(IllegalArgumentException("Response client data JSON cannot be empty"))
-    if (privateKey.isEmpty())
-      return Err(IllegalArgumentException("Credential has no private key"))
+    if (privateKey.isEmpty()) return Err(IllegalArgumentException("Credential has no private key"))
 
     return try {
       val authenticatorData =

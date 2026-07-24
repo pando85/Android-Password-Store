@@ -42,7 +42,10 @@ class CountingPasskeyStorage : PasskeyStorage {
     return delegate.loadForSigning(credentialId)
   }
 
-  override suspend fun saveCredential(credential: PasskeyCredential, privateKey: ByteArray): Result<Unit, Throwable> {
+  override suspend fun saveCredential(
+    credential: PasskeyCredential,
+    privateKey: ByteArray,
+  ): Result<Unit, Throwable> {
     return delegate.saveCredential(credential, privateKey)
   }
 

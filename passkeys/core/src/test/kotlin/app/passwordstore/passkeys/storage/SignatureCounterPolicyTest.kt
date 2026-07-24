@@ -378,7 +378,11 @@ class SignatureCounterPolicyTest {
     return credential
   }
 
-  private fun createCredentialPair(rpId: String, userName: String, signCount: ULong = 0u): Pair<PasskeyCredential, ByteArray> {
+  private fun createCredentialPair(
+    rpId: String,
+    userName: String,
+    signCount: ULong = 0u,
+  ): Pair<PasskeyCredential, ByteArray> {
     val privateKey = ByteArray(32) { it.toByte() }
     val credential =
       PasskeyCredential(
@@ -484,7 +488,8 @@ private class VersionMutatingPasskeyStorage(private val delegate: InMemoryPasske
   override suspend fun saveCredential(
     credential: app.passwordstore.passkeys.model.PasskeyCredential,
     privateKey: ByteArray,
-  ): com.github.michaelbull.result.Result<Unit, Throwable> = delegate.saveCredential(credential, privateKey)
+  ): com.github.michaelbull.result.Result<Unit, Throwable> =
+    delegate.saveCredential(credential, privateKey)
 
   override suspend fun deleteCredential(
     credentialId: ByteArray
@@ -528,7 +533,8 @@ private class FailingUpdateSignCountStorage(private val delegate: PasskeyStorage
   override suspend fun saveCredential(
     credential: app.passwordstore.passkeys.model.PasskeyCredential,
     privateKey: ByteArray,
-  ): com.github.michaelbull.result.Result<Unit, Throwable> = delegate.saveCredential(credential, privateKey)
+  ): com.github.michaelbull.result.Result<Unit, Throwable> =
+    delegate.saveCredential(credential, privateKey)
 
   override suspend fun deleteCredential(
     credentialId: ByteArray

@@ -18,7 +18,6 @@ import app.passwordstore.passkeys.model.SensitivePasskeyCredential
 import app.passwordstore.passkeys.model.StoredCredential
 import app.passwordstore.passkeys.security.PasskeyConcurrencyLimiter
 import app.passwordstore.passkeys.security.PasskeyInputLimits
-import app.passwordstore.passkeys.security.SensitiveBytes
 import com.github.michaelbull.result.Err
 import com.github.michaelbull.result.Ok
 import com.github.michaelbull.result.Result

@@ -104,25 +104,25 @@ class ES256CryptoHandlerTest {
   @Test
   fun `getAssertion returns valid assertion`() {
     val created =
-      cryptoHandler.createCredential(
-        rpId = "example.com",
-        userId = "user123".toByteArray(),
-        userName = "testuser",
-        userDisplayName = "Test User",
-        challenge = ByteArray(32) { it.toByte() },
-      )
-      .getOrElse { throw AssertionError("Credential creation failed") }
-
-    val assertionResult =
-      created.usePrivateKey { privateKey ->
-        cryptoHandler.getAssertion(
-          credential = created.credential,
-          privateKey = privateKey,
+      cryptoHandler
+        .createCredential(
           rpId = "example.com",
+          userId = "user123".toByteArray(),
+          userName = "testuser",
+          userDisplayName = "Test User",
           challenge = ByteArray(32) { it.toByte() },
-          origin = "https://example.com",
         )
-      }
+        .getOrElse { throw AssertionError("Credential creation failed") }
+
+    val assertionResult = created.usePrivateKey { privateKey ->
+      cryptoHandler.getAssertion(
+        credential = created.credential,
+        privateKey = privateKey,
+        rpId = "example.com",
+        challenge = ByteArray(32) { it.toByte() },
+        origin = "https://example.com",
+      )
+    }
 
     assertTrue(assertionResult.isOk, "Get assertion should succeed")
 
@@ -197,16 +197,15 @@ class ES256CryptoHandlerTest {
     assertTrue(created.isOk, "Create credential should succeed")
     val createdCred = created.getOrElse { throw AssertionError("Create credential failed") }
 
-    val assertionResult =
-      createdCred.usePrivateKey { privateKey ->
-        handler.getAssertion(
-          credential = createdCred.credential,
-          privateKey = privateKey,
-          rpId = "example.com",
-          challenge = ByteArray(32),
-          origin = "https://example.com",
-        )
-      }
+    val assertionResult = createdCred.usePrivateKey { privateKey ->
+      handler.getAssertion(
+        credential = createdCred.credential,
+        privateKey = privateKey,
+        rpId = "example.com",
+        challenge = ByteArray(32),
+        origin = "https://example.com",
+      )
+    }
     assertTrue(assertionResult.isOk, "Get assertion should succeed")
     val assertion = assertionResult.getOrElse { throw AssertionError("Get assertion failed") }
 
@@ -295,16 +294,15 @@ class ES256CryptoHandlerTest {
     assertTrue(created.isOk, "Create credential should succeed")
     val createdCred = created.getOrElse { throw AssertionError("Create credential failed") }
 
-    val assertionResult =
-      createdCred.usePrivateKey { privateKey ->
-        handler.getAssertion(
-          credential = createdCred.credential,
-          privateKey = privateKey,
-          rpId = "example.com",
-          challenge = ByteArray(32),
-          origin = "https://example.com",
-        )
-      }
+    val assertionResult = createdCred.usePrivateKey { privateKey ->
+      handler.getAssertion(
+        credential = createdCred.credential,
+        privateKey = privateKey,
+        rpId = "example.com",
+        challenge = ByteArray(32),
+        origin = "https://example.com",
+      )
+    }
     assertTrue(assertionResult.isOk, "Get assertion should succeed")
     val assertion = assertionResult.getOrElse { throw AssertionError("Get assertion failed") }
 
@@ -340,16 +338,15 @@ class ES256CryptoHandlerTest {
     assertTrue(created.isOk, "Create credential should succeed")
     val createdCred = created.getOrElse { throw AssertionError("Create credential failed") }
 
-    val assertionResult =
-      createdCred.usePrivateKey { privateKey ->
-        handler.getAssertion(
-          credential = createdCred.credential,
-          privateKey = privateKey,
-          rpId = "example.com",
-          challenge = ByteArray(32),
-          origin = "https://example.com",
-        )
-      }
+    val assertionResult = createdCred.usePrivateKey { privateKey ->
+      handler.getAssertion(
+        credential = createdCred.credential,
+        privateKey = privateKey,
+        rpId = "example.com",
+        challenge = ByteArray(32),
+        origin = "https://example.com",
+      )
+    }
     assertTrue(assertionResult.isOk, "Get assertion should succeed")
     val assertion = assertionResult.getOrElse { throw AssertionError("Get assertion failed") }
 
