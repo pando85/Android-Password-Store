@@ -263,11 +263,10 @@ internal class DefaultWebAuthnCallerVerifier(
     val matched = statements.any { it.authorizesAndroidApp(capability, packageName, certDigests) }
 
     if (!matched) {
-      val hasPackageMatch =
-        statements.any { statement ->
-          val target = statement.target ?: return@any false
-          target.namespace == "android_app" && target.packageName == packageName
-        }
+      val hasPackageMatch = statements.any { statement ->
+        val target = statement.target ?: return@any false
+        target.namespace == "android_app" && target.packageName == packageName
+      }
       if (hasPackageMatch) {
         emitDiagnostic(
           packageName,

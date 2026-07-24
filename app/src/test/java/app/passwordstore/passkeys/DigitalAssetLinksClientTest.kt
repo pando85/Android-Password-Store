@@ -244,14 +244,13 @@ class DigitalAssetLinksClientTest {
           ),
       )
     val statements = listOf(wrongStatement, rightStatement)
-    val matched =
-      statements.any {
-        it.authorizesAndroidApp(
-          AssetLinkCapability.PASSKEY_CEREMONY,
-          testPackage,
-          setOf(testDigest),
-        )
-      }
+    val matched = statements.any {
+      it.authorizesAndroidApp(
+        AssetLinkCapability.PASSKEY_CEREMONY,
+        testPackage,
+        setOf(testDigest),
+      )
+    }
     assertTrue(matched)
   }
 
@@ -344,9 +343,19 @@ class DigitalAssetLinksClientTest {
   fun `cached login credential access cannot authorize passkey ceremony`() {
     val cache = AssetLinkCache(maxEntries = 64, ttlMs = 5 * 60 * 1_000L)
     val loginKey =
-      AssetLinkCacheKey("example.com", testPackage, setOf(testDigest), AssetLinkCapability.LOGIN_CREDENTIAL_ACCESS)
+      AssetLinkCacheKey(
+        "example.com",
+        testPackage,
+        setOf(testDigest),
+        AssetLinkCapability.LOGIN_CREDENTIAL_ACCESS,
+      )
     val passkeyKey =
-      AssetLinkCacheKey("example.com", testPackage, setOf(testDigest), AssetLinkCapability.PASSKEY_CEREMONY)
+      AssetLinkCacheKey(
+        "example.com",
+        testPackage,
+        setOf(testDigest),
+        AssetLinkCapability.PASSKEY_CEREMONY,
+      )
     cache.put(loginKey)
     assertTrue(cache.get(loginKey))
     assertFalse(cache.get(passkeyKey))
@@ -354,7 +363,8 @@ class DigitalAssetLinksClientTest {
 
   @Test
   fun `certificate rotation with either valid fingerprint accepted`() {
-    val oldFingerprint = "AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99"
+    val oldFingerprint =
+      "AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99"
     val statement =
       AssetLinkStatement(
         relation = listOf(passkeyRelation),

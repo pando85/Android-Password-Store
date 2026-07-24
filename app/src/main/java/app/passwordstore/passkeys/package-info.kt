@@ -27,8 +27,8 @@ package app.passwordstore.passkeys
  *     - `target.sha256_cert_fingerprints`: containing the calling app's signing certificate digest
  *
  * The `get_login_creds` relation alone cannot authorize passkey ceremonies. Each
- * `AssetLinkCapability` maps to exactly one DAL relation, and the cache key includes the
- * capability to prevent cross-capability authorization.
+ * `AssetLinkCapability` maps to exactly one DAL relation, and the cache key includes the capability
+ * to prevent cross-capability authorization.
  * 4. The Android app origin is derived as `android:apk-key-hash:<base64url_sha256>`.
  *
  * **No fabricated `https://` origin is ever used for native callers.**
