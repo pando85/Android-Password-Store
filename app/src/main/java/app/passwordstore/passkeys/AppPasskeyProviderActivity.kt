@@ -337,7 +337,9 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
                 .fold(
                   success = { it },
                   failure = {
-                    logcat(LogPriority.ERROR) { "Failed building assertion with framework hash: $it" }
+                    logcat(LogPriority.ERROR) {
+                      "Failed building assertion with framework hash: $it"
+                    }
                     null
                   },
                 )

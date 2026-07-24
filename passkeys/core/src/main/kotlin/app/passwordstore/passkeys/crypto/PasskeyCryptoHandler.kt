@@ -114,8 +114,8 @@ public interface PasskeyCryptoHandler {
   /**
    * Signs authenticatorData || clientDataHash using the credential's private key.
    *
-   * Narrow crypto primitive for protocol orchestration. The caller is responsible for
-   * providing the correct clientDataHash.
+   * Narrow crypto primitive for protocol orchestration. The caller is responsible for providing the
+   * correct clientDataHash.
    *
    * @param privateKey Raw 32-byte scalar or PKCS#8 DER private key
    * @param authenticatorData Authenticator data bytes

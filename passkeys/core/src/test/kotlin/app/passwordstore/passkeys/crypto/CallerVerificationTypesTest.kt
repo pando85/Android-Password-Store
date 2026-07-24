@@ -95,7 +95,8 @@ class CallerVerificationTypesTest {
     )
     assertEquals(
       "BINDING_MODE_MISMATCH",
-      CallerVerificationError.BindingModeMismatch("FrameworkHash", "ProviderConstructed").errorCode(),
+      CallerVerificationError.BindingModeMismatch("FrameworkHash", "ProviderConstructed")
+        .errorCode(),
     )
   }
 

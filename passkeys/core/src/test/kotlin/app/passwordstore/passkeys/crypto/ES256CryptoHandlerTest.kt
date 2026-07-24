@@ -224,8 +224,7 @@ class ES256CryptoHandlerTest {
       assertion.signature.size in 70..72,
       "Signature should be 70-72 bytes, got ${assertion.signature.size}",
     )
-    val clientDataHash =
-      MessageDigest.getInstance("SHA-256").digest(assertion.clientDataJSON)
+    val clientDataHash = MessageDigest.getInstance("SHA-256").digest(assertion.clientDataJSON)
     val verifyResult =
       handler.verify(
         credential.publicKey,
@@ -287,8 +286,7 @@ class ES256CryptoHandlerTest {
     assertTrue(assertionResult.isOk, "Get assertion should succeed")
     val assertion = assertionResult.getOrElse { throw AssertionError("Get assertion failed") }
 
-    val clientDataHash =
-      MessageDigest.getInstance("SHA-256").digest(assertion.clientDataJSON)
+    val clientDataHash = MessageDigest.getInstance("SHA-256").digest(assertion.clientDataJSON)
 
     // Verify signature with passless public key
     val verifyResult =

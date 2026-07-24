@@ -101,7 +101,13 @@ internal class DefaultWebAuthnCallerVerifier(
 
     val browserEntry = BrowserAllowlist.findEntry(browserAllowlist, packageName)
     if (browserEntry != null) {
-      return verifyBrowserCaller(callingAppInfo, browserEntry, normalizedRpId, stage, frameworkClientDataHash)
+      return verifyBrowserCaller(
+        callingAppInfo,
+        browserEntry,
+        normalizedRpId,
+        stage,
+        frameworkClientDataHash,
+      )
     }
 
     return verifyNativeCaller(callingAppInfo, packageName, normalizedRpId, stage)
@@ -323,10 +329,10 @@ internal class DefaultWebAuthnCallerVerifier(
 
   private fun buildResponseClientDataJson(origin: String): ByteArray {
     return buildJsonObject {
-        put("type", "webauthn.get")
-        put("origin", origin)
-        put("crossOrigin", false)
-      }
+      put("type", "webauthn.get")
+      put("origin", origin)
+      put("crossOrigin", false)
+    }
       .toString()
       .toByteArray()
   }

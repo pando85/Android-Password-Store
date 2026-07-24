@@ -46,7 +46,10 @@ class FrameworkClientDataHashTest {
         frameworkHash,
       )
     assertTrue(verifyResult.isOk, "Verify should complete")
-    assertTrue(verifyResult.getOrElse { false }, "Signature must verify against exact framework hash")
+    assertTrue(
+      verifyResult.getOrElse { false },
+      "Signature must verify against exact framework hash",
+    )
   }
 
   @Test
@@ -197,7 +200,10 @@ class FrameworkClientDataHashTest {
         assertion.authenticatorData,
         frameworkHash,
       )
-    assertTrue(verifyDirect.getOrElse { false }, "Signature must verify over authData || frameworkHash")
+    assertTrue(
+      verifyDirect.getOrElse { false },
+      "Signature must verify over authData || frameworkHash",
+    )
   }
 
   @Test
@@ -217,8 +223,7 @@ class FrameworkClientDataHashTest {
     assertTrue(result.isOk, "Native assertion should succeed")
     val assertion = result.getOrElse { throw AssertionError("Failed") }
 
-    val clientDataHash =
-      MessageDigest.getInstance("SHA-256").digest(assertion.clientDataJSON)
+    val clientDataHash = MessageDigest.getInstance("SHA-256").digest(assertion.clientDataJSON)
 
     val verifyResult =
       cryptoHandler.verify(
@@ -227,7 +232,10 @@ class FrameworkClientDataHashTest {
         assertion.authenticatorData,
         clientDataHash,
       )
-    assertTrue(verifyResult.getOrElse { false }, "Native assertion must verify against reconstructed hash")
+    assertTrue(
+      verifyResult.getOrElse { false },
+      "Native assertion must verify against reconstructed hash",
+    )
   }
 
   @Test
