@@ -33,7 +33,7 @@ public class SignatureCounterTransaction(
   public suspend fun executeMonotonicAssertion(
     credentialId: ByteArray,
     sensitiveCredential: SensitivePasskeyCredential,
-    preSignVersion: CredentialSourceVersion?,
+    preSignVersion: SourceVersionResult,
     lockTimeoutMs: Long = 5_000L,
   ): Result<ULong, SignatureCounterError> {
     val mutex = mutexFor(credentialId)
@@ -47,7 +47,7 @@ public class SignatureCounterTransaction(
   public suspend fun executeMonotonicAssertionExact(
     ref: PasskeyFileRef,
     sensitiveCredential: SensitivePasskeyCredential,
-    preSignVersion: CredentialSourceVersion?,
+    preSignVersion: SourceVersionResult,
     lockTimeoutMs: Long = 5_000L,
   ): Result<ULong, SignatureCounterError> {
     val mutex = mutexFor(ref.credentialId)
@@ -61,13 +61,20 @@ public class SignatureCounterTransaction(
   private suspend fun executeMonotonicAssertionLocked(
     credentialId: ByteArray,
     sensitiveCredential: SensitivePasskeyCredential,
-    preSignVersion: CredentialSourceVersion?,
+    preSignVersion: SourceVersionResult,
   ): Result<ULong, SignatureCounterError> {
     if (repositoryState.isInMergeConflict()) {
       return Err(SignatureCounterError.MergeConflict)
     }
 
-    val currentVersion =
+    val preSignStable =
+      when (preSignVersion) {
+        is SourceVersionResult.Stable -> preSignVersion.version
+        is SourceVersionResult.Missing -> return Err(SignatureCounterError.FileChangedSinceSelection)
+        is SourceVersionResult.Unavailable -> return Err(SignatureCounterError.PersistenceFailed)
+      }
+
+    val currentVersionResult =
       storage
         .resolveSourceVersion(credentialId)
         .fold(
@@ -76,7 +83,15 @@ public class SignatureCounterTransaction(
             return Err(SignatureCounterError.PersistenceFailed)
           },
         )
-    if (preSignVersion != null && currentVersion != null && preSignVersion != currentVersion) {
+
+    val currentStable =
+      when (currentVersionResult) {
+        is SourceVersionResult.Stable -> currentVersionResult.version
+        is SourceVersionResult.Missing -> return Err(SignatureCounterError.FileChangedSinceSelection)
+        is SourceVersionResult.Unavailable -> return Err(SignatureCounterError.PersistenceFailed)
+      }
+
+    if (preSignStable != currentStable) {
       return Err(SignatureCounterError.FileChangedSinceSelection)
     }
 
@@ -96,13 +111,20 @@ public class SignatureCounterTransaction(
   private suspend fun executeMonotonicAssertionLockedExact(
     ref: PasskeyFileRef,
     sensitiveCredential: SensitivePasskeyCredential,
-    preSignVersion: CredentialSourceVersion?,
+    preSignVersion: SourceVersionResult,
   ): Result<ULong, SignatureCounterError> {
     if (repositoryState.isInMergeConflict()) {
       return Err(SignatureCounterError.MergeConflict)
     }
 
-    val currentVersion =
+    val preSignStable =
+      when (preSignVersion) {
+        is SourceVersionResult.Stable -> preSignVersion.version
+        is SourceVersionResult.Missing -> return Err(SignatureCounterError.FileChangedSinceSelection)
+        is SourceVersionResult.Unavailable -> return Err(SignatureCounterError.PersistenceFailed)
+      }
+
+    val currentVersionResult =
       storage
         .resolveSourceVersionExact(ref)
         .fold(
@@ -112,16 +134,20 @@ public class SignatureCounterTransaction(
           },
         )
 
-    if (preSignVersion != null && currentVersion == null) {
-      return Err(SignatureCounterError.FileChangedSinceSelection)
-    }
-    if (preSignVersion != null && currentVersion != null && preSignVersion != currentVersion) {
+    val currentStable =
+      when (currentVersionResult) {
+        is SourceVersionResult.Stable -> currentVersionResult.version
+        is SourceVersionResult.Missing -> return Err(SignatureCounterError.FileChangedSinceSelection)
+        is SourceVersionResult.Unavailable -> return Err(SignatureCounterError.PersistenceFailed)
+      }
+
+    if (preSignStable != currentStable) {
       return Err(SignatureCounterError.FileChangedSinceSelection)
     }
 
     val freshCredential =
       storage
-        .loadForSigningExact(ref, currentVersion)
+        .loadForSigningExact(ref, currentStable)
         .fold(
           success = { it },
           failure = {
