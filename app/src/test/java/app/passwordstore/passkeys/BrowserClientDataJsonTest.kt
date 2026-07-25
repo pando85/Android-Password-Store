@@ -11,7 +11,6 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class BrowserClientDataJsonTest {
@@ -21,10 +20,10 @@ class BrowserClientDataJsonTest {
     val result = buildResponseClientDataJson("get", "dGVzdC1jaGFsbGVuZ2U", "https://example.com")
     val json = Json.parseToJsonElement(result.decodeToString()).jsonObject
 
-    assertEquals("webauthn.get", json["type"]!!.jsonPrimitive.content)
-    assertEquals("dGVzdC1jaGFsbGVuZ2U", json["challenge"]!!.jsonPrimitive.content)
-    assertEquals("https://example.com", json["origin"]!!.jsonPrimitive.content)
-    assertEquals(false, json["crossOrigin"]!!.jsonPrimitive.boolean)
+    assertEquals("webauthn.get", json.getValue("type").jsonPrimitive.content)
+    assertEquals("dGVzdC1jaGFsbGVuZ2U", json.getValue("challenge").jsonPrimitive.content)
+    assertEquals("https://example.com", json.getValue("origin").jsonPrimitive.content)
+    assertEquals(false, json.getValue("crossOrigin").jsonPrimitive.boolean)
   }
 
   @Test
@@ -33,10 +32,10 @@ class BrowserClientDataJsonTest {
       buildResponseClientDataJson("create", "Y3JlYXRlLWNoYWxsZW5nZQ", "https://rp.example.org")
     val json = Json.parseToJsonElement(result.decodeToString()).jsonObject
 
-    assertEquals("webauthn.create", json["type"]!!.jsonPrimitive.content)
-    assertEquals("Y3JlYXRlLWNoYWxsZW5nZQ", json["challenge"]!!.jsonPrimitive.content)
-    assertEquals("https://rp.example.org", json["origin"]!!.jsonPrimitive.content)
-    assertEquals(false, json["crossOrigin"]!!.jsonPrimitive.boolean)
+    assertEquals("webauthn.create", json.getValue("type").jsonPrimitive.content)
+    assertEquals("Y3JlYXRlLWNoYWxsZW5nZQ", json.getValue("challenge").jsonPrimitive.content)
+    assertEquals("https://rp.example.org", json.getValue("origin").jsonPrimitive.content)
+    assertEquals(false, json.getValue("crossOrigin").jsonPrimitive.boolean)
   }
 
   @Test
@@ -44,9 +43,9 @@ class BrowserClientDataJsonTest {
     val result = buildResponseClientDataJson("get", null, "https://example.com")
     val json = Json.parseToJsonElement(result.decodeToString()).jsonObject
 
-    assertEquals("webauthn.get", json["type"]!!.jsonPrimitive.content)
+    assertEquals("webauthn.get", json.getValue("type").jsonPrimitive.content)
     assertNull(json["challenge"])
-    assertEquals("https://example.com", json["origin"]!!.jsonPrimitive.content)
+    assertEquals("https://example.com", json.getValue("origin").jsonPrimitive.content)
   }
 
   @Test
@@ -74,9 +73,6 @@ class BrowserClientDataJsonTest {
     val result = buildResponseClientDataJson("get", base64UrlChallenge, "https://example.com")
     val json = Json.parseToJsonElement(result.decodeToString()).jsonObject
 
-    assertTrue(
-      "Challenge must be passed through as-is (base64url, no padding)",
-      json["challenge"]!!.jsonPrimitive.content == base64UrlChallenge,
-    )
+    assertEquals(base64UrlChallenge, json.getValue("challenge").jsonPrimitive.content)
   }
 }
