@@ -23,14 +23,18 @@ data class MetadataEntry(
 )
 
 @Singleton
-class PasskeyMetadataIndex @Inject constructor(@ApplicationContext private val context: Context) {
+class PasskeyMetadataIndex private constructor(private val file: File) {
+
+  @Inject
+  constructor(
+    @ApplicationContext context: Context
+  ) : this(File(context.filesDir, "passkey-metadata-index.json"))
 
   private val json = Json {
     ignoreUnknownKeys = true
     encodeDefaults = true
   }
 
-  private val file: File = File(context.filesDir, "passkey-metadata-index.json")
   private val index = ConcurrentHashMap<String, MetadataEntry>()
   private var loaded = false
 
@@ -56,6 +60,7 @@ class PasskeyMetadataIndex @Inject constructor(@ApplicationContext private val c
 
   private fun persist() {
     synchronized(this) {
+      file.parentFile?.mkdirs()
       val tmp = File(file.parent, "${file.name}.tmp")
       tmp.writeText(json.encodeToString(index.toMap()))
       tmp.renameTo(file)
@@ -93,5 +98,9 @@ class PasskeyMetadataIndex @Inject constructor(@ApplicationContext private val c
   fun hasEntriesForRpId(rpId: String): Boolean {
     ensureLoaded()
     return index.values.any { it.rpId == rpId }
+  }
+
+  internal companion object {
+    fun forTesting(indexFile: File): PasskeyMetadataIndex = PasskeyMetadataIndex(indexFile)
   }
 }

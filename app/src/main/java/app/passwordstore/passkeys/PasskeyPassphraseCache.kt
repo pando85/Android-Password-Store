@@ -12,24 +12,24 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class PasskeyPassphraseCache @Inject constructor() {
+open class PasskeyPassphraseCache @Inject constructor() {
 
   private val cache = ConcurrentHashMap<String, CharArray>()
 
-  fun put(keyId: String, passphrase: CharArray) {
+  open fun put(keyId: String, passphrase: CharArray) {
     val encrypted = AESEncryption.encrypt(passphrase, KeyType.TEMPORARY) ?: return
     passphrase.fill('\u0000')
     cache[keyId] = encrypted
   }
 
-  fun get(keyId: String): CharArray? {
+  open fun get(keyId: String): CharArray? {
     val encrypted = cache[keyId] ?: return null
     return AESEncryption.decrypt(encrypted, KeyType.TEMPORARY)
   }
 
-  fun contains(keyId: String): Boolean = cache.containsKey(keyId)
+  open fun contains(keyId: String): Boolean = cache.containsKey(keyId)
 
-  fun clear() {
+  open fun clear() {
     cache.values.forEach { it.fill('\u0000') }
     cache.clear()
   }
