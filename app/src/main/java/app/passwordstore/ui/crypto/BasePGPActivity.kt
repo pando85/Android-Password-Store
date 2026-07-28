@@ -240,7 +240,7 @@ open class BasePGPActivity : AppCompatActivity() {
       if (idsWithKey.isEmpty()) { // No keys at all
         /**
          * The app does not provide keys with the requested key IDs; open Key Manager in key
-         * creation/import mode and let user choose one or multiple keys
+         * creation/import mode and let the user _import_ the needed PGP keys
          */
         val title = resources.getString(R.string.no_pgp_keys_dialog_title)
         val missingKeysForIds = ids.joinToString(", ")
@@ -284,7 +284,7 @@ open class BasePGPActivity : AppCompatActivity() {
       if (idsWithDecryptionKey.isEmpty()) {
         /**
          * The app does not provide secret decryption keys with the requested key IDs; open Key
-         * Manager in key creation/import mode and let user choose one or multiple keys
+         * Manager in key creation/import mode and let the user _import_ the needed PGP keys
          */
         val title = resources.getString(R.string.no_decryption_keys_dialog_title)
         val missingDecKeysForIds =
