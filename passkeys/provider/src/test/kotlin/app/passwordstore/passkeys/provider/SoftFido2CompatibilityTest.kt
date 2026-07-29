@@ -110,10 +110,7 @@ class SoftFido2CompatibilityTest {
         0x21,
         0x58,
         0x20,
-      ) +
-        x +
-        byteArrayOf(0x22, 0x58, 0x20) +
-        y
+      ) + x + byteArrayOf(0x22, 0x58, 0x20) + y
 
     assertContentEquals(expectedCose, authData.copyOfRange(coseOffset, authData.size))
   }
