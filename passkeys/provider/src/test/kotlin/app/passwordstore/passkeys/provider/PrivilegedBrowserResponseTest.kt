@@ -59,7 +59,8 @@ class PrivilegedBrowserResponseTest {
       """
         .trimIndent()
 
-    val responseJson = PasskeyProviderUtils.buildAttestationResponse(credential, requestJson, context)
+    val responseJson =
+      PasskeyProviderUtils.buildAttestationResponse(credential, requestJson, context)
     val response =
       PasskeyProviderUtils.json.decodeFromString(AttestationResponseJson.serializer(), responseJson)
 
