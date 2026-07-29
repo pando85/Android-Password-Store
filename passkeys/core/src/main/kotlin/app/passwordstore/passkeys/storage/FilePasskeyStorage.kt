@@ -384,7 +384,7 @@ public class FilePasskeyStorage<
             }
             .fold(
               success = {
-                logcat { "Saved passkey for ${credential.rpId}/${storedCred.credentialIdHex()}" }
+                logcat { "Saved passkey for ${credential.rpId}/${ref.credentialIdHex()}" }
                 Ok(Unit)
               },
               failure = { error ->

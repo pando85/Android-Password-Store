@@ -606,6 +606,13 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
             verifiedOrigin = verifiedContext.origin,
           )
 
+        val responseJson =
+          PasskeyProviderUtils.buildAttestationResponse(
+            credentialWithBinding,
+            createRequest.requestJson,
+            verifiedContext,
+          )
+
         val saveResult = createdCredential.usePrivateKeySuspend { privateKey ->
           passkeyStorage.saveCredential(credentialWithBinding, privateKey)
         }
@@ -638,12 +645,6 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
           ),
         )
 
-        val responseJson =
-          PasskeyProviderUtils.buildAttestationResponse(
-            credentialWithBinding,
-            createRequest.requestJson,
-            verifiedContext,
-          )
         val resultIntent = Intent()
         PendingIntentHandler.setCreateCredentialResponse(
           resultIntent,
