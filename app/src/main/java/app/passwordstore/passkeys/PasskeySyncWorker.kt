@@ -122,6 +122,23 @@ class PasskeySyncWorker(
       )
   }
 
+  private fun stageAndCommit(git: Git, gitSettings: GitSettings) {
+    git.add().addFilepattern(".").call()
+    val status = git.status().call()
+    if (status.uncommittedChanges.isNotEmpty()) {
+      val name = gitSettings.authorName.ifEmpty { "root" }
+      val email = gitSettings.authorEmail.ifEmpty { "localhost" }
+      val identity = PersonIdent(name, email)
+      git
+        .commit()
+        .setAll(true)
+        .setMessage("[Android Password Store] Sync")
+        .setAuthor(identity)
+        .setCommitter(identity)
+        .call()
+    }
+  }
+
   private fun executeSync(
     git: Git,
     gitSettings: GitSettings,
@@ -130,14 +147,7 @@ class PasskeySyncWorker(
     rebase: Boolean,
     gitSecrets: SharedPreferences,
   ) {
-    git.add().addFilepattern(".").call()
-    val status = git.status().call()
-    if (status.uncommittedChanges.isNotEmpty()) {
-      val name = gitSettings.authorName.ifEmpty { "root" }
-      val email = gitSettings.authorEmail.ifEmpty { "localhost" }
-      val identity = PersonIdent(name, email)
-      git.commit().setAll(true).setAuthor(identity).setCommitter(identity).call()
-    }
+    stageAndCommit(git, gitSettings)
     configureTransport(git.pull(), hostKeyFile, authMode, gitSecrets)
       .setRebase(rebase)
       .setRemote("origin")
@@ -155,14 +165,7 @@ class PasskeySyncWorker(
     rebase: Boolean,
     gitSecrets: SharedPreferences,
   ) {
-    git.add().addFilepattern(".").call()
-    val status = git.status().call()
-    if (status.uncommittedChanges.isNotEmpty()) {
-      val name = gitSettings.authorName.ifEmpty { "root" }
-      val email = gitSettings.authorEmail.ifEmpty { "localhost" }
-      val identity = PersonIdent(name, email)
-      git.commit().setAll(true).setAuthor(identity).setCommitter(identity).call()
-    }
+    stageAndCommit(git, gitSettings)
     configureTransport(git.pull(), hostKeyFile, authMode, gitSecrets)
       .setRebase(rebase)
       .setRemote("origin")
@@ -333,44 +336,22 @@ class PasskeySyncWorker(
           SshKey.Type.Imported -> {
             val privateKeyFile = File(appContext.filesDir, ".ssh_key")
             if (!privateKeyFile.exists()) throw IOException("Imported SSH key file not found")
-            val storedPassphrase =
-              gitSecrets.getString(PreferenceKeys.SSH_KEY_LOCAL_PASSPHRASE, null)
-            if (storedPassphrase != null && AESEncryption.isHardwareBacked(KeyType.PERSISTENT)) {
-              val passphrase =
-                AESEncryption.decrypt(
-                    storedPassphrase.toCharArray(),
-                    keyType = KeyType.PERSISTENT,
-                  )
-                  ?.concatToString()
-              if (passphrase != null) {
-                ssh.loadKeys(
-                  privateKeyFile.absolutePath,
-                  object : PasswordFinder {
-                    override fun reqPassword(resource: Resource<*>?) = passphrase.toCharArray()
+            val passphrase =
+              gitSecrets
+                .getString(PreferenceKeys.SSH_KEY_LOCAL_PASSPHRASE, null)
+                ?.takeIf { AESEncryption.isHardwareBacked(KeyType.PERSISTENT) }
+                ?.let {
+                  AESEncryption.decrypt(it.toCharArray(), keyType = KeyType.PERSISTENT)
+                    ?.concatToString()
+                }
+            val passwordFinder =
+              object : PasswordFinder {
+                override fun reqPassword(resource: Resource<*>?) =
+                  passphrase?.toCharArray() ?: charArrayOf()
 
-                    override fun shouldRetry(resource: Resource<*>?) = false
-                  },
-                )
-              } else {
-                ssh.loadKeys(
-                  privateKeyFile.absolutePath,
-                  object : PasswordFinder {
-                    override fun reqPassword(resource: Resource<*>?) = charArrayOf()
-
-                    override fun shouldRetry(resource: Resource<*>?) = false
-                  },
-                )
+                override fun shouldRetry(resource: Resource<*>?) = false
               }
-            } else {
-              ssh.loadKeys(
-                privateKeyFile.absolutePath,
-                object : PasswordFinder {
-                  override fun reqPassword(resource: Resource<*>?) = charArrayOf()
-
-                  override fun shouldRetry(resource: Resource<*>?) = false
-                },
-              )
-            }
+            ssh.loadKeys(privateKeyFile.absolutePath, passwordFinder)
           }
           SshKey.Type.ImportedPGP -> {
             throw IOException("PGP-backed SSH key requires interactive authentication")
