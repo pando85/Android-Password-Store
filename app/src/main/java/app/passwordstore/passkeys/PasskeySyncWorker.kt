@@ -40,6 +40,7 @@ import java.io.IOException
 import java.security.KeyFactory
 import java.security.KeyPair
 import java.security.KeyStore
+import java.security.PrivateKey
 import java.security.spec.PKCS8EncodedKeySpec
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.withContext
@@ -305,7 +306,7 @@ class PasskeySyncWorker(
               keyStore.getCertificate("sshkey")?.publicKey
                 ?: throw NullPointerException("No public key in keystore")
             val privateKey =
-              keyStore.getKey("sshkey", null)
+              keyStore.getKey("sshkey", null) as? PrivateKey
                 ?: throw NullPointerException("No private key in keystore")
             SecurityUtils.setRegisterBouncyCastle(false)
             SecurityUtils.setSecurityProvider(null)
