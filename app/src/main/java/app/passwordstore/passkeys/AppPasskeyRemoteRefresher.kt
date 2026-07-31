@@ -6,12 +6,14 @@
 package app.passwordstore.passkeys
 
 import android.content.SharedPreferences
+import app.passwordstore.Application
 import app.passwordstore.data.repo.PasswordRepository
 import app.passwordstore.injection.context.FilesDirPath
 import app.passwordstore.injection.prefs.GitSecrets
 import app.passwordstore.passkeys.storage.PasskeyRemoteRefresher
 import app.passwordstore.util.coroutines.DispatcherProvider
 import app.passwordstore.util.crypto.AESEncryption
+import app.passwordstore.util.extensions.sharedPrefs
 import app.passwordstore.util.git.sshj.SshKey
 import app.passwordstore.util.git.sshj.SshjConfig
 import app.passwordstore.util.git.sshj.setUpBouncyCastleForSshj
@@ -56,6 +58,8 @@ constructor(
 ) : PasskeyRemoteRefresher {
 
   override suspend fun refresh(): Result<Unit, Throwable> {
+    if (!Application.instance.sharedPrefs.getBoolean(PreferenceKeys.PASSKEY_AUTO_GIT_SYNC, true))
+      return Err(IllegalStateException("Passkey auto git sync is disabled"))
     if (gitSettings.url == null) return Err(IllegalStateException("Git URL is not set"))
     if (PasswordRepository.repository == null)
       return Err(IllegalStateException("Repository is not initialized"))

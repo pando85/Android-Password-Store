@@ -21,10 +21,8 @@ import androidx.credentials.exceptions.CreateCredentialUnknownException
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialUnknownException
 import androidx.credentials.provider.PendingIntentHandler
-import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import app.passwordstore.R as AppR
-import app.passwordstore.data.repo.PasswordRepository
 import app.passwordstore.passkeys.crypto.CallerType
 import app.passwordstore.passkeys.crypto.ClientDataBinding
 import app.passwordstore.passkeys.crypto.PasskeyCryptoHandler
@@ -34,7 +32,6 @@ import app.passwordstore.passkeys.provider.PasskeyAuthenticator
 import app.passwordstore.passkeys.provider.PasskeyCredentialProviderService
 import app.passwordstore.passkeys.provider.PasskeyProviderUtils
 import app.passwordstore.passkeys.provider.caller.WebAuthnCallerVerifier
-import app.passwordstore.passkeys.storage.GitSyncResult
 import app.passwordstore.passkeys.storage.MissingRecipientKeyException
 import app.passwordstore.passkeys.storage.PasskeyRepositoryState
 import app.passwordstore.passkeys.storage.PasskeyStorage
@@ -45,7 +42,6 @@ import app.passwordstore.passkeys.storage.SignatureCounterPolicy
 import app.passwordstore.passkeys.storage.SignatureCounterTransaction
 import app.passwordstore.passkeys.storage.SourceVersionResult
 import app.passwordstore.ui.git.base.BaseGitActivity
-import app.passwordstore.ui.git.base.BaseGitActivity.GitOp
 import app.passwordstore.ui.pgp.PGPKeyListActivity
 import app.passwordstore.util.extensions.sharedPrefs
 import app.passwordstore.util.settings.PreferenceKeys
@@ -76,36 +72,6 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
   @Inject
   @app.passwordstore.injection.prefs.PGPPassphrases
   lateinit var persistentPassphrases: android.content.SharedPreferences
-
-  private fun maybeSyncToGit() {
-    if (!sharedPrefs.getBoolean(PreferenceKeys.PASSKEY_AUTO_GIT_SYNC, true)) return
-    if (gitSettings.url == null) return
-    if (PasswordRepository.repository == null) return
-    ProcessLifecycleOwner.get().lifecycleScope.launch(dispatcherProvider.io()) {
-      try {
-        val oldHead = generationProvider.currentGitHead()
-        launchGitOperation(GitOp.SYNC)
-          .fold(
-            success = {
-              val newHead = generationProvider.currentGitHead()
-              val syncResult =
-                GitSyncResult(
-                  oldHead = oldHead,
-                  newHead = newHead,
-                  worktreeChanged = oldHead != newHead,
-                  conflicts = emptyList(),
-                )
-              passkeyRepositoryState.onGitSyncCompleted(syncResult)
-              generationProvider.bumpWorktreeGeneration()
-              logcat { "Passkey auto-sync completed" }
-            },
-            failure = { logcat(LogPriority.WARN) { "Passkey auto-sync failed: $it" } },
-          )
-      } catch (e: Exception) {
-        logcat(LogPriority.WARN) { "Passkey auto-sync crashed: $e" }
-      }
-    }
-  }
 
   @RequiresApi(34)
   override fun onCreate(savedInstanceState: Bundle?) {
@@ -482,7 +448,6 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
           GetCredentialResponse(PublicKeyCredential(responseJson)),
         )
         setResult(Activity.RESULT_OK, resultIntent)
-        maybeSyncToGit()
         finish()
       } finally {
         sensitiveCredential?.close()
@@ -652,7 +617,6 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
           CreatePublicKeyCredentialResponse(responseJson),
         )
         setResult(Activity.RESULT_OK, resultIntent)
-        maybeSyncToGit()
         finish()
       } finally {
         createdCredential.close()
