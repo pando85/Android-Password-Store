@@ -155,7 +155,9 @@ public abstract class PasskeyCredentialProviderService : CredentialProviderServi
     }
   }
 
-  private suspend fun loadCredentialEntries(queries: List<GetQuery>): List<PublicKeyCredentialEntry> {
+  private suspend fun loadCredentialEntries(
+    queries: List<GetQuery>
+  ): List<PublicKeyCredentialEntry> {
     val entries = mutableListOf<PublicKeyCredentialEntry>()
     for (query in queries) {
       val metadata =
