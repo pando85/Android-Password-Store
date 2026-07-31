@@ -160,6 +160,74 @@ public class IndexedPasskeyStorage(
     }
   }
 
+  private suspend fun reconcileGitChanges(changedPaths: Set<String>): Boolean {
+    if (generationProvider == null || !indexLoaded) return false
+    if (changedPaths.any { it == ".gpg-id" }) return false
+
+    val changedPasskeyPaths =
+      changedPaths
+        .asSequence()
+        .filter { it.startsWith("fido2/") && it.endsWith(".gpg") }
+        .map { it.removePrefix("fido2/") }
+        .toSet()
+
+    return indexLoadMutex.withLock {
+      if (!indexLoaded) return@withLock false
+
+      if (changedPasskeyPaths.isEmpty()) {
+        trackedGeneration = resolveCurrentGeneration()
+        return@withLock true
+      }
+
+      val repositoryEntries =
+        delegate.listMetadataWithRefs().getOrElse { error ->
+          logcat(LogPriority.WARN) {
+            "Failed scanning changed passkeys for incremental index update: ${error.message}"
+          }
+          return@withLock false
+        }
+      val changedEntries =
+        repositoryEntries.filter { entry ->
+          entry.fileRef?.relativePath in changedPasskeyPaths
+        }
+
+      // Remove old versions first. Missing paths represent credentials deleted by the pull;
+      // added/modified paths are inserted again below using their post-pull source version.
+      metadataIndex.values
+        .filter { it.fileRef.relativePath in changedPasskeyPaths }
+        .map { it.metadata }
+        .forEach(::removeFromIndex)
+
+      for (entry in changedEntries) {
+        val ref = entry.fileRef ?: continue
+        val version = entry.sourceVersion ?: continue
+        val metadata =
+          if (entry.metadata.userName.isBlank() && entry.metadata.userDisplayName.isBlank()) {
+            delegate
+              .loadCredentialMetadata(ref, version)
+              .fold(
+                success = { it },
+                failure = { error ->
+                  logcat(LogPriority.WARN) {
+                    "Failed to decrypt changed passkey metadata for ${ref.relativePath}: ${error.message}"
+                  }
+                  metadataEnricher?.enrich(entry.metadata) ?: entry.metadata
+                },
+              )
+          } else {
+            entry.metadata
+          }
+        indexMetadata(metadata, version, ref)
+      }
+
+      trackedGeneration = resolveCurrentGeneration()
+      logcat {
+        "Incrementally reconciled passkey index: changedPaths=${changedPasskeyPaths.size}, indexed=${changedEntries.size}"
+      }
+      true
+    }
+  }
+
   override suspend fun listMetadata(rpId: String?): Result<List<PasskeyMetadata>, Throwable> {
     ensureIndexLoaded()
 
@@ -418,8 +486,15 @@ public class IndexedPasskeyStorage(
     if (syncResult.headChanged && syncResult.newHead != null && hasRemoteConfigured) {
       repositoryBackedUp = true
     }
+
+    if (syncResult.changedPaths.isNotEmpty() && reconcileGitChanges(syncResult.changedPaths)) {
+      return
+    }
+
     if (syncResult.affectsPasskeys()) {
       invalidate(InvalidationReason.GIT_SYNC_COMPLETED)
+    } else if (indexLoaded) {
+      indexLoadMutex.withLock { trackedGeneration = resolveCurrentGeneration() }
     }
   }
 
