@@ -15,6 +15,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import app.passwordstore.Application
+import app.passwordstore.data.repo.PasswordRepository
 import app.passwordstore.util.extensions.sharedPrefs
 import app.passwordstore.util.extensions.unsafeLazy
 import app.passwordstore.util.settings.PreferenceKeys
@@ -40,6 +41,12 @@ class PasskeySyncWorker(
   override suspend fun doWork(): Result {
     if (!Application.instance.sharedPrefs.getBoolean(PreferenceKeys.PASSKEY_AUTO_GIT_SYNC, true)) {
       return Result.success()
+    }
+
+    // WorkManager may restart the application process before running queued work. Reopen the
+    // repository in that case so the sync remains durable across process death.
+    if (PasswordRepository.repository == null) {
+      PasswordRepository.initialize()
     }
 
     return entryPoint.syncEngine().sync().fold(
