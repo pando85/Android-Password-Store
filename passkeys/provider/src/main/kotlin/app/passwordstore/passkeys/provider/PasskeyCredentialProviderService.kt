@@ -190,7 +190,10 @@ public abstract class PasskeyCredentialProviderService : CredentialProviderServi
     val refresher = remoteRefresher ?: return false
     return refreshMutex.withLock {
       val now = SystemClock.elapsedRealtime()
-      if (now - lastSuccessfulRefreshElapsedMillis < REMOTE_REFRESH_COOLDOWN_MILLIS) {
+      if (
+        lastSuccessfulRefreshElapsedMillis != 0L &&
+          now - lastSuccessfulRefreshElapsedMillis < REMOTE_REFRESH_COOLDOWN_MILLIS
+      ) {
         return@withLock true
       }
       refresher
