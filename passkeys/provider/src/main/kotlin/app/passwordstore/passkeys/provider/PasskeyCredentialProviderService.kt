@@ -34,6 +34,7 @@ import androidx.credentials.provider.PublicKeyCredentialEntry
 import app.passwordstore.passkeys.crypto.PasskeyCryptoHandler
 import app.passwordstore.passkeys.model.PasskeyMetadata
 import app.passwordstore.passkeys.storage.InvalidationReason
+import app.passwordstore.passkeys.storage.PasskeyRemoteRefresher
 import app.passwordstore.passkeys.storage.PasskeyRepositoryState
 import app.passwordstore.passkeys.storage.PasskeyStorage
 import com.github.michaelbull.result.fold
@@ -49,6 +50,8 @@ public abstract class PasskeyCredentialProviderService : CredentialProviderServi
   protected abstract val passkeyStorage: PasskeyStorage
   protected abstract val cryptoHandler: PasskeyCryptoHandler
   protected abstract val providerActivity: Class<out Activity>
+  protected abstract val remoteRefresher: PasskeyRemoteRefresher?
+  protected abstract val passkeyRepositoryState: PasskeyRepositoryState?
 
   override fun onCreate() {
     super.onCreate()
@@ -83,23 +86,53 @@ public abstract class PasskeyCredentialProviderService : CredentialProviderServi
             @Suppress("RawDispatchersUse")
             val metadata =
               runBlocking(Dispatchers.IO) {
-                passkeyStorage
-                  .listMetadata(rpId)
-                  .fold(
-                    success = {
-                      PasskeyProviderUtils.selectCredentialsByMetadata(
-                          it,
-                          parsedRequest.allowCredentials,
-                        )
-                        .map { metadata ->
-                          PasskeyProviderUtils.loadStoredIdentity(passkeyStorage, metadata)
-                        }
-                    },
-                    failure = {
-                      logcat(LogPriority.ERROR) { "Failed loading passkeys for $rpId: $it" }
-                      emptyList()
-                    },
-                  )
+                val initial =
+                  passkeyStorage
+                    .listMetadata(rpId)
+                    .fold(
+                      success = {
+                        PasskeyProviderUtils.selectCredentialsByMetadata(
+                            it,
+                            parsedRequest.allowCredentials,
+                          )
+                          .map { metadata ->
+                            PasskeyProviderUtils.loadStoredIdentity(passkeyStorage, metadata)
+                          }
+                      },
+                      failure = {
+                        logcat(LogPriority.ERROR) { "Failed loading passkeys for $rpId: $it" }
+                        emptyList()
+                      },
+                    )
+                if (initial.isNotEmpty() || remoteRefresher == null) return@runBlocking initial
+                if (parsedRequest.allowCredentials.isEmpty()) return@runBlocking initial
+                logcat { "No local passkeys for $rpId, attempting remote refresh" }
+                remoteRefresher.refresh().fold(
+                  success = {
+                    passkeyRepositoryState?.invalidate(InvalidationReason.GIT_SYNC_COMPLETED)
+                    passkeyStorage
+                      .listMetadata(rpId)
+                      .fold(
+                        success = {
+                          PasskeyProviderUtils.selectCredentialsByMetadata(
+                              it,
+                              parsedRequest.allowCredentials,
+                            )
+                            .map { metadata ->
+                              PasskeyProviderUtils.loadStoredIdentity(passkeyStorage, metadata)
+                            }
+                        },
+                        failure = {
+                          logcat(LogPriority.ERROR) { "Failed loading passkeys for $rpId after refresh: $it" }
+                          emptyList()
+                        },
+                      )
+                  },
+                  failure = {
+                    logcat(LogPriority.WARN) { "Remote refresh failed for $rpId: $it" }
+                    emptyList()
+                  },
+                )
               }
 
             logcat {

@@ -21,6 +21,7 @@ import androidx.credentials.exceptions.CreateCredentialUnknownException
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialUnknownException
 import androidx.credentials.provider.PendingIntentHandler
+import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import app.passwordstore.R as AppR
 import app.passwordstore.data.repo.PasswordRepository
@@ -80,7 +81,7 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
     if (!sharedPrefs.getBoolean(PreferenceKeys.PASSKEY_AUTO_GIT_SYNC, true)) return
     if (gitSettings.url == null) return
     if (PasswordRepository.repository == null) return
-    lifecycleScope.launch(dispatcherProvider.io()) {
+    ProcessLifecycleOwner.get().lifecycleScope.launch(dispatcherProvider.io()) {
       try {
         val oldHead = generationProvider.currentGitHead()
         launchGitOperation(GitOp.SYNC)

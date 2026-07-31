@@ -13,6 +13,7 @@ import app.passwordstore.crypto.PGPKey
 import app.passwordstore.crypto.PGPKeyManager
 import app.passwordstore.crypto.PGPainlessCryptoHandler
 import app.passwordstore.crypto.PgpainlessPasskeyDecryptor
+import app.passwordstore.passkeys.AppPasskeyRemoteRefresher
 import app.passwordstore.passkeys.BiometricPasskeyAuthenticator
 import app.passwordstore.passkeys.DefaultRepositoryGenerationProvider
 import app.passwordstore.passkeys.DefaultWebAuthnCallerVerifier
@@ -29,6 +30,7 @@ import app.passwordstore.passkeys.storage.FilePasskeyStorage
 import app.passwordstore.passkeys.storage.IndexedPasskeyStorage
 import app.passwordstore.passkeys.storage.PassRecipientResolver
 import app.passwordstore.passkeys.storage.PasskeyMetadataEnricher
+import app.passwordstore.passkeys.storage.PasskeyRemoteRefresher
 import app.passwordstore.passkeys.storage.PasskeyRepositoryState
 import app.passwordstore.passkeys.storage.PasskeyStorage
 import app.passwordstore.passkeys.storage.PasskeyStorageConfig
@@ -129,6 +131,11 @@ object PasskeysModule {
   fun providePasskeyRepositoryState(passkeyStorage: PasskeyStorage): PasskeyRepositoryState {
     return passkeyStorage as PasskeyRepositoryState
   }
+
+  @Provides
+  @Singleton
+  fun providePasskeyRemoteRefresher(refresher: AppPasskeyRemoteRefresher): PasskeyRemoteRefresher =
+    refresher
 
   @Provides
   @Singleton

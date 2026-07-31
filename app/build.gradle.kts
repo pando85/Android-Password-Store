@@ -65,6 +65,7 @@ dependencies {
   implementation(libs.androidx.fragment.ktx)
   implementation(libs.androidx.work.runtime.ktx)
   implementation(libs.bundles.androidxLifecycle)
+  implementation(libs.androidx.lifecycle.process)
   implementation(libs.androidx.lifecycle.viewmodel.compose)
   implementation(libs.androidx.material)
   implementation(libs.androidx.preference)
