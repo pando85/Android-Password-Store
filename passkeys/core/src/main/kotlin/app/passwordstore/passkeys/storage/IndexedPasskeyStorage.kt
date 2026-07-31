@@ -186,10 +186,9 @@ public class IndexedPasskeyStorage(
           }
           return@withLock false
         }
-      val changedEntries =
-        repositoryEntries.filter { entry ->
-          entry.fileRef?.relativePath in changedPasskeyPaths
-        }
+      val changedEntries = repositoryEntries.filter { entry ->
+        entry.fileRef?.relativePath in changedPasskeyPaths
+      }
 
       // Remove old versions first. Missing paths represent credentials deleted by the pull;
       // added/modified paths are inserted again below using their post-pull source version.
