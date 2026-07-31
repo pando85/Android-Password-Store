@@ -207,7 +207,8 @@ constructor(
         }
         else -> {
           if (gitSettings.authMode == AuthMode.Password) {
-            credentialsProvider = WipingCredentialsProvider(requireStoredPassword(PreferenceKeys.HTTPS_PASSWORD))
+            credentialsProvider =
+              WipingCredentialsProvider(requireStoredPassword(PreferenceKeys.HTTPS_PASSWORD))
             transport.credentialsProvider = credentialsProvider
           }
         }
