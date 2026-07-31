@@ -49,21 +49,24 @@ class PasskeySyncWorker(
       PasswordRepository.initialize()
     }
 
-    return entryPoint.syncEngine().sync().fold(
-      success = {
-        logcat { "Passkey auto-sync completed" }
-        Result.success()
-      },
-      failure = { error ->
-        logcat(LogPriority.WARN) { "Passkey auto-sync failed: $error" }
-        val retryable = (error as? PasskeySyncException)?.retryable ?: true
-        if (retryable && runAttemptCount + 1 < MAX_ATTEMPTS) {
-          Result.retry()
-        } else {
-          Result.failure()
-        }
-      },
-    )
+    return entryPoint
+      .syncEngine()
+      .sync()
+      .fold(
+        success = {
+          logcat { "Passkey auto-sync completed" }
+          Result.success()
+        },
+        failure = { error ->
+          logcat(LogPriority.WARN) { "Passkey auto-sync failed: $error" }
+          val retryable = (error as? PasskeySyncException)?.retryable ?: true
+          if (retryable && runAttemptCount + 1 < MAX_ATTEMPTS) {
+            Result.retry()
+          } else {
+            Result.failure()
+          }
+        },
+      )
   }
 
   companion object {
