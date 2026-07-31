@@ -35,9 +35,7 @@ class AppPasskeyCredentialProviderService : PasskeyCredentialProviderService() {
 
   override val remoteRefresher: PasskeyRemoteRefresher?
     get() =
-      if (
-        Application.instance.sharedPrefs.getBoolean(PreferenceKeys.PASSKEY_AUTO_GIT_SYNC, true)
-      ) {
+      if (Application.instance.sharedPrefs.getBoolean(PreferenceKeys.PASSKEY_AUTO_GIT_SYNC, true)) {
         entryPoint.passkeyGitSyncEngine()
       } else {
         null
