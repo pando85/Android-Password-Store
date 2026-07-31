@@ -308,11 +308,8 @@ public abstract class PasskeyCredentialProviderService : CredentialProviderServi
     return Icon.createWithResource(this, applicationInfo.icon)
   }
 
-  private companion object {
-    const val REMOTE_REFRESH_COOLDOWN_MILLIS = 30_000L
-  }
-
   public companion object {
+    private const val REMOTE_REFRESH_COOLDOWN_MILLIS = 30_000L
     public const val EXTRA_OPERATION: String = "passkey_operation"
     public const val EXTRA_CREDENTIAL_ID: String = "passkey_credential_id"
     public const val OPERATION_CREATE: String = "create"
