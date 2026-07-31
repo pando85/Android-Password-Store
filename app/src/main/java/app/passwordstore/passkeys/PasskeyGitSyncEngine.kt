@@ -10,6 +10,7 @@ import app.passwordstore.data.repo.PasswordRepository
 import app.passwordstore.injection.context.FilesDirPath
 import app.passwordstore.injection.prefs.GitSecrets
 import app.passwordstore.passkeys.storage.GitSyncResult
+import app.passwordstore.passkeys.storage.PasskeyRemoteRefresher
 import app.passwordstore.passkeys.storage.PasskeyRepositoryState
 import app.passwordstore.passkeys.storage.RepositoryGenerationProvider
 import app.passwordstore.util.coroutines.DispatcherProvider
@@ -42,7 +43,10 @@ import net.schmizz.sshj.userauth.password.PasswordFinder
 import net.schmizz.sshj.userauth.password.Resource
 import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.api.TransportCommand
+import org.eclipse.jgit.diff.DiffEntry
+import org.eclipse.jgit.diff.DiffFormatter
 import org.eclipse.jgit.lib.PersonIdent
+import org.eclipse.jgit.revwalk.RevWalk
 import org.eclipse.jgit.transport.CredentialItem
 import org.eclipse.jgit.transport.CredentialsProvider
 import org.eclipse.jgit.transport.RemoteRefUpdate
@@ -50,6 +54,7 @@ import org.eclipse.jgit.transport.SshTransport
 import org.eclipse.jgit.transport.Transport
 import org.eclipse.jgit.transport.URIish
 import org.eclipse.jgit.util.FS
+import org.eclipse.jgit.util.io.DisabledOutputStream
 
 internal class PasskeySyncException(
   message: String,
@@ -57,7 +62,7 @@ internal class PasskeySyncException(
   val retryable: Boolean,
 ) : Exception(message, cause)
 
-/** Headless, serialized Git sync used by durable passkey background work. */
+/** Headless, serialized Git sync used by durable passkey background work and miss recovery. */
 @Singleton
 class PasskeyGitSyncEngine
 @Inject
@@ -68,9 +73,16 @@ constructor(
   private val dispatcherProvider: DispatcherProvider,
   private val passkeyRepositoryState: PasskeyRepositoryState,
   private val generationProvider: RepositoryGenerationProvider,
-) {
+) : PasskeyRemoteRefresher {
 
-  suspend fun sync(): Result<Unit, Throwable> {
+  suspend fun sync(): Result<Unit, Throwable> = executeGitOperation(::executeSync)
+
+  /** Pull-only refresh used when Credential Manager has no matching local candidate. */
+  override suspend fun refresh(): Result<Unit, Throwable> = executeGitOperation(::executeRefresh)
+
+  private suspend fun executeGitOperation(
+    operation: suspend (Git) -> Unit
+  ): Result<Unit, Throwable> {
     if (gitSettings.url == null) {
       return Err(PasskeySyncException("Git remote is not configured", retryable = false))
     }
@@ -83,7 +95,7 @@ constructor(
     return withContext(dispatcherProvider.io()) {
       GitOperationCoordinator.withLock {
         try {
-          executeSync(Git(repository))
+          operation(Git(repository))
           Ok(Unit)
         } catch (e: CancellationException) {
           throw e
@@ -92,7 +104,7 @@ constructor(
         } catch (e: Exception) {
           Err(
             PasskeySyncException(
-              "Passkey Git sync failed: ${e.message}",
+              "Passkey Git operation failed: ${e.message}",
               cause = e,
               retryable = e.isRetryableTransportFailure(),
             )
@@ -108,20 +120,60 @@ constructor(
       stageAndCommit(git)
       pull(git)
       push(git)
-      val conflicts = git.status().call().conflicting.toList()
-      val newHead = generationProvider.currentGitHead()
-      val syncResult =
-        GitSyncResult(
-          oldHead = oldHead,
-          newHead = newHead,
-          worktreeChanged = oldHead != newHead,
-          conflicts = conflicts,
-        )
-      passkeyRepositoryState.onGitSyncCompleted(syncResult)
-      generationProvider.bumpWorktreeGeneration()
+      completeRepositoryUpdate(git, oldHead)
     } finally {
       git.close()
     }
+  }
+
+  private suspend fun executeRefresh(git: Git) {
+    try {
+      val oldHead = generationProvider.currentGitHead()
+      pull(git)
+      completeRepositoryUpdate(git, oldHead)
+    } finally {
+      git.close()
+    }
+  }
+
+  private suspend fun completeRepositoryUpdate(git: Git, oldHead: String?) {
+    val conflicts = git.status().call().conflicting.toList()
+    val newHead = generationProvider.currentGitHead()
+    val changedPaths = changedPaths(git, oldHead, newHead)
+    if (oldHead != newHead) {
+      generationProvider.bumpWorktreeGeneration()
+    }
+    val syncResult =
+      GitSyncResult(
+        oldHead = oldHead,
+        newHead = newHead,
+        worktreeChanged = oldHead != newHead,
+        conflicts = conflicts,
+        changedPaths = changedPaths,
+      )
+    passkeyRepositoryState.onGitSyncCompleted(syncResult)
+  }
+
+  private fun changedPaths(git: Git, oldHead: String?, newHead: String?): Set<String> {
+    if (oldHead == null || newHead == null || oldHead == newHead) return emptySet()
+    val repository = git.repository
+    val oldId = repository.resolve(oldHead) ?: return emptySet()
+    val newId = repository.resolve(newHead) ?: return emptySet()
+    val paths = linkedSetOf<String>()
+
+    RevWalk(repository).use { walk ->
+      val oldTree = walk.parseCommit(oldId).tree
+      val newTree = walk.parseCommit(newId).tree
+      DiffFormatter(DisabledOutputStream.INSTANCE).use { formatter ->
+        formatter.setRepository(repository)
+        formatter.setDetectRenames(true)
+        formatter.scan(oldTree, newTree).forEach { entry ->
+          if (entry.oldPath != DiffEntry.DEV_NULL) paths.add(entry.oldPath)
+          if (entry.newPath != DiffEntry.DEV_NULL) paths.add(entry.newPath)
+        }
+      }
+    }
+    return paths
   }
 
   private fun stageAndCommit(git: Git) {
