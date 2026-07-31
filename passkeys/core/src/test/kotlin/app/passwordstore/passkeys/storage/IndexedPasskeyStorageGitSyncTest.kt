@@ -82,17 +82,13 @@ class IndexedPasskeyStorageGitSyncTest {
     delegate.remoteVersion = version(generation = 1)
     generationProvider.head = "new"
     generationProvider.worktreeGeneration = 1
-    storage.onGitSyncCompleted(
-      GitSyncResult("old", "new", true, emptyList(), setOf(changedPath))
-    )
+    storage.onGitSyncCompleted(GitSyncResult("old", "new", true, emptyList(), setOf(changedPath)))
 
     delegate.remoteMetadata = null
     delegate.remoteVersion = null
     generationProvider.head = "newer"
     generationProvider.worktreeGeneration = 2
-    storage.onGitSyncCompleted(
-      GitSyncResult("new", "newer", true, emptyList(), setOf(changedPath))
-    )
+    storage.onGitSyncCompleted(GitSyncResult("new", "newer", true, emptyList(), setOf(changedPath)))
 
     assertTrue(storage.listMetadata("example.com").getOrElse { emptyList() }.isEmpty())
     assertEquals(1, delegate.fullScanCount)
@@ -131,9 +127,8 @@ class IndexedPasskeyStorageGitSyncTest {
     var remoteMetadata: PasskeyMetadata? = null
     var remoteVersion: CredentialSourceVersion? = null
 
-    override suspend fun listMetadata(
-      rpId: String?
-    ): Result<List<PasskeyMetadata>, Throwable> = Ok(emptyList())
+    override suspend fun listMetadata(rpId: String?): Result<List<PasskeyMetadata>, Throwable> =
+      Ok(emptyList())
 
     override suspend fun listMetadataWithRefs(
       rpId: String?
