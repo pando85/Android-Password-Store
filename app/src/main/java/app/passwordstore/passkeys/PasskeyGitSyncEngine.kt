@@ -86,6 +86,9 @@ constructor(
     if (gitSettings.url == null) {
       return Err(PasskeySyncException("Git remote is not configured", retryable = false))
     }
+    if (PasswordRepository.repository == null) {
+      PasswordRepository.initialize()
+    }
     val repository =
       PasswordRepository.repository
         ?: return Err(
@@ -118,7 +121,7 @@ constructor(
     try {
       val oldHead = generationProvider.currentGitHead()
       stageAndCommit(git)
-      pull(git)
+      pull(git, BACKGROUND_SYNC_TIMEOUT_SECONDS)
       push(git)
       completeRepositoryUpdate(git, oldHead)
     } finally {
@@ -129,7 +132,7 @@ constructor(
   private suspend fun executeRefresh(git: Git) {
     try {
       val oldHead = generationProvider.currentGitHead()
-      pull(git)
+      pull(git, REMOTE_REFRESH_TIMEOUT_SECONDS)
       completeRepositoryUpdate(git, oldHead)
     } finally {
       git.close()
@@ -193,9 +196,9 @@ constructor(
       .call()
   }
 
-  private fun pull(git: Git) {
+  private fun pull(git: Git, timeoutSeconds: Int) {
     val command = git.pull().setRemote("origin").setRebase(gitSettings.rebaseOnPull)
-    val cleanup = configureTransport(command)
+    val cleanup = configureTransport(command, timeoutSeconds)
     try {
       val result = command.call()
       if (!result.isSuccessful) {
@@ -212,7 +215,7 @@ constructor(
 
   private fun push(git: Git) {
     val command = git.push().setPushAll().setRemote("origin")
-    val cleanup = configureTransport(command)
+    val cleanup = configureTransport(command, BACKGROUND_SYNC_TIMEOUT_SECONDS)
     try {
       command.call().forEach { pushResult ->
         pushResult.remoteUpdates.forEach { update ->
@@ -239,10 +242,13 @@ constructor(
     }
   }
 
-  private fun configureTransport(command: TransportCommand<*, *>): () -> Unit {
+  private fun configureTransport(
+    command: TransportCommand<*, *>,
+    timeoutSeconds: Int,
+  ): () -> Unit {
     var sshFactory: HeadlessSshSessionFactory? = null
     var credentialsProvider: WipingCredentialsProvider? = null
-    command.setTimeout(CONNECT_TIMEOUT_SECONDS)
+    command.setTimeout(timeoutSeconds)
     command.setTransportConfigCallback { transport: Transport ->
       when (transport) {
         is SshTransport -> {
@@ -305,7 +311,8 @@ constructor(
   }
 
   private companion object {
-    const val CONNECT_TIMEOUT_SECONDS = 10
+    const val BACKGROUND_SYNC_TIMEOUT_SECONDS = 10
+    const val REMOTE_REFRESH_TIMEOUT_SECONDS = 3
   }
 }
 
