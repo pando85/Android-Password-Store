@@ -74,8 +74,7 @@ class PasskeySyncWorker(
     private const val MAX_ATTEMPTS = 3
 
     fun enqueue(context: Context) {
-      val constraints =
-        Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
+      val constraints = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
       val request =
         OneTimeWorkRequestBuilder<PasskeySyncWorker>()
           .setConstraints(constraints)
