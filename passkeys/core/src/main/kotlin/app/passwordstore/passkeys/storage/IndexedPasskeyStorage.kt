@@ -179,52 +179,89 @@ public class IndexedPasskeyStorage(
         return@withLock true
       }
 
-      val repositoryEntries =
-        delegate.listMetadataWithRefs().getOrElse { error ->
-          logcat(LogPriority.WARN) {
-            "Failed scanning changed passkeys for incremental index update: ${error.message}"
-          }
+      for (relativePath in changedPasskeyPaths) {
+        if (!reconcileChangedPasskey(relativePath)) {
           return@withLock false
         }
-      val changedEntries = repositoryEntries.filter { entry ->
-        entry.fileRef?.relativePath in changedPasskeyPaths
-      }
-
-      // Remove old versions first. Missing paths represent credentials deleted by the pull;
-      // added/modified paths are inserted again below using their post-pull source version.
-      metadataIndex.values
-        .filter { it.fileRef.relativePath in changedPasskeyPaths }
-        .map { it.metadata }
-        .forEach(::removeFromIndex)
-
-      for (entry in changedEntries) {
-        val ref = entry.fileRef ?: continue
-        val version = entry.sourceVersion ?: continue
-        val metadata =
-          if (entry.metadata.userName.isBlank() && entry.metadata.userDisplayName.isBlank()) {
-            delegate
-              .loadCredentialMetadata(ref, version)
-              .fold(
-                success = { it },
-                failure = { error ->
-                  logcat(LogPriority.WARN) {
-                    "Failed to decrypt changed passkey metadata for ${ref.relativePath}: ${error.message}"
-                  }
-                  metadataEnricher?.enrich(entry.metadata) ?: entry.metadata
-                },
-              )
-          } else {
-            entry.metadata
-          }
-        indexMetadata(metadata, version, ref)
       }
 
       trackedGeneration = resolveCurrentGeneration()
       logcat {
-        "Incrementally reconciled passkey index: changedPaths=${changedPasskeyPaths.size}, indexed=${changedEntries.size}"
+        "Incrementally reconciled passkey index: changedPaths=${changedPasskeyPaths.size}"
       }
       true
     }
+  }
+
+  private suspend fun reconcileChangedPasskey(relativePath: String): Boolean {
+    val pathSegments = relativePath.split('/')
+    if (pathSegments.size != 2) return false
+
+    val rpDirectory = pathSegments[0]
+    val fileName = pathSegments[1]
+    if (!fileName.endsWith(".gpg")) return false
+    val credentialId = hexToBytes(fileName.removeSuffix(".gpg")) ?: return false
+
+    val provisionalRef =
+      try {
+        PasskeyFileRef(
+          canonicalRpId = rpDirectory,
+          credentialId = credentialId,
+          relativePath = relativePath,
+        )
+      } catch (e: IllegalArgumentException) {
+        logcat(LogPriority.WARN) { "Rejected changed passkey path $relativePath: ${e.message}" }
+        return false
+      }
+
+    val existingAtPath = metadataIndex.values.filter { it.fileRef.relativePath == relativePath }
+    existingAtPath.map { it.metadata }.forEach(::removeFromIndex)
+
+    val versionResult =
+      delegate.resolveSourceVersionExact(provisionalRef).getOrElse { error ->
+        logcat(LogPriority.WARN) {
+          "Failed resolving changed passkey $relativePath: ${error.message}"
+        }
+        return false
+      }
+    val version =
+      when (versionResult) {
+        SourceVersionResult.Missing -> return true
+        is SourceVersionResult.Stable -> versionResult.version
+        is SourceVersionResult.Unstable -> return false
+      }
+
+    val duplicate = metadataIndex[credentialKey(credentialId)]
+    if (duplicate != null && duplicate.fileRef.relativePath != relativePath) {
+      logcat(LogPriority.WARN) { "Duplicate credential ID introduced by $relativePath" }
+      return false
+    }
+
+    val metadata =
+      delegate.loadCredentialMetadata(provisionalRef, version).getOrElse { error ->
+        logcat(LogPriority.WARN) {
+          "Failed loading changed passkey metadata for $relativePath: ${error.message}"
+        }
+        return false
+      }
+
+    if (!metadata.credentialId.contentEquals(credentialId)) {
+      logcat(LogPriority.WARN) { "Credential ID does not match changed path $relativePath" }
+      return false
+    }
+    if (sanitizeRpId(metadata.rpId) != rpDirectory) {
+      logcat(LogPriority.WARN) { "RP ID does not match changed path $relativePath" }
+      return false
+    }
+
+    val canonicalRef =
+      PasskeyFileRef(
+        canonicalRpId = metadata.rpId,
+        credentialId = credentialId.copyOf(),
+        relativePath = relativePath,
+      )
+    indexMetadata(metadata, version, canonicalRef)
+    return true
   }
 
   override suspend fun listMetadata(rpId: String?): Result<List<PasskeyMetadata>, Throwable> {
