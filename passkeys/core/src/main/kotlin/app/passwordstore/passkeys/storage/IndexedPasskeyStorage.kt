@@ -228,7 +228,7 @@ public class IndexedPasskeyStorage(
       when (versionResult) {
         SourceVersionResult.Missing -> return true
         is SourceVersionResult.Stable -> versionResult.version
-        is SourceVersionResult.Unstable -> return false
+        is SourceVersionResult.Unavailable -> return false
       }
 
     val duplicate = metadataIndex[credentialKey(credentialId)]
