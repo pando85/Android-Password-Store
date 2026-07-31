@@ -9,17 +9,22 @@ import android.content.SharedPreferences
 import app.passwordstore.data.repo.PasswordRepository
 import app.passwordstore.injection.context.FilesDirPath
 import app.passwordstore.injection.prefs.GitSecrets
+import app.passwordstore.passkeys.storage.PasskeyRemoteRefresher
 import app.passwordstore.util.coroutines.DispatcherProvider
+import app.passwordstore.util.crypto.AESEncryption
 import app.passwordstore.util.git.sshj.SshKey
 import app.passwordstore.util.git.sshj.SshjConfig
 import app.passwordstore.util.git.sshj.setUpBouncyCastleForSshj
 import app.passwordstore.util.settings.AuthMode
 import app.passwordstore.util.settings.GitSettings
+import app.passwordstore.util.settings.PreferenceKeys
 import com.github.michaelbull.result.Err
 import com.github.michaelbull.result.Ok
 import com.github.michaelbull.result.Result
-import com.github.michaelbull.result.runCatching
 import java.io.File
+import java.io.InputStream
+import java.io.OutputStream
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.withContext
@@ -27,14 +32,18 @@ import logcat.LogPriority
 import logcat.asLog
 import logcat.logcat
 import net.schmizz.sshj.SSHClient
+import net.schmizz.sshj.connection.channel.direct.Session
 import net.schmizz.sshj.transport.verification.FingerprintVerifier
 import net.schmizz.sshj.userauth.method.AuthPublickey
+import net.schmizz.sshj.userauth.password.PasswordFinder
+import net.schmizz.sshj.userauth.password.Resource
 import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.transport.CredentialItem
 import org.eclipse.jgit.transport.CredentialsProvider
 import org.eclipse.jgit.transport.SshTransport
 import org.eclipse.jgit.transport.Transport
 import org.eclipse.jgit.transport.URIish
+import org.eclipse.jgit.util.FS
 
 @Singleton
 class AppPasskeyRemoteRefresher
@@ -44,28 +53,33 @@ constructor(
   @GitSecrets private val gitSecrets: SharedPreferences,
   @FilesDirPath private val filesDirPath: String,
   private val dispatcherProvider: DispatcherProvider,
-) {
+) : PasskeyRemoteRefresher {
 
-  suspend fun refresh(): Result<Unit, Throwable> {
+  override suspend fun refresh(): Result<Unit, Throwable> {
     if (gitSettings.url == null) return Err(IllegalStateException("Git URL is not set"))
-    if (PasswordRepository.repository == null) return Err(IllegalStateException("Repository is not initialized"))
-    return withContext(dispatcherProvider.io()) {
-      runCatching { executePull() }
-    }
+    if (PasswordRepository.repository == null)
+      return Err(IllegalStateException("Repository is not initialized"))
+    return withContext(dispatcherProvider.io()) { executePull() }
   }
 
   private fun executePull(): Result<Unit, Throwable> {
-    val repository = PasswordRepository.repository ?: return Err(IllegalStateException("Repository is not initialized"))
+    val repository =
+      PasswordRepository.repository
+        ?: return Err(IllegalStateException("Repository is not initialized"))
     val git = Git(repository)
     try {
       val pullCommand = git.pull().setRemote("origin").setRebase(gitSettings.rebaseOnPull)
       configureTransport(pullCommand)
       val result = pullCommand.call()
-      return if (result.successful) {
+      return if (result.mergeResult?.mergeStatus?.isSuccessful != false) {
         logcat { "Passkey remote refresh (pull) completed" }
         Ok(Unit)
       } else {
-        Err(IllegalStateException("Pull failed: ${result.mergeResult?.conflicts?.keys?.joinToString()}"))
+        Err(
+          IllegalStateException(
+            "Pull failed: ${result.mergeResult?.conflicts?.keys?.joinToString()}"
+          )
+        )
       }
     } catch (e: Exception) {
       logcat(LogPriority.WARN) { "Passkey remote refresh failed: ${e.asLog()}" }
@@ -89,7 +103,8 @@ constructor(
   private fun configureSshTransport(transport: Transport) {
     if (transport !is SshTransport) return
     if (!SshKey.exists) throw IllegalStateException("SSH key not found")
-    if (SshKey.mustAuthenticate) throw IllegalStateException("SSH key requires biometric authentication")
+    if (SshKey.mustAuthenticate)
+      throw IllegalStateException("SSH key requires biometric authentication")
     val hostKeyFile = File(filesDirPath, ".host_key")
     if (!hostKeyFile.exists()) throw IllegalStateException("Host key not trusted yet")
     val hostKeyEntry = hostKeyFile.readText()
@@ -100,7 +115,7 @@ constructor(
         override fun getSession(
           uri: URIish?,
           credentialsProvider: CredentialsProvider?,
-          fs: org.eclipse.jgit.util.FS?,
+          fs: FS?,
           tms: Int,
         ): org.eclipse.jgit.transport.RemoteSession {
           val ssh = SSHClient(SshjConfig())
@@ -111,10 +126,20 @@ constructor(
           ssh.connect(host, port)
           val fixedUri =
             if (uri.host.contains('@')) {
-              URIish().setUser(uri.host.substringBeforeLast('@')).setHost(uri.host.substringAfterLast('@')).setPort(uri.port).setPath(uri.path)
+              URIish()
+                .setUser(uri.host.substringBeforeLast('@'))
+                .setHost(uri.host.substringAfterLast('@'))
+                .setPort(uri.port)
+                .setPath(uri.path)
             } else uri
           val keyProvider =
-            SshKey.provide(ssh, net.schmizz.sshj.userauth.password.PasswordFinder { charArrayOf() })
+            SshKey.provide(
+                ssh,
+                object : PasswordFinder {
+                  override fun reqPassword(resource: Resource<*>?): CharArray = charArrayOf()
+                  override fun shouldRetry(resource: Resource<*>?): Boolean = false
+                },
+              )
               ?: throw IllegalStateException("Cannot load SSH key")
           ssh.auth(user, AuthPublickey(keyProvider))
           return NonInteractiveSshSession(ssh, fixedUri)
@@ -127,9 +152,9 @@ constructor(
 
   private fun configureHttpsTransport(transport: Transport) {
     val password =
-      app.passwordstore.util.crypto.AESEncryption.decrypt(
-        gitSecrets.getString(app.passwordstore.util.settings.PreferenceKeys.HTTPS_PASSWORD, null)?.toCharArray(),
-        keyType = app.passwordstore.util.crypto.AESEncryption.KeyType.PERSISTENT,
+      AESEncryption.decrypt(
+        gitSecrets.getString(PreferenceKeys.HTTPS_PASSWORD, null)?.toCharArray(),
+        keyType = AESEncryption.KeyType.PERSISTENT,
       )
     if (password == null) throw IllegalStateException("HTTPS password not stored")
     transport.credentialsProvider =
@@ -158,10 +183,10 @@ constructor(
 
 private class NonInteractiveSshSession(
   private val ssh: SSHClient,
-  private val uri: URIish,
+  @Suppress("unused") private val uri: URIish,
 ) : org.eclipse.jgit.transport.RemoteSession {
 
-  private var currentSession: net.schmizz.sshj.connection.channel.direct.Session? = null
+  private var currentSession: Session? = null
 
   override fun exec(commandName: String?, timeout: Int): Process {
     currentSession?.close()
@@ -182,23 +207,23 @@ private class NonInteractiveSshSession(
 }
 
 private class NonInteractiveSshProcess(
-  private val command: net.schmizz.sshj.connection.channel.direct.Session.Command,
+  private val command: Session.Command,
   private val timeout: Long,
 ) : Process() {
 
   override fun waitFor(): Int {
-    command.join(timeout, java.util.concurrent.TimeUnit.SECONDS)
+    command.join(timeout, TimeUnit.SECONDS)
     command.close()
     return exitValue()
   }
 
   override fun destroy() = command.close()
 
-  override fun getOutputStream(): java.io.OutputStream = command.outputStream
+  override fun getOutputStream(): OutputStream = command.outputStream
 
-  override fun getErrorStream(): java.io.InputStream = command.errorStream
+  override fun getErrorStream(): InputStream = command.errorStream
 
   override fun exitValue(): Int = command.exitStatus
 
-  override fun getInputStream(): java.io.InputStream = command.inputStream
+  override fun getInputStream(): InputStream = command.inputStream
 }

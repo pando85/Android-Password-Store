@@ -107,7 +107,8 @@ public abstract class PasskeyCredentialProviderService : CredentialProviderServi
                 if (initial.isNotEmpty() || remoteRefresher == null) return@runBlocking initial
                 if (parsedRequest.allowCredentials.isEmpty()) return@runBlocking initial
                 logcat { "No local passkeys for $rpId, attempting remote refresh" }
-                remoteRefresher.refresh().fold(
+                val refresher = remoteRefresher ?: return@runBlocking initial
+                refresher.refresh().fold(
                   success = {
                     passkeyRepositoryState?.invalidate(InvalidationReason.GIT_SYNC_COMPLETED)
                     passkeyStorage
