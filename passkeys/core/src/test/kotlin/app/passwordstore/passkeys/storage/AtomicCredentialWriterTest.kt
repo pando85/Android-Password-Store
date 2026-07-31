@@ -268,8 +268,6 @@ class AtomicCredentialWriterTest {
     val target = File(tempDir, "fido2/example/abcd1234.gpg")
     target.parentFile.mkdirs()
     target.writeBytes("original-content".toByteArray())
-    val originalModified = target.lastModified()
-    Thread.sleep(50)
 
     val result =
       writer.replace(target) { outputStream ->
@@ -278,7 +276,10 @@ class AtomicCredentialWriterTest {
 
     assertTrue(result.isOk)
     assertContentEquals("new-content".toByteArray(), target.readBytes())
-    assertTrue(target.lastModified() >= originalModified)
+    assertEquals(
+      "new-content".toByteArray().size.toLong(),
+      result.getOrElse { throw IllegalStateException("Should not fail") }.fileSize,
+    )
   }
 
   @Test
