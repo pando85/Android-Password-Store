@@ -74,7 +74,9 @@ abstract class BaseGitActivity : AppCompatActivity() {
    * @param operation The type of git operation to launch
    */
   suspend fun launchGitOperation(operation: GitOp): Result<Unit, Throwable> =
-    GitOperationCoordinator.withLock { launchGitOperationUnlocked(operation) }
+    GitOperationCoordinator.withLock {
+      launchGitOperationUnlocked(operation)
+    }
 
   private suspend fun launchGitOperationUnlocked(operation: GitOp): Result<Unit, Throwable> {
     if (gitSettings.url == null) {
