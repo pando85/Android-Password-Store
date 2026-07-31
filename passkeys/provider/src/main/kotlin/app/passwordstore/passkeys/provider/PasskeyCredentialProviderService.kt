@@ -13,7 +13,6 @@ import android.content.Intent
 import android.graphics.drawable.Icon
 import android.os.CancellationSignal
 import android.os.OutcomeReceiver
-import android.os.SystemClock
 import androidx.annotation.RequiresApi
 import androidx.core.net.toUri
 import androidx.credentials.exceptions.ClearCredentialException
@@ -64,7 +63,7 @@ public abstract class PasskeyCredentialProviderService : CredentialProviderServi
   @Suppress("RawDispatchersUse")
   private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
   private val refreshMutex = Mutex()
-  @Volatile private var lastSuccessfulRefreshElapsedMillis = 0L
+  @Volatile private var refreshGeneration = 0L
 
   override fun onCreate() {
     super.onCreate()
@@ -93,11 +92,12 @@ public abstract class PasskeyCredentialProviderService : CredentialProviderServi
         }
 
         val queries = parseGetQueries(options)
+        val observedRefreshGeneration = refreshGeneration
         var entries = loadCredentialEntries(queries)
 
         if (entries.isEmpty() && queries.isNotEmpty() && remoteRefresher != null) {
           logcat { "No local passkey candidates; attempting one remote Git refresh" }
-          if (refreshRemote()) {
+          if (refreshRemote(observedRefreshGeneration)) {
             entries = loadCredentialEntries(queries)
           }
         }
@@ -188,21 +188,17 @@ public abstract class PasskeyCredentialProviderService : CredentialProviderServi
     return entries
   }
 
-  private suspend fun refreshRemote(): Boolean {
+  private suspend fun refreshRemote(observedGeneration: Long): Boolean {
     val refresher = remoteRefresher ?: return false
     return refreshMutex.withLock {
-      val now = SystemClock.elapsedRealtime()
-      if (
-        lastSuccessfulRefreshElapsedMillis != 0L &&
-          now - lastSuccessfulRefreshElapsedMillis < REMOTE_REFRESH_COOLDOWN_MILLIS
-      ) {
+      if (refreshGeneration != observedGeneration) {
         return@withLock true
       }
       refresher
         .refresh()
         .fold(
           success = {
-            lastSuccessfulRefreshElapsedMillis = SystemClock.elapsedRealtime()
+            refreshGeneration++
             true
           },
           failure = {
@@ -314,7 +310,6 @@ public abstract class PasskeyCredentialProviderService : CredentialProviderServi
   }
 
   public companion object {
-    private const val REMOTE_REFRESH_COOLDOWN_MILLIS = 30_000L
     public const val EXTRA_OPERATION: String = "passkey_operation"
     public const val EXTRA_CREDENTIAL_ID: String = "passkey_credential_id"
     public const val OPERATION_CREATE: String = "create"
