@@ -51,9 +51,9 @@ class GitOperationCoordinatorTest {
 
   @Test
   fun `releases lock when operation fails`() = runBlocking {
-    runCatching {
+    try {
       GitOperationCoordinator.withLock<Unit> { error("boom") }
-    }
+    } catch (_: IllegalStateException) {}
 
     var entered = false
     withTimeout(1_000) { GitOperationCoordinator.withLock { entered = true } }
