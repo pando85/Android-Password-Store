@@ -81,51 +81,50 @@ public abstract class PasskeyCredentialProviderService : CredentialProviderServi
     cancellationSignal: CancellationSignal,
     callback: OutcomeReceiver<BeginGetCredentialResponse, GetCredentialException>,
   ) {
-    val job =
-      serviceScope.launch {
-        try {
-          val options =
-            request.beginGetCredentialOptions.filterIsInstance<BeginGetPublicKeyCredentialOption>()
-          if (options.isEmpty()) {
-            if (!cancellationSignal.isCanceled) {
-              callback.onError(GetCredentialUnknownException("No passkey options available"))
-            }
-            return@launch
-          }
-
-          val queries = parseGetQueries(options)
-          var entries = loadCredentialEntries(queries)
-
-          if (entries.isEmpty() && queries.isNotEmpty() && remoteRefresher != null) {
-            logcat { "No local passkey candidates; attempting one remote Git refresh" }
-            if (refreshRemote()) {
-              entries = loadCredentialEntries(queries)
-            }
-          }
-
-          if (cancellationSignal.isCanceled) return@launch
-          if (entries.isEmpty()) {
-            callback.onError(GetCredentialUnknownException("No matching passkeys found"))
-            return@launch
-          }
-
-          callback.onResult(
-            BeginGetCredentialResponse(
-              credentialEntries = entries,
-              actions = emptyList(),
-              authenticationActions = emptyList(),
-              remoteEntry = null,
-            )
-          )
-        } catch (_: CancellationException) {
-          // Credential Manager no longer needs this response.
-        } catch (e: Exception) {
-          logcat(LogPriority.ERROR) { "Unable to build get-credential response: $e" }
+    val job = serviceScope.launch {
+      try {
+        val options =
+          request.beginGetCredentialOptions.filterIsInstance<BeginGetPublicKeyCredentialOption>()
+        if (options.isEmpty()) {
           if (!cancellationSignal.isCanceled) {
-            callback.onError(GetCredentialUnknownException(e.message ?: "Unknown passkey error"))
+            callback.onError(GetCredentialUnknownException("No passkey options available"))
+          }
+          return@launch
+        }
+
+        val queries = parseGetQueries(options)
+        var entries = loadCredentialEntries(queries)
+
+        if (entries.isEmpty() && queries.isNotEmpty() && remoteRefresher != null) {
+          logcat { "No local passkey candidates; attempting one remote Git refresh" }
+          if (refreshRemote()) {
+            entries = loadCredentialEntries(queries)
           }
         }
+
+        if (cancellationSignal.isCanceled) return@launch
+        if (entries.isEmpty()) {
+          callback.onError(GetCredentialUnknownException("No matching passkeys found"))
+          return@launch
+        }
+
+        callback.onResult(
+          BeginGetCredentialResponse(
+            credentialEntries = entries,
+            actions = emptyList(),
+            authenticationActions = emptyList(),
+            remoteEntry = null,
+          )
+        )
+      } catch (_: CancellationException) {
+        // Credential Manager no longer needs this response.
+      } catch (e: Exception) {
+        logcat(LogPriority.ERROR) { "Unable to build get-credential response: $e" }
+        if (!cancellationSignal.isCanceled) {
+          callback.onError(GetCredentialUnknownException(e.message ?: "Unknown passkey error"))
+        }
       }
+    }
 
     cancellationSignal.setOnCancelListener { job.cancel() }
   }
@@ -145,7 +144,8 @@ public abstract class PasskeyCredentialProviderService : CredentialProviderServi
           logcat(LogPriority.WARN) { "Skipping malformed passkey request: ${e.message}" }
           return@mapNotNull null
         }
-      val rpId = parsedRequest.rpId ?: parsedRequest.allowCredentials.firstNotNullOfOrNull { it.rpId }
+      val rpId =
+        parsedRequest.rpId ?: parsedRequest.allowCredentials.firstNotNullOfOrNull { it.rpId }
       if (rpId == null) {
         logcat(LogPriority.WARN) { "Skipping passkey option without RP ID" }
         null
