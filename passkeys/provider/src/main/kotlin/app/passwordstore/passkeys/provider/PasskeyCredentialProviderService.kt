@@ -108,32 +108,36 @@ public abstract class PasskeyCredentialProviderService : CredentialProviderServi
                 if (parsedRequest.allowCredentials.isEmpty()) return@runBlocking initial
                 logcat { "No local passkeys for $rpId, attempting remote refresh" }
                 val refresher = remoteRefresher ?: return@runBlocking initial
-                refresher.refresh().fold(
-                  success = {
-                    passkeyRepositoryState?.invalidate(InvalidationReason.GIT_SYNC_COMPLETED)
-                    passkeyStorage
-                      .listMetadata(rpId)
-                      .fold(
-                        success = {
-                          PasskeyProviderUtils.selectCredentialsByMetadata(
-                              it,
-                              parsedRequest.allowCredentials,
-                            )
-                            .map { metadata ->
-                              PasskeyProviderUtils.loadStoredIdentity(passkeyStorage, metadata)
+                refresher
+                  .refresh()
+                  .fold(
+                    success = {
+                      passkeyRepositoryState?.invalidate(InvalidationReason.GIT_SYNC_COMPLETED)
+                      passkeyStorage
+                        .listMetadata(rpId)
+                        .fold(
+                          success = {
+                            PasskeyProviderUtils.selectCredentialsByMetadata(
+                                it,
+                                parsedRequest.allowCredentials,
+                              )
+                              .map { metadata ->
+                                PasskeyProviderUtils.loadStoredIdentity(passkeyStorage, metadata)
+                              }
+                          },
+                          failure = {
+                            logcat(LogPriority.ERROR) {
+                              "Failed loading passkeys for $rpId after refresh: $it"
                             }
-                        },
-                        failure = {
-                          logcat(LogPriority.ERROR) { "Failed loading passkeys for $rpId after refresh: $it" }
-                          emptyList()
-                        },
-                      )
-                  },
-                  failure = {
-                    logcat(LogPriority.WARN) { "Remote refresh failed for $rpId: $it" }
-                    emptyList()
-                  },
-                )
+                            emptyList()
+                          },
+                        )
+                    },
+                    failure = {
+                      logcat(LogPriority.WARN) { "Remote refresh failed for $rpId: $it" }
+                      emptyList()
+                    },
+                  )
               }
 
             logcat {
@@ -209,7 +213,7 @@ public abstract class PasskeyCredentialProviderService : CredentialProviderServi
     cancellationSignal: CancellationSignal,
     callback: OutcomeReceiver<Void?, ClearCredentialException>,
   ) {
-    val repositoryState = passkeyStorage as? PasskeyRepositoryState
+    val repositoryState = passkeyRepositoryState
     if (repositoryState != null) {
       @Suppress("BlockingMethodInNonBlockingContext")
       runBlocking { repositoryState.invalidate(InvalidationReason.CLEAR_CREDENTIAL_STATE) }

@@ -67,9 +67,10 @@ constructor(
       PasswordRepository.repository
         ?: return Err(IllegalStateException("Repository is not initialized"))
     val git = Git(repository)
+    var sshSession: NonInteractiveSshSession? = null
     try {
       val pullCommand = git.pull().setRemote("origin").setRebase(gitSettings.rebaseOnPull)
-      configureTransport(pullCommand)
+      configureTransport(pullCommand) { session -> sshSession = session }
       val result = pullCommand.call()
       return if (result.mergeResult?.mergeStatus?.isSuccessful != false) {
         logcat { "Passkey remote refresh (pull) completed" }
@@ -85,22 +86,29 @@ constructor(
       logcat(LogPriority.WARN) { "Passkey remote refresh failed: ${e.asLog()}" }
       return Err(e)
     } finally {
+      sshSession?.close()
       git.close()
     }
   }
 
-  private fun configureTransport(command: org.eclipse.jgit.api.TransportCommand<*, *>) {
+  private fun configureTransport(
+    command: org.eclipse.jgit.api.TransportCommand<*, *>,
+    onSessionCreated: (NonInteractiveSshSession) -> Unit = {},
+  ) {
     command.setTransportConfigCallback { transport: Transport ->
       command.setTimeout(CONNECT_TIMEOUT)
       when (gitSettings.authMode) {
-        AuthMode.SshKey -> configureSshTransport(transport)
+        AuthMode.SshKey -> configureSshTransport(transport, onSessionCreated)
         AuthMode.Password -> configureHttpsTransport(transport)
         AuthMode.None -> {}
       }
     }
   }
 
-  private fun configureSshTransport(transport: Transport) {
+  private fun configureSshTransport(
+    transport: Transport,
+    onSessionCreated: (NonInteractiveSshSession) -> Unit,
+  ) {
     if (transport !is SshTransport) return
     if (!SshKey.exists) throw IllegalStateException("SSH key not found")
     if (SshKey.mustAuthenticate)
@@ -134,15 +142,15 @@ constructor(
             } else uri
           val keyProvider =
             SshKey.provide(
-                ssh,
-                object : PasswordFinder {
-                  override fun reqPassword(resource: Resource<*>?): CharArray = charArrayOf()
-                  override fun shouldRetry(resource: Resource<*>?): Boolean = false
-                },
-              )
-              ?: throw IllegalStateException("Cannot load SSH key")
+              ssh,
+              object : PasswordFinder {
+                override fun reqPassword(resource: Resource<*>?): CharArray = charArrayOf()
+
+                override fun shouldRetry(resource: Resource<*>?): Boolean = false
+              },
+            ) ?: throw IllegalStateException("Cannot load SSH key")
           ssh.auth(user, AuthPublickey(keyProvider))
-          return NonInteractiveSshSession(ssh, fixedUri)
+          return NonInteractiveSshSession(ssh, fixedUri).also { onSessionCreated(it) }
         }
 
         override fun getType(): String = "NonInteractiveSshSessionFactory"
@@ -160,8 +168,11 @@ constructor(
     transport.credentialsProvider =
       object : CredentialsProvider() {
         override fun isInteractive() = false
-        override fun supports(vararg items: CredentialItem) =
-          items.all { it is CredentialItem.Username || it is CredentialItem.Password }
+
+        override fun supports(vararg items: CredentialItem) = items.all {
+          it is CredentialItem.Username || it is CredentialItem.Password
+        }
+
         override fun get(uri: URIish?, vararg items: CredentialItem): Boolean {
           for (item in items) {
             when (item) {
@@ -172,6 +183,7 @@ constructor(
           }
           return true
         }
+
         override fun reset(uri: URIish?) {}
       }
   }
