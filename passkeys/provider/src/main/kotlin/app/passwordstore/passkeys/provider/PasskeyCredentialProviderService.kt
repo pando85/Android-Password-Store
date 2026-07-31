@@ -43,8 +43,8 @@ import java.time.Instant
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
@@ -72,7 +72,7 @@ public abstract class PasskeyCredentialProviderService : CredentialProviderServi
   }
 
   override fun onDestroy() {
-    serviceScope.cancel()
+    serviceScope.coroutineContext[Job]?.cancel()
     super.onDestroy()
   }
 
