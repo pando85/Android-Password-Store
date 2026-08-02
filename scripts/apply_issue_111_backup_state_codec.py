@@ -82,13 +82,26 @@ new_parser = '''      val credentialBackupState = parseBackupState(map)
 assert text.count(old_parser) == 2
 text = text.replace(old_parser, new_parser)
 
-old_constructor = '''        backupEligible = backupEligible,
+old_full_constructor = '''        extensions = extensionsMap?.let { Extensions.fromCborMap(it) } ?: Extensions(),
+        backupEligible = backupEligible,
         backupState = backupState,
 '''
-new_constructor = '''        backupEligible = credentialBackupState.isEligible,
+new_full_constructor = '''        extensions = extensionsMap?.let { Extensions.fromCborMap(it) } ?: Extensions(),
+        backupEligible = credentialBackupState.isEligible,
         backupState = credentialBackupState.isBackedUp,
 '''
-assert text.count(old_constructor) == 2
-text = text.replace(old_constructor, new_constructor)
+assert text.count(old_full_constructor) == 1
+text = text.replace(old_full_constructor, new_full_constructor, 1)
+
+old_metadata_constructor = '''        signCount = signCount,
+        backupEligible = backupEligible,
+        backupState = backupState,
+'''
+new_metadata_constructor = '''        signCount = signCount,
+        backupEligible = credentialBackupState.isEligible,
+        backupState = credentialBackupState.isBackedUp,
+'''
+assert text.count(old_metadata_constructor) == 1
+text = text.replace(old_metadata_constructor, new_metadata_constructor, 1)
 
 path.write_text(text)
