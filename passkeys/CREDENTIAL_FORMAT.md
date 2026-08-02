@@ -27,6 +27,8 @@ backup_state: false
 
 Readers accept that legacy representation for migration. Writers must emit only the canonical text field and must not emit `backup_eligible`. A credential is therefore migrated lazily the next time it is saved or updated.
 
+Repositories used by multiple APS installations should upgrade all active writers before relying on the canonical representation. An older APS release does not understand the text value and may rewrite the credential using the historical boolean representation during a later update; current readers remain compatible with either form.
+
 When neither legacy nor canonical backup fields are present, APS treats the existing Git/OpenPGP credential as `eligible`, matching the established migration policy for syncable credentials.
 
 Canonical and legacy fields must not be mixed. Unknown text values, incorrect CBOR types, conflicting representations, and the invalid legacy combination `backup_eligible=false, backup_state=true` are rejected.
