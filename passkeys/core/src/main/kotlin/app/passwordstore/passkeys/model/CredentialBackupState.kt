@@ -8,8 +8,8 @@ package app.passwordstore.passkeys.model
 /**
  * The three valid WebAuthn Backup Eligibility (BE) and Backup State (BS) combinations.
  *
- * [serializedName] is the stable credential-file representation shared with soft-fido2. The
- * invalid `BE=0, BS=1` combination is intentionally unrepresentable.
+ * [serializedName] is the stable credential-file representation shared with soft-fido2. The invalid
+ * `BE=0, BS=1` combination is intentionally unrepresentable.
  */
 public enum class CredentialBackupState(public val serializedName: String) {
   NOT_ELIGIBLE("notEligible"),
@@ -36,9 +36,7 @@ public enum class CredentialBackupState(public val serializedName: String) {
         backupEligible && !backupState -> ELIGIBLE
         backupEligible && backupState -> BACKED_UP
         else ->
-          throw IllegalArgumentException(
-            "Invalid credential backup state: BS=1 requires BE=1"
-          )
+          throw IllegalArgumentException("Invalid credential backup state: BS=1 requires BE=1")
       }
   }
 }
