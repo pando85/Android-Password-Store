@@ -1,0 +1,48 @@
+name: Apply issue 111 backup state codec
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-validate:
+    if: github.event.pull_request.head.ref == 'agent/canonicalize-passkey-backup-state'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Apply canonical backup state codec
+        run: python3 scripts/apply_issue_111_backup_state_codec.py
+
+      - name: Format Kotlin sources
+        run: ./gradlew spotlessApply
+
+      - name: Run passkeys core tests
+        run: ./gradlew :passkeys:core:test
+
+      - name: Commit clean implementation
+        env:
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          rm -f scripts/apply_issue_111_backup_state_codec.py
+          rm -f .github/workflows/apply-issue-111-backup-state-codec.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix(passkeys): canonicalize backup state credential encoding"
+          git push origin "HEAD:${BRANCH}"
