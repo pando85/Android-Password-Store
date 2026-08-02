@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file
 
 ## [Unreleased]
 
+## [1.20.0] - 2026-08-02
+
+### Fixed
+
+- Passkey backup state credential encoding is now canonicalized for consistent Git sync
+
+### Changed
+
+- Removed provenance metadata fields from passkey storage
+
 ## [1.19.3] - 2026-07-31
 
 ### Fixed
