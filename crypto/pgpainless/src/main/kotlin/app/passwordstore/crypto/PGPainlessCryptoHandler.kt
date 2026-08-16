@@ -85,13 +85,15 @@ public class PGPainlessCryptoHandler @Inject constructor() :
     .mapError { error ->
       when (error) {
         is MissingDecryptionMethodException -> {
-          if (key == null) // wrong passphrase provided for symmetric decryption
-           IncorrectPassphraseException(error.message, error.cause)
+          if (key == null) IncorrectPassphraseException(error.message, error.cause)
           else NoDecryptionKeyAvailableException(error.message, error.cause)
         }
         is WrongPassphraseException -> IncorrectPassphraseException(error.message, error.cause)
         is CryptoHandlerException -> error
-        else -> UnknownError(error.message, error)
+        else -> {
+          if (key == null) IncorrectPassphraseException(error.message, error)
+          else UnknownError(error.message, error)
+        }
       }
     }
 
