@@ -128,7 +128,7 @@ class AutofillSaveActivity : AppCompatActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     val repo = PasswordRepository.getRepositoryDirectory()
-    val saveRoot = AutofillPreferences.saveDirectory(this)
+    val saveRoot = AutofillPreferences.saveDirectory(this)?.let(repo::resolve) ?: repo
     val saveIntent =
       Intent(this, PasswordCreationActivity::class.java).apply {
         putExtras(
