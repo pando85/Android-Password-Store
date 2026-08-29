@@ -59,8 +59,43 @@ apply_pr_paths() {
 # Small classic-app fixes and complete recent-password timestamp lifecycle.
 apply_pr_paths 936 \
   app/src/main/java/app/passwordstore/util/git/sshj/SshKey.kt
-apply_pr_paths 938 \
-  app/src/main/java/app/passwordstore/ui/crypto/PasswordCreationActivity.kt
+
+# #938 overlaps fork-specific password creation work. Apply only its timestamp-cache invariant.
+python3 <<'PY'
+from pathlib import Path
+path = Path("app/src/main/java/app/passwordstore/ui/crypto/PasswordCreationActivity.kt")
+text = path.read_text()
+old = '''          // associate the new password name with the last name's timestamp in history
+          val preference = getSharedPreferences("recent_password_history", Context.MODE_PRIVATE)
+          val oldFilePathHash = "${fullPath.trimEnd('/')}/$suggestedName.gpg".base64()
+          val timestamp = preference.getString(oldFilePathHash)
+          if (timestamp != null) {
+            preference.edit {
+              remove(oldFilePathHash)
+              putString(passwordFile.absolutePathString().base64(), timestamp)
+            }
+          }
+'''
+new = '''          // create/update timestamp on the current password file
+          val preference = getSharedPreferences("recent_password_history", Context.MODE_PRIVATE)
+          preference.edit {
+            suggestedName?.let { oldFile ->
+              val oldFilePathHash = "${fullPath.trimEnd('/')}/$oldFile.gpg".base64()
+              remove(oldFilePathHash)
+            }
+            putString(
+              passwordFile.absolutePathString().base64(),
+              System.currentTimeMillis().toString(),
+            )
+          }
+'''
+if old not in text:
+    raise SystemExit("Unable to locate fork timestamp block for upstream #938")
+path.write_text(text.replace(old, new, 1))
+PY
+git add app/src/main/java/app/passwordstore/ui/crypto/PasswordCreationActivity.kt
+git commit -m "chore(upstream): adapt upstream #938 timestamp lifecycle" -m "Preserve fork-specific password creation logic while updating recent-password timestamps on every create/edit."
+
 apply_pr_paths 939 \
   app/src/main/java/app/passwordstore/ui/passwords/PasswordStore.kt
 apply_pr_paths 941 \
