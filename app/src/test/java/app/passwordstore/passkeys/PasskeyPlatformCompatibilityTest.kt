@@ -7,12 +7,13 @@ package app.passwordstore.passkeys
 
 import android.content.pm.PackageManager
 import android.os.Build
-import androidx.test.core.app.ApplicationProvider
-import app.passwordstore.Application
-import com.google.common.truth.Truth.assertThat
+import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
+import kotlin.test.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
@@ -21,7 +22,7 @@ class PasskeyPlatformCompatibilityTest {
   @Test
   @Config(sdk = [Build.VERSION_CODES.S])
   fun `credential provider entry points are disabled on Android 12`() {
-    val context = ApplicationProvider.getApplicationContext<Application>()
+    val context = RuntimeEnvironment.getApplication()
     val packageManager = context.packageManager
     val packageInfo =
       packageManager.getPackageInfo(
@@ -30,24 +31,24 @@ class PasskeyPlatformCompatibilityTest {
       )
 
     val serviceInfo =
-      packageInfo.services?.firstOrNull {
-        it.name == "app.passwordstore.passkeys.AppPasskeyCredentialProviderService"
+      packageInfo.services?.firstOrNull { info ->
+        info.name == "app.passwordstore.passkeys.AppPasskeyCredentialProviderService"
       }
     val activityInfo =
-      packageInfo.activities?.firstOrNull {
-        it.name == "app.passwordstore.passkeys.AppPasskeyProviderActivity"
+      packageInfo.activities?.firstOrNull { info ->
+        info.name == "app.passwordstore.passkeys.AppPasskeyProviderActivity"
       }
 
-    assertThat(serviceInfo).isNotNull()
-    assertThat(activityInfo).isNotNull()
-    assertThat(serviceInfo!!.enabled).isFalse()
-    assertThat(activityInfo!!.enabled).isFalse()
+    assertNotNull(serviceInfo)
+    assertNotNull(activityInfo)
+    assertFalse(serviceInfo.enabled)
+    assertFalse(activityInfo.enabled)
   }
 
   @Test
   @Config(sdk = [Build.VERSION_CODES.UPSIDE_DOWN_CAKE])
   fun `credential provider entry points are enabled on Android 14`() {
-    val context = ApplicationProvider.getApplicationContext<Application>()
+    val context = RuntimeEnvironment.getApplication()
     val packageManager = context.packageManager
     val packageInfo =
       packageManager.getPackageInfo(
@@ -56,17 +57,17 @@ class PasskeyPlatformCompatibilityTest {
       )
 
     val serviceInfo =
-      packageInfo.services?.firstOrNull {
-        it.name == "app.passwordstore.passkeys.AppPasskeyCredentialProviderService"
+      packageInfo.services?.firstOrNull { info ->
+        info.name == "app.passwordstore.passkeys.AppPasskeyCredentialProviderService"
       }
     val activityInfo =
-      packageInfo.activities?.firstOrNull {
-        it.name == "app.passwordstore.passkeys.AppPasskeyProviderActivity"
+      packageInfo.activities?.firstOrNull { info ->
+        info.name == "app.passwordstore.passkeys.AppPasskeyProviderActivity"
       }
 
-    assertThat(serviceInfo).isNotNull()
-    assertThat(activityInfo).isNotNull()
-    assertThat(serviceInfo!!.enabled).isTrue()
-    assertThat(activityInfo!!.enabled).isTrue()
+    assertNotNull(serviceInfo)
+    assertNotNull(activityInfo)
+    assertTrue(serviceInfo.enabled)
+    assertTrue(activityInfo.enabled)
   }
 }
