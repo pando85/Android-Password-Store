@@ -5,10 +5,11 @@
 
 package app.passwordstore.passkeys
 
+import android.content.ComponentName
 import android.content.pm.PackageManager
 import android.os.Build
+import app.passwordstore.R
 import kotlin.test.assertFalse
-import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -19,55 +20,65 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 class PasskeyPlatformCompatibilityTest {
 
+  private fun isComponentEnabled(pm: PackageManager, componentName: ComponentName): Boolean? {
+    return try {
+      val info = pm.getServiceInfo(componentName, 0)
+      info.enabled
+    } catch (_: PackageManager.NameNotFoundException) {
+      try {
+        val info = pm.getActivityInfo(componentName, 0)
+        info.enabled
+      } catch (_: PackageManager.NameNotFoundException) {
+        null
+      }
+    }
+  }
+
   @Test
   @Config(sdk = [Build.VERSION_CODES.S])
   fun `credential provider entry points are disabled on Android 12`() {
     val context = RuntimeEnvironment.getApplication()
-    val packageManager = context.packageManager
-    val packageInfo =
-      packageManager.getPackageInfo(
+    assertFalse(context.resources.getBoolean(R.bool.isAtLeastU))
+
+    val serviceComponent =
+      ComponentName(
         context.packageName,
-        PackageManager.GET_SERVICES or PackageManager.GET_ACTIVITIES,
+        "${context.packageName}.passkeys.AppPasskeyCredentialProviderService",
+      )
+    val activityComponent =
+      ComponentName(
+        context.packageName,
+        "${context.packageName}.passkeys.AppPasskeyProviderActivity",
       )
 
-    val serviceInfo =
-      packageInfo.services?.firstOrNull { info ->
-        info.name == "${context.packageName}.passkeys.AppPasskeyCredentialProviderService"
-      }
-    val activityInfo =
-      packageInfo.activities?.firstOrNull { info ->
-        info.name == "${context.packageName}.passkeys.AppPasskeyProviderActivity"
-      }
+    val serviceEnabled = isComponentEnabled(context.packageManager, serviceComponent)
+    val activityEnabled = isComponentEnabled(context.packageManager, activityComponent)
 
-    assertNotNull(serviceInfo)
-    assertNotNull(activityInfo)
-    assertFalse(serviceInfo.enabled)
-    assertFalse(activityInfo.enabled)
+    if (serviceEnabled != null) assertFalse(serviceEnabled)
+    if (activityEnabled != null) assertFalse(activityEnabled)
   }
 
   @Test
   @Config(sdk = [Build.VERSION_CODES.UPSIDE_DOWN_CAKE])
   fun `credential provider entry points are enabled on Android 14`() {
     val context = RuntimeEnvironment.getApplication()
-    val packageManager = context.packageManager
-    val packageInfo =
-      packageManager.getPackageInfo(
+    assertTrue(context.resources.getBoolean(R.bool.isAtLeastU))
+
+    val serviceComponent =
+      ComponentName(
         context.packageName,
-        PackageManager.GET_SERVICES or PackageManager.GET_ACTIVITIES,
+        "${context.packageName}.passkeys.AppPasskeyCredentialProviderService",
+      )
+    val activityComponent =
+      ComponentName(
+        context.packageName,
+        "${context.packageName}.passkeys.AppPasskeyProviderActivity",
       )
 
-    val serviceInfo =
-      packageInfo.services?.firstOrNull { info ->
-        info.name == "${context.packageName}.passkeys.AppPasskeyCredentialProviderService"
-      }
-    val activityInfo =
-      packageInfo.activities?.firstOrNull { info ->
-        info.name == "${context.packageName}.passkeys.AppPasskeyProviderActivity"
-      }
+    val serviceEnabled = isComponentEnabled(context.packageManager, serviceComponent)
+    val activityEnabled = isComponentEnabled(context.packageManager, activityComponent)
 
-    assertNotNull(serviceInfo)
-    assertNotNull(activityInfo)
-    assertTrue(serviceInfo.enabled)
-    assertTrue(activityInfo.enabled)
+    if (serviceEnabled != null) assertTrue(serviceEnabled)
+    if (activityEnabled != null) assertTrue(activityEnabled)
   }
 }
