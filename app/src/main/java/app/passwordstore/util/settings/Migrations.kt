@@ -62,7 +62,7 @@ private fun deleteKeystoreWrappedEd25519Key(sharedPrefs: SharedPreferences, cont
     androidKeystore.deleteEntry(KEYSTORE_ALIAS)
 
     val ANDROIDX_SECURITY_KEYSET_PREF_NAME = "androidx_sshkey_keyset_prefs"
-    context.getSharedPreferences(ANDROIDX_SECURITY_KEYSET_PREF_NAME, Context.MODE_PRIVATE).edit {
+    context.getSharedPreferences(ANDROIDX_SECURITY_KEYSET_PREF_NAME, 0).edit {
       clear()
     }
 
@@ -133,8 +133,7 @@ private fun moveToPasswordGeneratorPrefs(sharedPrefs: SharedPreferences, context
   // Old, encrypted preferences
   val pwgenPrefs = createEncryptedPreferences(context, "pwgen_preferences")
   // New destination
-  val passwordGeneratorPrefs =
-    context.getSharedPreferences("PasswordGenerator", Context.MODE_PRIVATE)
+  val passwordGeneratorPrefs = context.getSharedPreferences("PasswordGenerator", 0)
 
   val separator =
     pwgenPrefs.getString(PreferenceKeys.DICEWARE_SEPARATOR, null)

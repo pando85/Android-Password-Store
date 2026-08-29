@@ -6,7 +6,6 @@
 package app.passwordstore.injection.prefs
 
 import android.content.Context
-import android.content.Context.MODE_PRIVATE
 import android.content.SharedPreferences
 import app.passwordstore.BuildConfig
 import dagger.Module
@@ -34,21 +33,21 @@ class PreferenceModule {
 
   @[Provides SettingsPreferences Reusable]
   fun provideSettingsPreferences(@ApplicationContext context: Context): SharedPreferences {
-    return context.getSharedPreferences("${BuildConfig.APPLICATION_ID}_preferences", MODE_PRIVATE)
+    return context.getSharedPreferences("${BuildConfig.APPLICATION_ID}_preferences", 0)
   }
 
   @[Provides PGPPassphrases Reusable]
   fun providePGPPassphrases(@ApplicationContext context: Context): SharedPreferences {
-    return context.getSharedPreferences("${BuildConfig.APPLICATION_ID}_passphrases", MODE_PRIVATE)
+    return context.getSharedPreferences("${BuildConfig.APPLICATION_ID}_passphrases", 0)
   }
 
   @[Provides UnlockPins Reusable]
   fun provideUnlockPins(@ApplicationContext context: Context): SharedPreferences {
-    return context.getSharedPreferences("${BuildConfig.APPLICATION_ID}_unlock_pins", MODE_PRIVATE)
+    return context.getSharedPreferences("${BuildConfig.APPLICATION_ID}_unlock_pins", 0)
   }
 
   @[Provides GitSecrets Reusable]
   fun provideGitSecrets(@ApplicationContext context: Context): SharedPreferences {
-    return context.getSharedPreferences("${BuildConfig.APPLICATION_ID}_git_secrets", MODE_PRIVATE)
+    return context.getSharedPreferences("${BuildConfig.APPLICATION_ID}_git_secrets", 0)
   }
 }

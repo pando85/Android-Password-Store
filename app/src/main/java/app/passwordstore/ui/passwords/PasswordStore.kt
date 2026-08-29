@@ -5,7 +5,6 @@
 package app.passwordstore.ui.passwords
 
 import android.content.ComponentName
-import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.view.KeyEvent
@@ -482,7 +481,7 @@ class PasswordStore : BaseGitActivity() {
           else filesToDelete.add(item.file)
         }
         // remove to-be-deleted files from history
-        val preference = getSharedPreferences("recent_password_history", Context.MODE_PRIVATE)
+        val preference = getSharedPreferences("recent_password_history", 0)
         preference.edit {
           filesToDelete.forEach { file ->
             remove(file.absolutePath.base64())
@@ -564,8 +563,7 @@ class PasswordStore : BaseGitActivity() {
 
                 // associate the new category with the last category's timestamp in
                 // history
-                val preference =
-                  getSharedPreferences("recent_password_history", Context.MODE_PRIVATE)
+                val preference = getSharedPreferences("recent_password_history", 0)
                 val timestamp = preference.getString(oldCategory.file.absolutePath.base64())
                 if (timestamp != null) {
                   preference.edit {
@@ -665,7 +663,7 @@ class PasswordStore : BaseGitActivity() {
       }
     } else {
       // update timestamp cache with the new file locations
-      val preference = getSharedPreferences("recent_password_history", Context.MODE_PRIVATE)
+      val preference = getSharedPreferences("recent_password_history", 0)
       preference.edit {
         sourceDestinationMap.forEach { (src, dest) ->
           val srcPathHash = src.absolutePath.base64()
