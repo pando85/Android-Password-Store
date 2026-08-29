@@ -9,7 +9,7 @@ import android.content.ComponentName
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.test.core.app.ApplicationProvider
-import app.passwordstore.R
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import org.junit.Test
@@ -38,7 +38,7 @@ class PasskeyPlatformCompatibilityTest {
   @Config(sdk = [Build.VERSION_CODES.S])
   fun `credential provider entry points are disabled on Android 12`() {
     val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-    assertFalse(context.resources.getBoolean(R.bool.isAtLeastU))
+    assertEquals(Build.VERSION_CODES.S, Build.VERSION.SDK_INT)
 
     val serviceComponent =
       ComponentName(
@@ -62,7 +62,7 @@ class PasskeyPlatformCompatibilityTest {
   @Config(sdk = [Build.VERSION_CODES.UPSIDE_DOWN_CAKE])
   fun `credential provider entry points are enabled on Android 14`() {
     val context = ApplicationProvider.getApplicationContext<android.content.Context>()
-    assertTrue(context.resources.getBoolean(R.bool.isAtLeastU))
+    assertEquals(Build.VERSION_CODES.UPSIDE_DOWN_CAKE, Build.VERSION.SDK_INT)
 
     val serviceComponent =
       ComponentName(
