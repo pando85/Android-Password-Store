@@ -1,4 +1,4 @@
-141697
+141904
 119
 *.001.test.code-builder-stg.platform.salesforce.com
 *.0e.vc
@@ -44,6 +44,7 @@
 *.airflow.us-east-2.on.aws
 *.airflow.us-west-1.on.aws
 *.airflow.us-west-2.on.aws
+*.aivencloud.com
 *.alces.network
 *.ap-east-1.airflow.amazonaws.com
 *.ap-east-1.rds.amazonaws.com
@@ -108,7 +109,7 @@
 *.compute.amazonaws.com
 *.compute.amazonaws.com.cn
 *.compute.estate
-*.cryptonomic.net
+*.cursorusercontent.com
 *.customer-oci.com
 *.d.crm.dev
 *.database.run
@@ -189,7 +190,6 @@
 *.oci.customer-oci.com
 *.ocp.customer-oci.com
 *.ocs.customer-oci.com
-*.on-acorn.io
 *.on-k3s.io
 *.on-rancher.cloud
 *.on-rio.io
@@ -417,7 +417,6 @@ ac.rw
 ac.se
 ac.sz
 ac.th
-ac.tj
 ac.tz
 ac.ug
 ac.uk
@@ -444,7 +443,6 @@ actor
 ad
 ad.jp
 adachi.tokyo.jp
-adaptable.app
 adimo.co.uk
 adm.br
 adm.ec
@@ -469,6 +467,7 @@ aem.network
 aem.page
 aem.reviews
 aero
+aero.in
 aero.mv
 aerobatic.aero
 aeroclub.aero
@@ -531,7 +530,6 @@ airtraffic.aero
 aisai.aichi.jp
 aisho.shiga.jp
 aiven.app
-aivencloud.com
 aizubange.fukushima.jp
 aizumi.tokushima.jp
 aizumisato.fukushima.jp
@@ -595,6 +593,7 @@ alta.no
 altervista.org
 alto-adige.it
 altoadige.it
+alumni.in
 alvdal.no
 alwaysdata.net
 am
@@ -618,6 +617,7 @@ amica
 amli.no
 amot.no
 amplifyapp.com
+ams.scw.site
 amsterdam
 an.it
 analytics
@@ -687,7 +687,6 @@ apartments
 api.br
 api.gov.uk
 api.lp.dev
-api.stdlib.com
 apigee.io
 app
 app-ionos.space
@@ -712,7 +711,6 @@ appwrite.network
 aq
 aq.it
 aquarelle
-aquila.it
 ar
 ar.it
 ar.us
@@ -833,7 +831,7 @@ auction
 audi
 audible
 audio
-audnedaln.no
+audnedal.no
 augustow.pl
 aukra.no
 aure.no
@@ -1118,7 +1116,6 @@ birkenes.no
 bitbucket.io
 bitter.jp
 biz
-biz.at
 biz.az
 biz.bb
 biz.cy
@@ -1592,6 +1589,7 @@ cl.it
 claims
 clan.rip
 claude.app
+claudeusercontent.com
 cleaning
 clerk.app
 clerkstage.app
@@ -1750,6 +1748,8 @@ cockpit.nl-ams.scw.cloud
 cockpit.pl-waw.scw.cloud
 cocotte.jp
 codeberg.page
+codepen.app
+codepen.dev
 codes
 codespot.com
 coffee
@@ -2013,6 +2013,7 @@ cx
 cx.ua
 cy
 cy.eu.org
+cyb.ge
 cymru
 cyon.link
 cyon.site
@@ -2127,14 +2128,13 @@ desi
 design
 design.aero
 det.br
-deta.app
-deta.dev
 deus-canvas.com
 deuxfleurs.eu
 deuxfleurs.page
 dev
 dev-myqnapcloud.com
 dev.br
+dev.cv
 dev.project-study.com
 development.run
 devices.resinstaging.io
@@ -2143,7 +2143,6 @@ df.leg.br
 dfirma.pl
 dgca.aero
 dgn.ec
-dh.bytemark.co.uk
 dhl
 diadem.cloud
 diamonds
@@ -2958,6 +2957,7 @@ fr-par-2.baremetal.scw.cloud
 fr.eu.org
 fr.it
 fra1-de.cloudjiffy.net
+frame.claudeusercontent.com
 framer.ai
 framer.app
 framer.media
@@ -2978,7 +2978,6 @@ freedesktop.org
 freemyip.com
 freesite.host
 freetls.fastly.net
-frei.no
 freight.aero
 frenchkiss.jp
 fresenius
@@ -3204,6 +3203,7 @@ gh.srv.us
 gi
 gialai.vn
 giehtavuoatna.no
+gielda.no
 gift
 gifts
 gifu.gifu.jp
@@ -3501,6 +3501,7 @@ grimstad.no
 gripe
 griw.gov.pl
 grocery
+grok.me
 groks-the.info
 groks-this.info
 grondar.za
@@ -3615,6 +3616,7 @@ hamada.shimane.jp
 hamamatsu.shizuoka.jp
 hamar.no
 hamaroy.no
+hamarøy.no
 hamatama.saga.jp
 hamatonbetsu.hokkaido.jp
 hamburg
@@ -3698,6 +3700,7 @@ hercules-app.com
 hercules-dev.com
 here
 here-for-more.info
+here.now
 hermes
 herokuapp.com
 heroy.more-og-romsdal.no
@@ -3827,6 +3830,7 @@ holy.jp
 home-webserver.de
 home.arpa
 home.dyndns.org
+home64.de
 homebuilt.aero
 homedepot
 homedns.org
@@ -3907,7 +3911,6 @@ hyogo.jp
 hypernode.io
 hyuga.miyazaki.jp
 hyundai
-hzc.io
 hábmer.no
 hámmárfeasta.no
 hápmir.no
@@ -4082,7 +4085,6 @@ inf.mk
 inf.ua
 infiniti
 info
-info.at
 info.az
 info.bb
 info.bd
@@ -4173,6 +4175,8 @@ ipfs.storacha.link
 ipfs.w3s.link
 ipifony.net
 ipiranga
+ipv64.de
+ipv64.net
 iq
 ir
 ir.md
@@ -4593,6 +4597,7 @@ karelia.su
 kariwa.niigata.jp
 kariya.aichi.jp
 karlsoy.no
+karlsøy.no
 karmoy.no
 karmøy.no
 karpacz.pl
@@ -5169,6 +5174,7 @@ living
 livorno.it
 lk
 llc
+llc.ge
 llp
 ln.cn
 lo.it
@@ -5378,7 +5384,6 @@ matsuzaki.shizuoka.jp
 matta-varjjat.no
 mattel
 mayfirst.info
-mayfirst.org
 mazowsze.pl
 mazury.pl
 mb.ca
@@ -5858,6 +5863,7 @@ myfritz.link
 myfritz.net
 myftp.biz
 myftp.org
+mygov.scot
 myhome-server.de
 myiphost.com
 myjino.ru
@@ -6627,7 +6633,6 @@ onagawa.miyagi.jp
 oncilla.mythic-beasts.com
 ondigitalocean.app
 one
-onfabrica.com
 ong
 ong.br
 onga.fukuoka.jp
@@ -6638,6 +6643,8 @@ onion
 onjuku.chiba.jp
 onl
 online
+online-server.cloud
+online.ge
 online.th
 onna.okinawa.jp
 ono.fukui.jp
@@ -7073,6 +7080,7 @@ pl.ua
 place
 platter-app.dev
 play
+playcode.site
 playit.plus
 playstation
 playstation-cloud.com
@@ -7208,7 +7216,6 @@ promo
 properties
 property
 protection
-protonet.io
 pru
 prudential
 pruszkow.pl
@@ -7329,6 +7336,7 @@ rdy.jp
 re
 re.it
 re.kr
+re.no
 read
 read-books.org
 readmyblog.org
@@ -7995,6 +8003,7 @@ scb
 scbl.fr-par.scw.cloud
 scbl.nl-ams.scw.cloud
 scbl.pl-waw.scw.cloud
+sch.ac
 sch.ae
 sch.bd
 sch.id
@@ -8015,6 +8024,7 @@ schokokeks.net
 scholarships
 school
 school.ge
+school.in
 school.nz
 school.za
 schoolbus.jp
@@ -8030,6 +8040,7 @@ scot
 scrapper-site.net
 scrapping.cc
 scrysec.com
+scw.site
 sd
 sd.cn
 sd.us
@@ -8493,6 +8504,7 @@ stord.no
 stordal.no
 store
 store.bb
+store.cv
 store.dk
 store.nf
 store.ro
@@ -8500,7 +8512,6 @@ store.st
 store.ve
 storebase.store
 storfjord.no
-storj.farm
 strand.no
 stranda.no
 strapiapp.com
@@ -8552,10 +8563,13 @@ stuff-4-sale.us
 stufftoread.com
 style
 su
+su.it
 sub.jp
 subsc-pay.com
 subsc-pay.net
 sucks
+sud-sardegna.it
+sudsardegna.it
 sue.fukuoka.jp
 suedtirol.it
 suginami.tokyo.jp
@@ -8578,6 +8592,7 @@ sunagawa.hokkaido.jp
 sund.no
 sunndal.no
 sunnyday.jp
+suohkan.no
 supabase.co
 supabase.in
 supabase.net
@@ -8832,6 +8847,7 @@ tirol
 tj
 tj.cn
 tjeldsund.no
+tjielte.no
 tjmaxx
 tjome.no
 tjx
@@ -8859,6 +8875,7 @@ tn
 tn.it
 tn.oxa.cloud
 tn.us
+tnx.ge
 to
 to.gov.br
 to.it
@@ -9064,7 +9081,6 @@ trentinoaltoadige.it
 trentinos-tirol.it
 trentinostirol.it
 trentinosud-tirol.it
-trentinosudtirol.it
 trentinosued-tirol.it
 trentinosuedtirol.it
 trentinosüd-tirol.it
@@ -9183,6 +9199,7 @@ u.se
 u2-local.xnbay.com
 u2.xnbay.com
 ua
+ub.in
 ubank
 ube.yamaguchi.jp
 uber.space
@@ -9199,6 +9216,7 @@ udono.mie.jp
 ueda.nagano.jp
 ueno.gunma.jp
 uenohara.yamanashi.jp
+uenorge.no
 ufcfan.org
 ug
 ug.gov.pl
@@ -9218,12 +9236,12 @@ uk.net
 uk.oxa.cloud
 uk.primetel.cloud
 uk.reclaim.cloud
-uk0.bigv.io
 uki.kumamoto.jp
 ukiha.fukuoka.jp
 ullensaker.no
 ullensvang.no
 ulsan.kr
+ulstein.no
 ulvik.no
 um.gov.pl
 umaji.kochi.jp
@@ -9350,7 +9368,6 @@ val-d-aosta.it
 val-daosta.it
 val.run
 vald-aosta.it
-valdaosta.it
 valer.hedmark.no
 valer.ostfold.no
 valle-aosta.it
@@ -9399,6 +9416,7 @@ venice.it
 vennesla.no
 ventures
 verbania.it
+verbano-cusio-ossola.it
 vercel.app
 vercel.dev
 vercel.run
@@ -9498,7 +9516,6 @@ vladikavkaz.su
 vladimir.ru
 vladimir.su
 vlog.br
-vm.bytemark.co.uk
 vn
 vn.ua
 voagat.no
@@ -9518,7 +9535,7 @@ vp4.me
 vpndns.net
 vpnplus.to
 vps-host.net
-vps.hrsn.au
+vps.hrsn.net
 vps.mcdir.ru
 vr.it
 vs.it
@@ -9575,10 +9592,12 @@ watch
 watches
 watson.jp
 waw.pl
+waw.scw.site
 wazuka.kyoto.jp
 we.bs
 weather
 weatherchannel
+web
 web.app
 web.bo
 web.core.usgovcloudapi.net
