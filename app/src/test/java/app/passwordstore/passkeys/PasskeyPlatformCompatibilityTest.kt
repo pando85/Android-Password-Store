@@ -8,13 +8,13 @@ package app.passwordstore.passkeys
 import android.content.ComponentName
 import android.content.pm.PackageManager
 import android.os.Build
+import androidx.test.core.app.ApplicationProvider
 import app.passwordstore.R
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
@@ -37,7 +37,7 @@ class PasskeyPlatformCompatibilityTest {
   @Test
   @Config(sdk = [Build.VERSION_CODES.S])
   fun `credential provider entry points are disabled on Android 12`() {
-    val context = RuntimeEnvironment.getApplication()
+    val context = ApplicationProvider.getApplicationContext<android.content.Context>()
     assertFalse(context.resources.getBoolean(R.bool.isAtLeastU))
 
     val serviceComponent =
@@ -61,7 +61,7 @@ class PasskeyPlatformCompatibilityTest {
   @Test
   @Config(sdk = [Build.VERSION_CODES.UPSIDE_DOWN_CAKE])
   fun `credential provider entry points are enabled on Android 14`() {
-    val context = RuntimeEnvironment.getApplication()
+    val context = ApplicationProvider.getApplicationContext<android.content.Context>()
     assertTrue(context.resources.getBoolean(R.bool.isAtLeastU))
 
     val serviceComponent =
