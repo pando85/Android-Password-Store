@@ -32,11 +32,11 @@ class PasskeyPlatformCompatibilityTest {
 
     val serviceInfo =
       packageInfo.services?.firstOrNull { info ->
-        info.name == "app.passwordstore.passkeys.AppPasskeyCredentialProviderService"
+        info.name == "${context.packageName}.passkeys.AppPasskeyCredentialProviderService"
       }
     val activityInfo =
       packageInfo.activities?.firstOrNull { info ->
-        info.name == "app.passwordstore.passkeys.AppPasskeyProviderActivity"
+        info.name == "${context.packageName}.passkeys.AppPasskeyProviderActivity"
       }
 
     assertNotNull(serviceInfo)
@@ -58,11 +58,11 @@ class PasskeyPlatformCompatibilityTest {
 
     val serviceInfo =
       packageInfo.services?.firstOrNull { info ->
-        info.name == "app.passwordstore.passkeys.AppPasskeyCredentialProviderService"
+        info.name == "${context.packageName}.passkeys.AppPasskeyCredentialProviderService"
       }
     val activityInfo =
       packageInfo.activities?.firstOrNull { info ->
-        info.name == "app.passwordstore.passkeys.AppPasskeyProviderActivity"
+        info.name == "${context.packageName}.passkeys.AppPasskeyProviderActivity"
       }
 
     assertNotNull(serviceInfo)
