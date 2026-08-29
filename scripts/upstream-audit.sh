@@ -49,6 +49,9 @@ classify_path() {
     passkeys/*|PASSKEYS.md|PasskeyStorage.md|app/src/main/java/app/passwordstore/passkeys/*|app/src/main/java/app/passwordstore/injection/passkeys/*|app/src/main/res/xml/passkey_provider.xml|app/src/main/res/values-v34/bools.xml)
       printf 'PASSKEY-PROTECTED'
       ;;
+    *publicsuffix*)
+      printf 'GENERATED-DATA'
+      ;;
     autofill-parser/*|app/src/main/java/app/passwordstore/util/autofill/*|app/src/main/java/app/passwordstore/ui/autofill/*)
       printf 'AUTOFILL'
       ;;
@@ -60,9 +63,6 @@ classify_path() {
       ;;
     .github/*)
       printf 'CI/REPOSITORY'
-      ;;
-    *publicsuffix*)
-      printf 'GENERATED-DATA'
       ;;
     *)
       printf 'CLASSIC-APP'
