@@ -720,7 +720,8 @@ open class BasePGPActivity : AppCompatActivity() {
         if (bundle.getBoolean(PinDialog.PIN_CANCEL)) {
           decrypt(identifiers)
         } else {
-          val pin = requireNotNull(bundle.getCharArray(PinDialog.PIN_KEY)) { "returned PIN is null" }
+          val pin =
+            requireNotNull(bundle.getCharArray(PinDialog.PIN_KEY)) { "returned PIN is null" }
           var pinRetries = 0
           var pinOk = false
 
@@ -731,10 +732,8 @@ open class BasePGPActivity : AppCompatActivity() {
                   pinRetries =
                     max(
                       pinRetries,
-                      cached
-                        .copyOfRange(0, cached.indexOf(':'))
-                        .concatToString()
-                        .toIntOrNull() ?: MAX_RETRIES,
+                      cached.copyOfRange(0, cached.indexOf(':')).concatToString().toIntOrNull()
+                        ?: MAX_RETRIES,
                     )
                   cached.wipe()
                 }
@@ -800,8 +799,7 @@ open class BasePGPActivity : AppCompatActivity() {
                 updatedEncryptedPins[id] = updated
               }
             pin.wipe()
-          }
-          ?: remove(id)
+          } ?: remove(id)
       }
     }
     if (attempts == 0) {
