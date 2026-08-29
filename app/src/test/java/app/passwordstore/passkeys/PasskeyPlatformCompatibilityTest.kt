@@ -43,14 +43,14 @@ class PasskeyPlatformCompatibilityTest {
   @Suppress("DEPRECATION")
   private fun providerServiceInfo(context: Context) =
     context.packageManager.getServiceInfo(
-      ComponentName(context, AppPasskeyCredentialProviderService::class.java),
+      ComponentName(context.packageName, "app.passwordstore.passkeys.AppPasskeyCredentialProviderService"),
       PackageManager.MATCH_DISABLED_COMPONENTS,
     )
 
   @Suppress("DEPRECATION")
   private fun providerActivityInfo(context: Context) =
     context.packageManager.getActivityInfo(
-      ComponentName(context, AppPasskeyProviderActivity::class.java),
+      ComponentName(context.packageName, "app.passwordstore.passkeys.AppPasskeyProviderActivity"),
       PackageManager.MATCH_DISABLED_COMPONENTS,
     )
 }
