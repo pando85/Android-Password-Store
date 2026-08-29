@@ -57,8 +57,7 @@ apply_pr_paths() {
 }
 
 # Small classic-app fixes and complete recent-password timestamp lifecycle.
-apply_pr_paths 936 \
-  app/src/main/java/app/passwordstore/util/git/sshj/SshKey.kt
+apply_pr_paths 936 app/src/main/java/app/passwordstore/util/git/sshj/SshKey.kt
 
 # #938 overlaps fork-specific password creation work. Apply only its timestamp-cache invariant.
 python3 <<'PY'
@@ -96,23 +95,58 @@ PY
 git add app/src/main/java/app/passwordstore/ui/crypto/PasswordCreationActivity.kt
 git commit -m "chore(upstream): adapt upstream #938 timestamp lifecycle" -m "Preserve fork-specific password creation logic while updating recent-password timestamps on every create/edit."
 
-apply_pr_paths 939 \
-  app/src/main/java/app/passwordstore/ui/passwords/PasswordStore.kt
-apply_pr_paths 941 \
-  app/src/main/java/app/passwordstore/ui/passwords/PasswordStore.kt
+apply_pr_paths 939 app/src/main/java/app/passwordstore/ui/passwords/PasswordStore.kt
+apply_pr_paths 941 app/src/main/java/app/passwordstore/ui/passwords/PasswordStore.kt
 apply_pr_paths 942 \
   app/src/main/java/app/passwordstore/ui/settings/RepositorySettings.kt \
   app/src/main/java/app/passwordstore/util/extensions/AndroidExtensions.kt
 
-# Contextual fast-unlock wording. Deliberately omit upstream's ui/credman passkey activity.
-apply_pr_paths 1000 \
-  app/src/main/java/app/passwordstore/ui/autofill/AutofillDecryptActivity.kt \
-  app/src/main/java/app/passwordstore/ui/crypto/BasePGPActivity.kt \
-  app/src/main/res/values/strings.xml \
-  app/src/main/res/values-de/strings.xml
+# #1000: keep the fork passkey stack out of this port. The classic Autofill call site and
+# strings come from upstream; BasePGPActivity is adapted narrowly because the fork changed it.
+apply_pr_paths 1000 app/src/main/java/app/passwordstore/ui/autofill/AutofillDecryptActivity.kt
+python3 <<'PY'
+from pathlib import Path
+path = Path("app/src/main/java/app/passwordstore/ui/crypto/BasePGPActivity.kt")
+text = path.read_text()
+replacements = [
+    (
+        "  protected fun getPersistentAndDecrypt(identifiers: List<PGPIdentifier>) {",
+        "  protected fun getPersistentAndDecrypt(identifiers: List<PGPIdentifier>, action: String? = null) {",
+    ),
+    (
+        "      verifyPin(pinEncrypted, persistentIds, identifiers)",
+        "      verifyPin(pinEncrypted, persistentIds, identifiers, action)",
+    ),
+    (
+        "    identifiers: List<PGPIdentifier>,\n    isError: Boolean = false,",
+        "    identifiers: List<PGPIdentifier>,\n    action: String?,\n    isError: Boolean = false,",
+    ),
+    (
+        "        description = resources.getString(R.string.pin_entry_description),",
+        '''        description =
+          when (action) {
+            "autofill" -> resources.getString(R.string.pin_entry_autofill_description)
+            "passkey" -> resources.getString(R.string.pin_entry_passkey_description)
+            else -> resources.getString(R.string.pin_entry_description)
+          },''',
+    ),
+    (
+        "            verifyPin(pinEncryptedUpdate, ids, identifiers, isError = true)",
+        "            verifyPin(pinEncryptedUpdate, ids, identifiers, action, isError = true)",
+    ),
+]
+for old, new in replacements:
+    if old not in text:
+        raise SystemExit(f"Unable to locate BasePGPActivity #1000 fragment: {old!r}")
+    text = text.replace(old, new, 1)
+path.write_text(text)
+PY
+git add app/src/main/java/app/passwordstore/ui/crypto/BasePGPActivity.kt
+git commit -m "chore(upstream): adapt upstream #1000 fast unlock context" -m "Preserve fork-specific crypto/passkey code while carrying the Autofill/PIN context through BasePGPActivity."
+apply_pr_paths 1000 app/src/main/res/values/strings.xml
+apply_pr_paths 1000 app/src/main/res/values-de/strings.xml
 
-apply_pr_paths 1007 \
-  app/src/main/java/app/passwordstore/util/shortcuts/ShortcutHandler.kt
+apply_pr_paths 1007 app/src/main/java/app/passwordstore/util/shortcuts/ShortcutHandler.kt
 
 # Fast-unlock state is isolated per PGP identity. This is a security invariant, not a passkey port.
 apply_pr_paths 1011 \
@@ -132,14 +166,10 @@ apply_pr_paths 1014 \
   app/src/main/java/app/passwordstore/util/settings/PreferenceKeys.kt \
   app/src/main/res/values/strings.xml \
   app/src/main/res/values-de/strings.xml
-apply_pr_paths 1016 \
-  app/src/main/java/app/passwordstore/util/autofill/Api30AutofillResponseBuilder.kt
-apply_pr_paths 1022 \
-  app/src/main/AndroidManifest.xml
-apply_pr_paths 1026 \
-  autofill-parser/src/main/java/com/github/androidpasswordstore/autofillparser/FeatureAndTrustDetection.kt
-apply_pr_paths 1043 \
-  app/src/main/java/app/passwordstore/ui/pgp/PGPKeyListActivity.kt
+apply_pr_paths 1016 app/src/main/java/app/passwordstore/util/autofill/Api30AutofillResponseBuilder.kt
+apply_pr_paths 1022 app/src/main/AndroidManifest.xml
+apply_pr_paths 1026 autofill-parser/src/main/java/com/github/androidpasswordstore/autofillparser/FeatureAndTrustDetection.kt
+apply_pr_paths 1043 app/src/main/java/app/passwordstore/ui/pgp/PGPKeyListActivity.kt
 
 # Generated data is adopted as one current snapshot rather than replaying update commits.
 git checkout "upstream/$UPSTREAM_BRANCH" -- autofill-parser/src/main/assets/publicsuffixes
