@@ -148,17 +148,303 @@ apply_pr_paths 1000 app/src/main/res/values-de/strings.xml
 
 apply_pr_paths 1007 app/src/main/java/app/passwordstore/util/shortcuts/ShortcutHandler.kt
 
-# Fast-unlock state is isolated per PGP identity. This is a security invariant, not a passkey port.
+# #1011: isolate fast-unlock PINs by PGP identity. The upstream PR contains a qualifier file
+# accidentally named "as UnlockPins.kt"; adopt its content and normalize the filename here.
 apply_pr_paths 1011 \
   app/src/main/java/app/passwordstore/Application.kt \
   app/src/main/java/app/passwordstore/injection/prefs/PreferenceModule.kt \
-  app/src/main/java/app/passwordstore/injection/prefs/UnlockPins.kt \
-  app/src/main/java/app/passwordstore/ui/crypto/BasePGPActivity.kt \
-  app/src/main/java/app/passwordstore/ui/crypto/PinDialog.kt \
-  app/src/main/java/app/passwordstore/ui/settings/PasswordSettings.kt \
-  app/src/main/java/app/passwordstore/util/extensions/AndroidExtensions.kt \
-  app/src/main/java/app/passwordstore/util/settings/Migrations.kt \
-  app/src/test/java/app/passwordstore/util/settings/MigrationsTest.kt
+  "app/src/main/java/app/passwordstore/injection/prefs/as UnlockPins.kt"
+git mv \
+  "app/src/main/java/app/passwordstore/injection/prefs/as UnlockPins.kt" \
+  app/src/main/java/app/passwordstore/injection/prefs/UnlockPins.kt
+git commit -m "chore(upstream): normalize upstream #1011 qualifier filename"
+
+# BasePGPActivity has fork-owned authentication/passkey changes, so port #1011 semantically.
+python3 <<'PY'
+from pathlib import Path
+
+path = Path("app/src/main/java/app/passwordstore/ui/crypto/BasePGPActivity.kt")
+text = path.read_text()
+
+replacements = [
+    (
+        "import app.passwordstore.injection.prefs.SettingsPreferences\n",
+        "import app.passwordstore.injection.prefs.SettingsPreferences\nimport app.passwordstore.injection.prefs.UnlockPins\n",
+    ),
+    (
+        "import javax.inject.Inject\n",
+        "import javax.inject.Inject\nimport kotlin.math.max\n",
+    ),
+    (
+        "  @PGPPassphrases @Inject lateinit var persistentPassphrases: SharedPreferences\n\n",
+        "  @PGPPassphrases @Inject lateinit var persistentPassphrases: SharedPreferences\n\n  @UnlockPins @Inject lateinit var unlockPins: SharedPreferences\n\n",
+    ),
+]
+for old, new in replacements:
+    if old not in text:
+        raise SystemExit(f"Unable to locate #1011 BasePGPActivity fragment: {old!r}")
+    text = text.replace(old, new, 1)
+
+old_setup = '''                if (persistentPassphrases.getString("unlock_pin", null) == null) {
+                  val pinDialog =
+                    PinDialog.newInstance(
+                      title = resources.getString(R.string.pin_new_entry_title),
+                      description = resources.getString(R.string.pin_new_entry_description),
+                      clearOnDismiss = passphrase,
+                    )
+                  pinDialog.show(supportFragmentManager, "PIN_DIALOG")
+                  pinDialog.setFragmentResultListener(PinDialog.PIN_RESULT_KEY) { key, bundle ->
+                    if (key == PinDialog.PIN_RESULT_KEY) {
+                      val pin =
+                        requireNotNull(bundle.getCharArray(PinDialog.PIN_KEY)) {
+                          "returned PIN is null"
+                        }
+                      if (pin.size >= 4) {
+                        persistentPassphrases.edit {
+                          putString(
+                            "unlock_pin", // reset and prepend PIN attempt counter
+                            AESEncryption.encrypt(
+                                charArrayOf('0', ':') + pin,
+                                keyType = KeyType.PERSISTENT,
+                              )
+                              ?.concatToString(),
+                          )
+                          putString(
+                            id,
+                            AESEncryption.encrypt(passphrase, keyType = KeyType.PERSISTENT)
+                              ?.concatToString(),
+                          )
+                          putLong(
+                            PreferenceKeys.BIOMETRICS_AND_PIN_LAST_USE,
+                            Instant.now().toEpochMilli(),
+                          )
+                        }
+                      }
+                      pin.wipe()
+                    }
+                  }
+'''
+new_setup = '''                if (unlockPins.getString(id, null) == null) {
+                  val pinDialog =
+                    PinDialog.newInstance(
+                      title = resources.getString(R.string.pin_new_entry_title),
+                      description = resources.getString(R.string.pin_new_entry_description),
+                      clearOnDismiss = passphrase,
+                    )
+                  pinDialog.show(supportFragmentManager, "PIN_DIALOG")
+                  pinDialog.setFragmentResultListener(PinDialog.PIN_RESULT_KEY) { key, bundle ->
+                    if (key == PinDialog.PIN_RESULT_KEY) {
+                      val pin = bundle.getCharArray(PinDialog.PIN_KEY)
+                      if (pin != null && pin.size >= 4) {
+                        unlockPins.edit {
+                          putString(
+                            id, // reset and prepend PIN attempt counter
+                            AESEncryption.encrypt(
+                                charArrayOf('0', ':') + pin,
+                                keyType = KeyType.PERSISTENT,
+                              )
+                              ?.concatToString(),
+                          )
+                        }
+                        persistentPassphrases.edit {
+                          putString(
+                            id,
+                            AESEncryption.encrypt(passphrase, keyType = KeyType.PERSISTENT)
+                              ?.concatToString(),
+                          )
+                          putLong(
+                            PreferenceKeys.BIOMETRICS_AND_PIN_LAST_USE,
+                            Instant.now().toEpochMilli(),
+                          )
+                        }
+                      }
+                      pin?.wipe()
+                    }
+                  }
+'''
+if old_setup not in text:
+    raise SystemExit("Unable to locate global PIN setup block for #1011")
+text = text.replace(old_setup, new_setup, 1)
+
+old_timeout = '''    )
+      persistentPassphrases.edit { clear() }
+
+    val persistentIds =
+      identifiers.map { it.toString() }.filter { persistentPassphrases.contains(it) }
+    val pinEncrypted = persistentPassphrases.getString("unlock_pin", null)?.toCharArray()
+'''
+new_timeout = '''    ) {
+      persistentPassphrases.edit { clear() }
+      unlockPins.edit { clear() }
+    }
+
+    val persistentIds =
+      identifiers.map { it.toString() }.filter { persistentPassphrases.contains(it) }
+    val encryptedPins =
+      unlockPins
+        .getAll()
+        .filterKeys { persistentIds.contains(it) }
+        .mapValues { (it.value as String).toCharArray() }
+'''
+if old_timeout not in text:
+    raise SystemExit("Unable to locate timeout/global PIN cache block for #1011")
+text = text.replace(old_timeout, new_timeout, 1)
+
+old_pin_branch = '''    } else if (
+      !persistentIds.none() &&
+        identifiers.map { it.toString() }.filter { cachedPassphrases.containsKey(it) }.none() &&
+        AESEncryption.isHardwareBacked(KeyType.PERSISTENT) &&
+        settings.getString(PreferenceKeys.PREF_FAST_UNLOCK_OPTION, "disabled") == "PIN" &&
+        pinEncrypted != null
+    ) {
+      verifyPin(pinEncrypted, persistentIds, identifiers, action)
+'''
+new_pin_branch = '''    } else if (
+      !encryptedPins.none() &&
+        identifiers.map { it.toString() }.filter { cachedPassphrases.containsKey(it) }.none() &&
+        AESEncryption.isHardwareBacked(KeyType.PERSISTENT) &&
+        settings.getString(PreferenceKeys.PREF_FAST_UNLOCK_OPTION, "disabled") == "PIN"
+    ) {
+      verifyPin(encryptedPins, identifiers, action)
+'''
+if old_pin_branch not in text:
+    raise SystemExit("Unable to locate global PIN branch for #1011")
+text = text.replace(old_pin_branch, new_pin_branch, 1)
+
+start_marker = "  /* Asks for and verifies the user PIN for unlocking a store entry. */\n  private fun verifyPin("
+end_marker = "\n  protected fun decrypt(identifiers: List<PGPIdentifier>, isError: Boolean = false) {"
+start = text.find(start_marker)
+end = text.find(end_marker, start)
+if start < 0 or end < 0:
+    raise SystemExit("Unable to locate verifyPin function boundaries for #1011")
+
+new_verify = '''  /* Asks for and verifies the user PIN for unlocking a store entry. */
+  private fun verifyPin(
+    encryptedPins: Map<String, CharArray>,
+    identifiers: List<PGPIdentifier>,
+    action: String?,
+    isError: Boolean = false,
+  ) {
+    val pinDialog =
+      PinDialog.newInstance(
+        title = resources.getString(R.string.pin_entry_title),
+        description =
+          when (action) {
+            "autofill" -> resources.getString(R.string.pin_entry_autofill_description)
+            "passkey" -> resources.getString(R.string.pin_entry_passkey_description)
+            else -> resources.getString(R.string.pin_entry_description)
+          },
+      )
+    if (isError) pinDialog.setError()
+    pinDialog.show(supportFragmentManager, "PIN_DIALOG")
+    pinDialog.setFragmentResultListener(PinDialog.PIN_RESULT_KEY) { key, bundle ->
+      if (key == PinDialog.PIN_RESULT_KEY) {
+        if (bundle.getBoolean(PinDialog.PIN_CANCEL)) {
+          decrypt(identifiers)
+        } else {
+          val pin = requireNotNull(bundle.getCharArray(PinDialog.PIN_KEY)) { "returned PIN is null" }
+          var pinRetries = 0
+          var pinOk = false
+
+          for ((id, encryptedPin) in encryptedPins) {
+            val cachedPin =
+              AESEncryption.decrypt(encryptedPin, keyType = KeyType.PERSISTENT)?.let { cached ->
+                cached.copyOfRange(cached.indexOf(':') + 1, cached.size).also {
+                  pinRetries =
+                    max(
+                      pinRetries,
+                      cached
+                        .copyOfRange(0, cached.indexOf(':'))
+                        .concatToString()
+                        .toIntOrNull() ?: MAX_RETRIES,
+                    )
+                  cached.wipe()
+                }
+              }
+            pinOk = cachedPin?.let { it.contentEquals(pin) } ?: false
+            cachedPin?.wipe()
+            if (pinOk) {
+              updatePinAttemptCounter(encryptedPins, 0)
+              persistentPassphrases
+                .getString(id, null)
+                ?.toCharArray()
+                ?.let { passEncrypted ->
+                  AESEncryption.decrypt(passEncrypted, keyType = KeyType.PERSISTENT)
+                }
+                ?.let { pass ->
+                  AESEncryption.encrypt(pass)?.let { cachedPassphrases.put(id, it) }
+                  pass.wipe()
+                }
+              break
+            }
+          }
+
+          pin.wipe()
+
+          if (pinOk) {
+            decrypt(identifiers)
+          } else if (++pinRetries < MAX_RETRIES) {
+            val encryptedPinsUpdated = updatePinAttemptCounter(encryptedPins, pinRetries)
+            verifyPin(encryptedPinsUpdated, identifiers, action, isError = true)
+          } else {
+            // Reset only the relevant identities after the retry budget is exhausted.
+            encryptedPins.keys.forEach { id ->
+              cachedPassphrases.remove(id)
+              persistentPassphrases.edit { remove(id) }
+              unlockPins.edit { remove(id) }
+            }
+            decrypt(identifiers)
+          }
+        }
+      }
+    }
+  }
+
+  /** Updates and persists the shared retry counter for the relevant per-PGP-ID PINs. */
+  private fun updatePinAttemptCounter(
+    encryptedPins: Map<String, CharArray>,
+    attempts: Int,
+  ): Map<String, CharArray> {
+    val updatedEncryptedPins = mutableMapOf<String, CharArray>()
+    unlockPins.edit {
+      encryptedPins.forEach { (id, encryptedPin) ->
+        AESEncryption.decrypt(encryptedPin, keyType = KeyType.PERSISTENT)
+          ?.let { cached ->
+            cached.copyOfRange(cached.indexOf(':') + 1, cached.size).also { cached.wipe() }
+          }
+          ?.let { pin ->
+            AESEncryption.encrypt(
+                (attempts.toString() + ":").toCharArray() + pin,
+                keyType = KeyType.PERSISTENT,
+              )
+              ?.let { updated ->
+                putString(id, updated.concatToString())
+                updatedEncryptedPins[id] = updated
+              }
+            pin.wipe()
+          }
+          ?: remove(id)
+      }
+    }
+    if (attempts == 0) {
+      persistentPassphrases.edit {
+        putLong(PreferenceKeys.BIOMETRICS_AND_PIN_LAST_USE, Instant.now().toEpochMilli())
+      }
+    }
+    return updatedEncryptedPins
+  }
+'''
+text = text[:start] + new_verify + text[end:]
+path.write_text(text)
+PY
+git add app/src/main/java/app/passwordstore/ui/crypto/BasePGPActivity.kt
+git commit -m "fix(crypto): isolate fast-unlock PINs per PGP identity" -m "Semantic port of upstream #1011. Preserve fork-owned auth/passkey behavior while ensuring a PIN can unlock only the PGP identity it belongs to."
+
+apply_pr_paths 1011 app/src/main/java/app/passwordstore/ui/crypto/PinDialog.kt
+apply_pr_paths 1011 app/src/main/java/app/passwordstore/ui/settings/PasswordSettings.kt
+apply_pr_paths 1011 app/src/main/java/app/passwordstore/util/extensions/AndroidExtensions.kt
+apply_pr_paths 1011 app/src/main/java/app/passwordstore/util/settings/Migrations.kt
+apply_pr_paths 1011 app/src/test/java/app/passwordstore/util/settings/MigrationsTest.kt
 
 apply_pr_paths 1014 \
   app/src/main/java/app/passwordstore/ui/crypto/DecryptActivity.kt \
