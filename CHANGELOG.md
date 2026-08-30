@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file
 
 ## [Unreleased]
 
+## [1.21.0] - 2026-08-30
+
+### Added
+
+- Configurable save directory for Autofill-saved entries under Settings > Autofill
+
+### Fixed
+
+- Autofill save directory is now validated instead of silently rewritten, preventing unexpected save locations
+- Fast-unlock PINs are isolated per PGP identity so a PIN can unlock only the key it belongs to
+- Android SDK 37 compatibility by replacing removed `MODE_PRIVATE` constant
+
+### Changed
+
+- Refreshed Public Suffix List for improved Autofill browser detection
+- Selective upstream reconciliation with agrahn/Android-Password-Store
+- Updated dependencies: Gradle 9.7.1, AGP 9.3.2, BouncyCastle 1.85.2, OkHttp 5.5.0, CodeQL 4.37.9
+
 ## [1.20.0] - 2026-08-02
 
 ### Fixed
@@ -849,7 +867,9 @@ All notable changes to this project will be documented in this file
 
 - Fix elements overlapping.
 
-[unreleased]: https://github.com/pando85/Android-Password-Store/compare/v1.19.3...HEAD
+[unreleased]: https://github.com/pando85/Android-Password-Store/compare/v1.21.0...HEAD
+[1.21.0]: https://github.com/pando85/Android-Password-Store/compare/v1.20.0...v1.21.0
+[1.20.0]: https://github.com/pando85/Android-Password-Store/compare/v1.19.3...v1.20.0
 [1.19.3]: https://github.com/pando85/Android-Password-Store/compare/v1.19.2...v1.19.3
 [1.19.2]: https://github.com/pando85/Android-Password-Store/compare/v1.19.1...v1.19.2
 [1.19.1]: https://github.com/pando85/Android-Password-Store/compare/v1.19.0...v1.19.1
