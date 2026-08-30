@@ -371,8 +371,7 @@ class PasswordFragment : Fragment(R.layout.password_recycler_view) {
               settings.getString(PreferenceKeys.SORT_ORDER) == PasswordSortOrder.RECENTLY_USED.name
             ) {
               // save the time when password was used
-              val preferences =
-                context.getSharedPreferences("recent_password_history", Context.MODE_PRIVATE)
+              val preferences = context.getSharedPreferences("recent_password_history", 0)
               preferences.edit {
                 putString(item.file.absolutePath.base64(), System.currentTimeMillis().toString())
               }

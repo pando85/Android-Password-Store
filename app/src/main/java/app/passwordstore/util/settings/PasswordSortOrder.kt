@@ -5,7 +5,6 @@
 
 package app.passwordstore.util.settings
 
-import android.content.Context
 import android.content.SharedPreferences
 import app.passwordstore.Application
 import app.passwordstore.data.password.PasswordItem
@@ -25,8 +24,7 @@ enum class PasswordSortOrder(val comparator: java.util.Comparator<PasswordItem>)
   ),
   RECENTLY_USED(
     Comparator { p1: PasswordItem, p2: PasswordItem ->
-      val recentHistory =
-        Application.instance.getSharedPreferences("recent_password_history", Context.MODE_PRIVATE)
+      val recentHistory = Application.instance.getSharedPreferences("recent_password_history", 0)
       val timeP1 = recentHistory.getString(p1.file.absolutePath.base64())
       val timeP2 = recentHistory.getString(p2.file.absolutePath.base64())
       when {

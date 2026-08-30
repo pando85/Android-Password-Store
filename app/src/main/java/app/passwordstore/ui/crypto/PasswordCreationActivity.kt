@@ -5,7 +5,6 @@
 
 package app.passwordstore.ui.crypto
 
-import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
@@ -496,15 +495,17 @@ class PasswordCreationActivity : BasePGPActivity() {
             passwordFile.writeBytes(result.getOrThrow().toByteArray())
           }
 
-          // associate the new password name with the last name's timestamp in history
-          val preference = getSharedPreferences("recent_password_history", Context.MODE_PRIVATE)
-          val oldFilePathHash = "${fullPath.trimEnd('/')}/$suggestedName.gpg".base64()
-          val timestamp = preference.getString(oldFilePathHash)
-          if (timestamp != null) {
-            preference.edit {
+          // create/update timestamp on the current password file
+          val preference = getSharedPreferences("recent_password_history", 0)
+          preference.edit {
+            suggestedName?.let { oldFile ->
+              val oldFilePathHash = "${fullPath.trimEnd('/')}/$oldFile.gpg".base64()
               remove(oldFilePathHash)
-              putString(passwordFile.absolutePathString().base64(), timestamp)
             }
+            putString(
+              passwordFile.absolutePathString().base64(),
+              System.currentTimeMillis().toString(),
+            )
           }
 
           val returnIntent = Intent()

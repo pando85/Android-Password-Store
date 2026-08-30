@@ -218,6 +218,8 @@
   <string name="git_log">Commit-Log anzeigen</string>
   <string name="show_password_pref_title">Zeige das Passwort</string>
   <string name="show_password_pref_summary">Soll das entschlüsselte Passwort sichtbar sein? Dies deaktiviert nicht das Kopieren.</string>
+  <string name="show_extra_content_pref_title">Zusatzangaben anzeigen</string>
+  <string name="show_extra_content_pref_summary">Soll der Inhalt des Felds mit den Zusatzangaben nach dem Entschlüsseln angezeigt werden?</string>
   <string name="fast_unlock_pref_title">Schnelles Entsperren von Einträgen</string>
   <string name="pwd_generate_button">Erstellen</string>
   <string name="refresh_list">Liste aktualisieren</string>
@@ -489,8 +491,10 @@
   <!-- PIN input -->
 
   <string name="pin_new_entry_title">PIN festlegen</string>
-  <string name="pin_new_entry_description">Ihr PIN-Code zum schnellen Entsperren muss mindestens vier Ziffern lang sein.</string>
+  <string name="pin_new_entry_description">Ihre PIN zum schnellen Entsperren muss mindestens vier Ziffern lang sein.</string>
   <string name="pin_entry_title">PIN-Verifizierung</string>
-  <string name="pin_entry_description">Geben Sie Ihren PIN-Code ein, um den Eintrag anzuzeigen.</string>
+  <string name="pin_entry_description">Geben Sie Ihre PIN ein, um den Eintrag anzuzeigen.</string>
+  <string name="pin_entry_passkey_description">Geben Sie Ihre PIN ein, um den Passkey freizuschalten.</string>
+  <string name="pin_entry_autofill_description">Geben Sie Ihre PIN ein, um die Zugangsdaten freizuschalten.</string>
   <string name="pin_entry_wrong_input">Falsche Eingabe</string>
 </resources>

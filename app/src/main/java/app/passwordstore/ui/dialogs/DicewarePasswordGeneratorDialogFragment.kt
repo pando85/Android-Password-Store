@@ -7,7 +7,6 @@ package app.passwordstore.ui.dialogs
 
 import android.app.AlertDialog
 import android.app.Dialog
-import android.content.Context
 import android.content.SharedPreferences
 import android.graphics.Typeface
 import android.os.Bundle
@@ -42,7 +41,7 @@ class DicewarePasswordGeneratorDialogFragment : DialogFragment() {
   lateinit var prefs: SharedPreferences
 
   override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
-    prefs = requireContext().getSharedPreferences("PasswordGenerator", Context.MODE_PRIVATE)
+    prefs = requireContext().getSharedPreferences("PasswordGenerator", 0)
     val builder = MaterialAlertDialogBuilder(requireContext())
 
     val binding = FragmentPwgenDicewareBinding.inflate(layoutInflater)

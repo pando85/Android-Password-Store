@@ -1,0 +1,48 @@
+name: Audit upstream changes
+
+on:
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Generate upstream reconciliation report
+        id: audit
+        shell: bash
+        run: scripts/upstream-audit.sh "$RUNNER_TEMP/upstream-audit.md"
+
+      - name: Create or update reconciliation issue
+        if: steps.audit.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPORT: ${{ runner.temp }}/upstream-audit.md
+        shell: bash
+        run: |
+          set -euo pipefail
+          issue_number="$(
+            gh issue list \
+              --state open \
+              --search '"Upstream reconciliation pending" in:title' \
+              --json number,title \
+              --jq '.[] | select(.title == "Upstream reconciliation pending") | .number' \
+              | head -n 1
+          )"
+
+          if [[ -n "$issue_number" ]]; then
+            gh issue edit "$issue_number" --body-file "$REPORT"
+          else
+            gh issue create \
+              --title "Upstream reconciliation pending" \
+              --body-file "$REPORT"
+          fi

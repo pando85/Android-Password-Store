@@ -225,6 +225,8 @@
   <string name="git_log">Show commit log</string>
   <string name="show_password_pref_title">Show the password</string>
   <string name="show_password_pref_summary">Control the visibility of the passwords once decrypted. This does not disable copying to clipboard.</string>
+  <string name="show_extra_content_pref_title">Show extra content</string>
+  <string name="show_extra_content_pref_summary">Control the visibility of the extra content once decrypted.</string>
   <string name="fast_unlock_pref_title">Fast unlocking of entries</string>
   <string name="pwd_generate_button">Generate</string>
   <string name="refresh_list">Refresh list</string>
@@ -501,8 +503,10 @@
   <!-- PIN input -->
   <string name="pin_entry_hint" translatable="false">PIN</string>
   <string name="pin_new_entry_title">Set PIN</string>
-  <string name="pin_new_entry_description">Your PIN code for fast unlocking must be at least 4 digits long</string>
+  <string name="pin_new_entry_description">Your PIN for fast unlocking must be at least 4 digits long.</string>
   <string name="pin_entry_title">PIN verification</string>
-  <string name="pin_entry_description">Enter your PIN code to show this entry</string>
+  <string name="pin_entry_description">Enter your PIN to show this entry.</string>
+  <string name="pin_entry_passkey_description">Enter your PIN to unlock the passkey.</string>
+  <string name="pin_entry_autofill_description">Enter your PIN to unlock the credentials.</string>
   <string name="pin_entry_wrong_input">Wrong input</string>
 </resources>

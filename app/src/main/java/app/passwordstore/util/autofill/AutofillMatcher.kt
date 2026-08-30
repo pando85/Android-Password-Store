@@ -21,11 +21,11 @@ import logcat.logcat
 
 private const val PREFERENCES_AUTOFILL_APP_MATCHES = "oreo_autofill_app_matches"
 private val Context.autofillAppMatches
-  get() = getSharedPreferences(PREFERENCES_AUTOFILL_APP_MATCHES, Context.MODE_PRIVATE)
+  get() = getSharedPreferences(PREFERENCES_AUTOFILL_APP_MATCHES, 0)
 
 private const val PREFERENCES_AUTOFILL_WEB_MATCHES = "oreo_autofill_web_matches"
 private val Context.autofillWebMatches
-  get() = getSharedPreferences(PREFERENCES_AUTOFILL_WEB_MATCHES, Context.MODE_PRIVATE)
+  get() = getSharedPreferences(PREFERENCES_AUTOFILL_WEB_MATCHES, 0)
 
 private fun Context.matchPreferences(formOrigin: FormOrigin): SharedPreferences {
   return when (formOrigin) {
