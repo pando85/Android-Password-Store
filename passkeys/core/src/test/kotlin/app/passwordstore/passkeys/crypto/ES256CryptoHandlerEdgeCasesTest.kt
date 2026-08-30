@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
+@file:OptIn(kotlin.time.ExperimentalTime::class)
+
 package app.passwordstore.passkeys.crypto
 
 import app.passwordstore.passkeys.model.FidoUser
@@ -128,11 +130,12 @@ class ES256CryptoHandlerEdgeCasesTest {
 
   @Test
   fun `getAssertion rejects blank rpId`() {
-    val credential = createValidCredential()
+    val (credential, privateKey) = createValidCredential()
 
     val result =
       cryptoHandler.getAssertion(
         credential = credential,
+        privateKey = privateKey,
         rpId = "",
         challenge = ByteArray(32) { it.toByte() },
         origin = "https://example.com",
@@ -142,11 +145,12 @@ class ES256CryptoHandlerEdgeCasesTest {
 
   @Test
   fun `getAssertion rejects empty challenge`() {
-    val credential = createValidCredential()
+    val (credential, privateKey) = createValidCredential()
 
     val result =
       cryptoHandler.getAssertion(
         credential = credential,
+        privateKey = privateKey,
         rpId = credential.rpId,
         challenge = ByteArray(0),
         origin = "https://example.com",
@@ -156,11 +160,12 @@ class ES256CryptoHandlerEdgeCasesTest {
 
   @Test
   fun `getAssertion rejects blank origin`() {
-    val credential = createValidCredential()
+    val (credential, privateKey) = createValidCredential()
 
     val result =
       cryptoHandler.getAssertion(
         credential = credential,
+        privateKey = privateKey,
         rpId = credential.rpId,
         challenge = ByteArray(32) { it.toByte() },
         origin = "",
@@ -206,11 +211,13 @@ class ES256CryptoHandlerEdgeCasesTest {
 
   @Test
   fun `handles maximum sign count value`() {
-    val credential = createValidCredential().copy(signCount = ULong.MAX_VALUE - 1u)
+    val (baseCredential, privateKey) = createValidCredential()
+    val credential = baseCredential.copy(signCount = ULong.MAX_VALUE - 1u)
 
     val result =
       cryptoHandler.getAssertion(
         credential = credential,
+        privateKey = privateKey,
         rpId = credential.rpId,
         challenge = ByteArray(32) { it.toByte() },
         origin = "https://example.com",
@@ -221,11 +228,12 @@ class ES256CryptoHandlerEdgeCasesTest {
 
   @Test
   fun `handles large challenge`() {
-    val credential = createValidCredential()
+    val (credential, privateKey) = createValidCredential()
 
     val result =
       cryptoHandler.getAssertion(
         credential = credential,
+        privateKey = privateKey,
         rpId = credential.rpId,
         challenge = ByteArray(1000) { it.toByte() },
         origin = "https://example.com",
@@ -246,9 +254,9 @@ class ES256CryptoHandlerEdgeCasesTest {
       )
 
     assertTrue(result.isOk, "Should handle unicode in names")
-    val credential = result.getOrElse { throw AssertionError("Failed") }
-    assertTrue(credential.user.name.contains("用户名"))
-    assertTrue(credential.user.displayName.contains("🎉"))
+    val created = result.getOrElse { throw AssertionError("Failed") }
+    assertTrue(created.credential.user.name.contains("用户名"))
+    assertTrue(created.credential.user.displayName.contains("🎉"))
   }
 
   @Test
@@ -267,23 +275,24 @@ class ES256CryptoHandlerEdgeCasesTest {
     assertTrue(result.isOk, "Should handle long RP ID")
   }
 
-  private fun createValidCredential(): PasskeyCredential {
+  private fun createValidCredential(): Pair<PasskeyCredential, ByteArray> {
     val (privateKey, publicKey) = cryptoHandler.generateKeyPair()
-    return PasskeyCredential(
-      credentialId = ByteArray(32) { it.toByte() },
-      privateKey = privateKey,
-      publicKey = publicKey,
-      rpId = "example.com",
-      user =
-        app.passwordstore.passkeys.model.FidoUser(
-          id = "user-id".toByteArray(),
-          name = "testuser",
-          displayName = "Test User",
-        ),
-      signCount = 0u,
-      createdAt = kotlinx.datetime.Clock.System.now(),
-      transports = listOf("internal"),
-      uvInitialized = true,
-    )
+    val credential =
+      PasskeyCredential(
+        credentialId = ByteArray(32) { it.toByte() },
+        publicKey = publicKey,
+        rpId = "example.com",
+        user =
+          FidoUser(
+            id = "user-id".toByteArray(),
+            name = "testuser",
+            displayName = "Test User",
+          ),
+        signCount = 0u,
+        createdAt = kotlin.time.Clock.System.now(),
+        transports = listOf("internal"),
+        uvInitialized = true,
+      )
+    return Pair(credential, privateKey)
   }
 }

@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
+@file:OptIn(kotlin.time.ExperimentalTime::class)
+
 package app.passwordstore.passkeys.storage
 
 import app.passwordstore.passkeys.model.FidoUser
@@ -13,9 +15,10 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import kotlin.time.Clock
 import kotlinx.coroutines.runBlocking
-import kotlinx.datetime.Clock
 
 class IndexedPasskeyStorageTest {
 
@@ -41,10 +44,10 @@ class IndexedPasskeyStorageTest {
   }
 
   @Test
-  fun `saveCredential indexes credential`() = runBlocking {
-    val credential = createTestCredential()
+  fun `saveCredential indexes metadata`() = runBlocking {
+    val (credential, privateKey) = createTestCredential()
 
-    indexedStorage.saveCredential(credential)
+    indexedStorage.saveCredential(credential, privateKey)
 
     assertEquals(1, indexedStorage.indexedCredentialCount())
     assertTrue(indexedStorage.hasRpId(credential.rpId))
@@ -52,39 +55,47 @@ class IndexedPasskeyStorageTest {
   }
 
   @Test
-  fun `getCredential returns from index after save`() = runBlocking {
-    val credential = createTestCredential()
-    indexedStorage.saveCredential(credential)
+  fun `loadForSigning returns credential after save`() = runBlocking {
+    val (credential, privateKey) = createTestCredential()
+    indexedStorage.saveCredential(credential, privateKey)
 
-    val result = indexedStorage.getCredential(credential.credentialId)
+    val result = indexedStorage.loadForSigning(credential.credentialId)
 
     assertTrue(result.isOk)
-    val retrieved = result.getOrElse { null }
-    assertEquals(credential.credentialIdBase64(), retrieved?.credentialIdBase64())
+    val sensitive = result.getOrElse { null }
+    assertNotNull(sensitive)
+    sensitive.use {
+      assertEquals(
+        credential.credentialIdBase64(),
+        sensitive.credentialId.let {
+          java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(it)
+        },
+      )
+    }
   }
 
   @Test
-  fun `listCredentials filters by rpId from index`() = runBlocking {
+  fun `listMetadata filters by rpId from index`() = runBlocking {
     val cred1 = createTestCredential(rpId = "example.com", credentialId = "cred1".toByteArray())
     val cred2 = createTestCredential(rpId = "example.com", credentialId = "cred2".toByteArray())
     val cred3 = createTestCredential(rpId = "other.com", credentialId = "cred3".toByteArray())
 
-    indexedStorage.saveCredential(cred1)
-    indexedStorage.saveCredential(cred2)
-    indexedStorage.saveCredential(cred3)
+    indexedStorage.saveCredential(cred1.first, cred1.second)
+    indexedStorage.saveCredential(cred2.first, cred2.second)
+    indexedStorage.saveCredential(cred3.first, cred3.second)
 
-    val result = indexedStorage.listCredentials("example.com")
+    val result = indexedStorage.listMetadata("example.com")
 
     assertTrue(result.isOk)
-    val credentials = result.getOrElse { emptyList() }
-    assertEquals(2, credentials.size)
-    assertTrue(credentials.all { it.rpId == "example.com" })
+    val metadata = result.getOrElse { emptyList() }
+    assertEquals(2, metadata.size)
+    assertTrue(metadata.all { it.rpId == "example.com" })
   }
 
   @Test
   fun `deleteCredential removes from index`() = runBlocking {
-    val credential = createTestCredential()
-    indexedStorage.saveCredential(credential)
+    val (credential, privateKey) = createTestCredential()
+    indexedStorage.saveCredential(credential, privateKey)
 
     indexedStorage.deleteCredential(credential.credentialId)
 
@@ -94,21 +105,23 @@ class IndexedPasskeyStorageTest {
 
   @Test
   fun `updateSignCount updates index`() = runBlocking {
-    val credential = createTestCredential()
-    indexedStorage.saveCredential(credential)
+    val (credential, privateKey) = createTestCredential()
+    indexedStorage.saveCredential(credential, privateKey)
 
     indexedStorage.updateSignCount(credential.credentialId, 42u)
 
-    val result = indexedStorage.getCredential(credential.credentialId)
+    val result = indexedStorage.listMetadata()
     assertTrue(result.isOk)
-    val updated = result.getOrElse { null }
-    assertEquals(42u, updated?.signCount)
+    val metadata = result.getOrElse { emptyList() }
+    assertEquals(42u, metadata.first().signCount)
   }
 
   @Test
   fun `indexedRpIds returns all rp ids`() = runBlocking {
-    indexedStorage.saveCredential(createTestCredential(rpId = "example.com"))
-    indexedStorage.saveCredential(createTestCredential(rpId = "other.com"))
+    val cred1 = createTestCredential(rpId = "example.com")
+    val cred2 = createTestCredential(rpId = "other.com")
+    indexedStorage.saveCredential(cred1.first, cred1.second)
+    indexedStorage.saveCredential(cred2.first, cred2.second)
 
     val rpIds = indexedStorage.indexedRpIds()
 
@@ -117,7 +130,8 @@ class IndexedPasskeyStorageTest {
 
   @Test
   fun `clearIndex resets everything`() = runBlocking {
-    indexedStorage.saveCredential(createTestCredential())
+    val (credential, privateKey) = createTestCredential()
+    indexedStorage.saveCredential(credential, privateKey)
 
     indexedStorage.clearIndex()
 
@@ -129,17 +143,19 @@ class IndexedPasskeyStorageTest {
     rpId: String = "example.com",
     userName: String = "testuser",
     credentialId: ByteArray = "test-cred-id".toByteArray(),
-  ): PasskeyCredential {
-    return PasskeyCredential(
-      credentialId = credentialId,
-      privateKey = ByteArray(32) { it.toByte() },
-      publicKey = ByteArray(65) { if (it == 0) 0x04.toByte() else it.toByte() },
-      rpId = rpId,
-      user = FidoUser(id = "user-id".toByteArray(), name = userName, displayName = "Test User"),
-      signCount = 0u,
-      createdAt = Clock.System.now(),
-      transports = listOf("internal"),
-      uvInitialized = true,
-    )
+  ): Pair<PasskeyCredential, ByteArray> {
+    val privateKey = ByteArray(32) { it.toByte() }
+    val credential =
+      PasskeyCredential(
+        credentialId = credentialId,
+        publicKey = ByteArray(65) { if (it == 0) 0x04.toByte() else it.toByte() },
+        rpId = rpId,
+        user = FidoUser(id = "user-id".toByteArray(), name = userName, displayName = "Test User"),
+        signCount = 0u,
+        createdAt = Clock.System.now(),
+        transports = listOf("internal"),
+        uvInitialized = true,
+      )
+    return Pair(credential, privateKey)
   }
 }

@@ -16,5 +16,5 @@ class GcOperation(callingActivity: AppCompatActivity) : GitOperation(callingActi
 
   override val requiresAuth: Boolean = false
   override val commands: Array<GitCommand<out Any>> =
-    arrayOf(git.gc().setAggressive(true).setExpire(null))
+    arrayOf(git.gc().setAggressive(true).setExpire(null as java.time.Instant?))
 }

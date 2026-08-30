@@ -60,6 +60,7 @@ class StoredCredentialTest {
 
   @Test
   fun `roundtrip credential`() {
+    val privateKey = ByteArray(32) { (it + 0x10).toByte() }
     val original =
       StoredCredential(
         id = byteArrayOf(0x01, 0x02, 0x03, 0x04),
@@ -68,7 +69,7 @@ class StoredCredentialTest {
           User(id = byteArrayOf(0x05, 0x06, 0x07), name = "testuser", displayName = "Test User"),
         signCount = 42u,
         alg = StoredCredential.ALG_ES256,
-        privateKey = byteArrayOf(0x10, 0x20, 0x30, 0x40),
+        privateKey = privateKey,
         created = 1234567890L,
         discoverable = true,
         extensions = Extensions(credProtect = 2, hmacSecret = true),
@@ -106,6 +107,7 @@ class StoredCredentialTest {
 
   @Test
   fun `minimal credential`() {
+    val privateKey = ByteArray(32) { 0x00 }
     val original =
       StoredCredential(
         id = byteArrayOf(0x01, 0x02),
@@ -113,7 +115,7 @@ class StoredCredentialTest {
         user = User(id = byteArrayOf(0x03)),
         signCount = 0u,
         alg = StoredCredential.ALG_ES256,
-        privateKey = byteArrayOf(0x00),
+        privateKey = privateKey,
         created = 0L,
       )
 
@@ -121,5 +123,140 @@ class StoredCredentialTest {
     val decoded = StoredCredential.fromCbor(encoded)
 
     assertEquals(original, decoded)
+  }
+
+  @Test
+  fun `private key shorter than 32 bytes is normalized`() {
+    val shortKey = byteArrayOf(0x01, 0x02, 0x03, 0x04)
+    val original =
+      StoredCredential(
+        id = byteArrayOf(0x01),
+        rp = RelyingParty(id = "test.com"),
+        user = User(id = byteArrayOf(0x02)),
+        signCount = 0u,
+        alg = StoredCredential.ALG_ES256,
+        privateKey = shortKey,
+        created = 0L,
+      )
+
+    val encoded = original.toCbor()
+    val decoded = StoredCredential.fromCbor(encoded)
+
+    assertEquals(32, decoded.privateKey.size)
+    val expectedKey = ByteArray(28) + shortKey
+    assertArrayEquals(expectedKey, decoded.privateKey)
+  }
+
+  @Test
+  fun `mismatched public key is nulled out`() {
+    val privateKey = ByteArray(32) { (it + 1).toByte() }
+    val wrongPublicKey = ByteArray(65) { 0x04 }
+    val original =
+      StoredCredential(
+        id = byteArrayOf(0x01),
+        rp = RelyingParty(id = "test.com"),
+        user = User(id = byteArrayOf(0x02)),
+        signCount = 0u,
+        alg = StoredCredential.ALG_ES256,
+        privateKey = privateKey,
+        publicKey = wrongPublicKey,
+        created = 0L,
+      )
+
+    val encoded = original.toCbor()
+    val decoded = StoredCredential.fromCbor(encoded)
+
+    assertNull(decoded.publicKey)
+  }
+
+  @Test
+  fun `matching public key is preserved`() {
+    val privateKey = ByteArray(32) { (it + 1).toByte() }
+    val correctPublicKey = StoredCredential.deriveP256PublicKey(privateKey)
+    val original =
+      StoredCredential(
+        id = byteArrayOf(0x01),
+        rp = RelyingParty(id = "test.com"),
+        user = User(id = byteArrayOf(0x02)),
+        signCount = 0u,
+        alg = StoredCredential.ALG_ES256,
+        privateKey = privateKey,
+        publicKey = correctPublicKey,
+        created = 0L,
+      )
+
+    val encoded = original.toCbor()
+    val decoded = StoredCredential.fromCbor(encoded)
+
+    assertArrayEquals(correctPublicKey, decoded.publicKey)
+  }
+
+  @Test
+  fun `metadataFromCbor extracts user info without private key`() {
+    val privateKey = ByteArray(32) { (it + 0x10).toByte() }
+    val original =
+      StoredCredential(
+        id = byteArrayOf(0x01, 0x02, 0x03, 0x04),
+        rp = RelyingParty(id = "example.com", name = "Example Site"),
+        user =
+          User(id = byteArrayOf(0x05, 0x06, 0x07), name = "testuser", displayName = "Test User"),
+        signCount = 42u,
+        alg = StoredCredential.ALG_ES256,
+        privateKey = privateKey,
+        created = 1234567890L,
+        discoverable = true,
+        extensions = Extensions(credProtect = 2, hmacSecret = true),
+        backupEligible = true,
+        backupState = false,
+      )
+
+    val encoded = original.toCbor()
+    val metadata = StoredCredential.metadataFromCbor(encoded)
+
+    assertArrayEquals(byteArrayOf(0x01, 0x02, 0x03, 0x04), metadata.credentialId)
+    assertEquals("example.com", metadata.rpId)
+    assertEquals("testuser", metadata.userName)
+    assertEquals("Test User", metadata.userDisplayName)
+    assertEquals(42uL, metadata.signCount)
+    assertEquals(true, metadata.backupEligible)
+    assertEquals(false, metadata.backupState)
+  }
+
+  @Test
+  fun `metadataFromCbor handles null user fields`() {
+    val privateKey = ByteArray(32) { (it + 0x10).toByte() }
+    val original =
+      StoredCredential(
+        id = byteArrayOf(0x0A, 0x0B),
+        rp = RelyingParty(id = "rp.test", name = null),
+        user = User(id = byteArrayOf(0x01), name = null, displayName = null),
+        signCount = 0u,
+        alg = StoredCredential.ALG_ES256,
+        privateKey = privateKey,
+        created = 0L,
+      )
+
+    val encoded = original.toCbor()
+    val metadata = StoredCredential.metadataFromCbor(encoded)
+
+    assertEquals("rp.test", metadata.rpId)
+    assertEquals("", metadata.userName)
+    assertEquals("", metadata.userDisplayName)
+  }
+
+  @Test
+  fun `metadataFromCbor works with passless fixture`() {
+    val bytes =
+      javaClass
+        .getResourceAsStream(
+          "/fixtures/07b36924d8924098bb427039d7d0f43b86b4cb52a9dec9aab04bf47472e02d7b.bin"
+        )!!
+        .readBytes()
+    val metadata = StoredCredential.metadataFromCbor(bytes)
+
+    assertEquals("webauthn.io", metadata.rpId)
+    assertEquals("soft-fido2", metadata.userName)
+    assertEquals("", metadata.userDisplayName)
+    assertEquals(32, metadata.credentialId.size)
   }
 }

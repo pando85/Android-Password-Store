@@ -6,6 +6,7 @@ plugins { id("com.github.android-password-store.kotlin-jvm-library") }
 
 dependencies {
   api(projects.crypto.common)
+  implementation(projects.passkeys.core)
   implementation(libs.androidx.annotation)
   implementation(libs.dagger.hilt.core)
   implementation(libs.kotlinx.coroutines.core)

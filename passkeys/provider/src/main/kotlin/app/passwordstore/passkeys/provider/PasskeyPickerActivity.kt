@@ -16,6 +16,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import app.passwordstore.passkeys.model.PasskeyCredential
+import app.passwordstore.passkeys.model.PasskeyMetadata
 
 public class PasskeyPickerActivity : AppCompatActivity() {
 
@@ -133,6 +134,15 @@ public class PasskeyPickerActivity : AppCompatActivity() {
           credentialIds = credentials.map { it.credentialIdBase64() },
           userNames = credentials.map { it.user.name },
           displayNames = credentials.map { it.user.displayName },
+          rpId = rpId,
+        )
+      }
+
+      public fun fromMetadata(metadata: List<PasskeyMetadata>, rpId: String): PickerInput {
+        return PickerInput(
+          credentialIds = metadata.map { it.credentialIdBase64() },
+          userNames = metadata.map { it.userName },
+          displayNames = metadata.map { it.userDisplayName },
           rpId = rpId,
         )
       }

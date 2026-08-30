@@ -5,6 +5,7 @@
 -dontwarn androidx.window.extensions.core.util.function.Function
 -dontwarn androidx.window.extensions.core.util.function.Predicate
 -dontwarn java.lang.management.ManagementFactory
+-dontwarn java.lang.ProcessHandle
 -dontwarn javax.management.InstanceAlreadyExistsException
 -dontwarn javax.management.InstanceNotFoundException
 -dontwarn javax.management.JMException

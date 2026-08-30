@@ -3,10 +3,13 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
+@file:OptIn(kotlin.time.ExperimentalTime::class)
+
 package app.passwordstore.passkeys.crypto
 
 import app.passwordstore.passkeys.model.FidoUser
 import app.passwordstore.passkeys.model.PasskeyCredential
+import app.passwordstore.passkeys.security.SensitiveBytes
 import com.github.michaelbull.result.Err
 import com.github.michaelbull.result.Ok
 import com.github.michaelbull.result.Result
@@ -24,7 +27,7 @@ import java.security.spec.ECParameterSpec
 import java.security.spec.ECPrivateKeySpec
 import java.security.spec.PKCS8EncodedKeySpec
 import java.security.spec.X509EncodedKeySpec
-import kotlinx.datetime.Clock
+import kotlin.time.Clock
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
@@ -141,27 +144,33 @@ public class ES256CryptoHandler : PasskeyCryptoHandler {
     userName: String,
     userDisplayName: String,
     challenge: ByteArray,
-  ): Result<PasskeyCredential, Throwable> {
+  ): Result<CreatedPasskeyCredential, Throwable> {
     if (rpId.isBlank()) return Err(IllegalArgumentException("RP ID cannot be blank"))
     if (userId.isEmpty()) return Err(IllegalArgumentException("User ID cannot be empty"))
 
     return try {
       val (privateKey, publicKey) = generateKeyPair()
-      val credentialId = generateCredentialId()
+      val sensitivePrivateKey = SensitiveBytes(privateKey)
+      try {
+        val credentialId = generateCredentialId()
 
-      Ok(
-        PasskeyCredential(
-          credentialId = credentialId,
-          privateKey = privateKey,
-          publicKey = publicKey,
-          rpId = rpId,
-          user = FidoUser(id = userId, name = userName, displayName = userDisplayName),
-          signCount = 0u,
-          createdAt = Clock.System.now(),
-          transports = listOf("internal"),
-          uvInitialized = true,
-        )
-      )
+        val publicCredential =
+          PasskeyCredential(
+            credentialId = credentialId,
+            publicKey = publicKey,
+            rpId = rpId,
+            user = FidoUser(id = userId, name = userName, displayName = userDisplayName),
+            signCount = 0u,
+            createdAt = Clock.System.now(),
+            transports = listOf("internal"),
+            uvInitialized = true,
+          )
+
+        Ok(CreatedPasskeyCredential(publicCredential, sensitivePrivateKey))
+      } catch (e: Throwable) {
+        sensitivePrivateKey.close()
+        throw e
+      }
     } catch (e: Exception) {
       Err(e)
     }
@@ -169,21 +178,29 @@ public class ES256CryptoHandler : PasskeyCryptoHandler {
 
   override fun getAssertion(
     credential: PasskeyCredential,
+    privateKey: ByteArray,
     rpId: String,
     challenge: ByteArray,
     origin: String,
+    userVerified: Boolean,
   ): Result<AssertionResult, Throwable> {
     if (rpId.isBlank()) return Err(IllegalArgumentException("RP ID cannot be blank"))
     if (challenge.isEmpty()) return Err(IllegalArgumentException("Challenge cannot be empty"))
     if (origin.isBlank()) return Err(IllegalArgumentException("Origin cannot be blank"))
-    if (credential.privateKey.isEmpty())
-      return Err(IllegalArgumentException("Credential has no private key"))
+    if (privateKey.isEmpty()) return Err(IllegalArgumentException("Credential has no private key"))
 
     return try {
-      val authenticatorData = buildAuthenticatorData(rpId, credential.signCount)
+      val authenticatorData =
+        buildAuthenticatorData(
+          rpId,
+          credential.signCount,
+          credential.backupEligible,
+          credential.backupState,
+          userVerified,
+        )
       val (clientDataJson, clientDataHash) = buildClientData(challenge, origin, "webauthn.get")
 
-      sign(credential.privateKey, authenticatorData, clientDataHash)
+      sign(privateKey, authenticatorData, clientDataHash)
         .fold(
           success = { signature ->
             Ok(
@@ -192,7 +209,7 @@ public class ES256CryptoHandler : PasskeyCryptoHandler {
                 authenticatorData = authenticatorData,
                 signature = signature,
                 userHandle = credential.user.id,
-                clientDataJSON = clientDataJson,
+                clientDataJSON = clientDataJson.toByteArray(),
               )
             )
           },
@@ -201,6 +218,63 @@ public class ES256CryptoHandler : PasskeyCryptoHandler {
     } catch (e: Exception) {
       Err(e)
     }
+  }
+
+  override fun getAssertionWithFrameworkHash(
+    credential: PasskeyCredential,
+    privateKey: ByteArray,
+    rpId: String,
+    clientDataHash: ByteArray,
+    responseClientDataJson: ByteArray,
+    userVerified: Boolean,
+  ): Result<AssertionResult, Throwable> {
+    if (rpId.isBlank()) return Err(IllegalArgumentException("RP ID cannot be blank"))
+    if (clientDataHash.size != 32)
+      return Err(
+        IllegalArgumentException(
+          "Framework clientDataHash must be exactly 32 bytes, got ${clientDataHash.size}"
+        )
+      )
+    if (responseClientDataJson.isEmpty())
+      return Err(IllegalArgumentException("Response client data JSON cannot be empty"))
+    if (privateKey.isEmpty()) return Err(IllegalArgumentException("Credential has no private key"))
+
+    return try {
+      val authenticatorData =
+        buildAuthenticatorData(
+          rpId,
+          credential.signCount,
+          credential.backupEligible,
+          credential.backupState,
+          userVerified,
+        )
+
+      sign(privateKey, authenticatorData, clientDataHash)
+        .fold(
+          success = { signature ->
+            Ok(
+              AssertionResult(
+                credentialId = credential.credentialId,
+                authenticatorData = authenticatorData,
+                signature = signature,
+                userHandle = credential.user.id,
+                clientDataJSON = responseClientDataJson,
+              )
+            )
+          },
+          failure = { Err(it) },
+        )
+    } catch (e: Exception) {
+      Err(e)
+    }
+  }
+
+  override fun signAssertion(
+    privateKey: ByteArray,
+    authenticatorData: ByteArray,
+    clientDataHash: ByteArray,
+  ): Result<ByteArray, Throwable> {
+    return sign(privateKey, authenticatorData, clientDataHash)
   }
 
   override fun derivePublicKey(privateKey: ByteArray): Result<ByteArray, Throwable> {
@@ -221,9 +295,21 @@ public class ES256CryptoHandler : PasskeyCryptoHandler {
     return idBytes
   }
 
-  private fun buildAuthenticatorData(rpId: String, signCount: ULong): ByteArray {
+  private fun buildAuthenticatorData(
+    rpId: String,
+    signCount: ULong,
+    backupEligible: Boolean,
+    backupState: Boolean,
+    userVerified: Boolean = true,
+  ): ByteArray {
     val rpIdHash = MessageDigest.getInstance("SHA-256").digest(rpId.toByteArray())
-    val flags = (FLAG_USER_PRESENT.toInt() or FLAG_USER_VERIFIED.toInt()).toByte()
+    val flags =
+      AuthenticatorFlags.build(
+        userPresent = true,
+        userVerified = userVerified,
+        backupEligible = backupEligible,
+        backupState = backupState,
+      )
     val signCountBytes =
       byteArrayOf(
         ((signCount shr 24) and 0xFFu).toByte(),
@@ -266,9 +352,10 @@ public class ES256CryptoHandler : PasskeyCryptoHandler {
   }
 
   public companion object {
-    public const val FLAG_USER_PRESENT: Byte = 0x01
-    public const val FLAG_USER_VERIFIED: Byte = 0x04
-    public const val FLAG_ATTESTED_CREDENTIAL_DATA: Byte = 0x40
+    public const val FLAG_USER_PRESENT: Byte = AuthenticatorFlags.FLAG_USER_PRESENT
+    public const val FLAG_USER_VERIFIED: Byte = AuthenticatorFlags.FLAG_USER_VERIFIED
+    public const val FLAG_ATTESTED_CREDENTIAL_DATA: Byte =
+      AuthenticatorFlags.FLAG_ATTESTED_CREDENTIAL_DATA
 
     private val P256_EC_OID_PREFIX =
       byteArrayOf(

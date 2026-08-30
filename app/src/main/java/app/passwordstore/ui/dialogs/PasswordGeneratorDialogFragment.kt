@@ -39,7 +39,7 @@ import reactivecircus.flowbinding.android.widget.checkedChanges
 class PasswordGeneratorDialogFragment : DialogFragment() {
 
   override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
-    val prefs = requireContext().getSharedPreferences("PasswordGenerator", Context.MODE_PRIVATE)
+    val prefs = requireContext().getSharedPreferences("PasswordGenerator", 0)
     val builder = MaterialAlertDialogBuilder(requireContext())
 
     val binding = FragmentPwgenBinding.inflate(layoutInflater)
@@ -139,7 +139,7 @@ class PasswordGeneratorDialogFragment : DialogFragment() {
    * passwords.
    */
   private fun setPrefs(ctx: Context, options: List<PasswordOption>, targetLength: Int): Boolean {
-    ctx.getSharedPreferences("PasswordGenerator", Context.MODE_PRIVATE).edit {
+    ctx.getSharedPreferences("PasswordGenerator", 0).edit {
       for (possibleOption in PasswordOption.entries) {
         putBoolean(possibleOption.key, possibleOption in options)
       }

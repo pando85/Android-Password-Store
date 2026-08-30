@@ -3,18 +3,29 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
+@file:OptIn(kotlin.time.ExperimentalTime::class)
+
 package app.passwordstore.passkeys.provider
 
 import app.passwordstore.passkeys.crypto.AssertionResult
-import app.passwordstore.passkeys.crypto.ES256CryptoHandler
+import app.passwordstore.passkeys.crypto.AuthenticatorFlags
+import app.passwordstore.passkeys.crypto.ClientDataBinding
+import app.passwordstore.passkeys.crypto.VerifiedWebAuthnContext
 import app.passwordstore.passkeys.model.PasskeyCredential
+import app.passwordstore.passkeys.model.PasskeyMetadata
+import app.passwordstore.passkeys.storage.PasskeyStorage
+import com.github.michaelbull.result.fold
 import java.io.ByteArrayOutputStream
 import java.security.MessageDigest
 import java.util.Base64
 import kotlinx.serialization.json.Json
+import logcat.LogPriority
+import logcat.logcat
 
 /** Utility functions for WebAuthn/FIDO2 passkey operations. */
 public object PasskeyProviderUtils {
+
+  internal data class CredentialEntryIdentity(val username: String, val displayName: String?)
 
   /** Shared JSON serializer for WebAuthn protocol messages. */
   public val json: Json = Json {
@@ -50,6 +61,51 @@ public object PasskeyProviderUtils {
     }
   }
 
+  internal fun selectCredentialsByMetadata(
+    metadata: List<PasskeyMetadata>,
+    allowCredentials: List<PublicKeyCredentialDescriptor>,
+  ): List<PasskeyMetadata> {
+    if (allowCredentials.isEmpty()) return metadata
+    val allowedIds = allowCredentials.mapTo(hashSetOf()) { it.id }
+    return metadata.filter { meta -> encodeBase64Url(meta.credentialId) in allowedIds }
+  }
+
+  internal fun credentialEntryIdentity(metadata: PasskeyMetadata): CredentialEntryIdentity {
+    val username = metadata.userName.ifBlank { metadata.userDisplayName.ifBlank { metadata.rpId } }
+    val displayName = metadata.userDisplayName.takeIf { it.isNotBlank() && it != username }
+    return CredentialEntryIdentity(username, displayName)
+  }
+
+  internal fun isAutoSelectAllowed(candidateCount: Int): Boolean = candidateCount == 1
+
+  internal fun credentialIntentUri(credentialId: ByteArray): String =
+    "aps-passkey://credential/${encodeBase64Url(credentialId)}"
+
+  internal suspend fun loadStoredIdentity(
+    storage: PasskeyStorage,
+    metadata: PasskeyMetadata,
+  ): PasskeyMetadata {
+    if (metadata.userName.isNotBlank() || metadata.userDisplayName.isNotBlank()) return metadata
+    return storage
+      .loadForSigning(metadata.credentialId)
+      .fold(
+        success = { credential ->
+          credential.use {
+            metadata.copy(
+              userName = credential.user.name,
+              userDisplayName = credential.user.displayName,
+            )
+          }
+        },
+        failure = { error ->
+          logcat(LogPriority.ERROR) {
+            "loadStoredIdentity failed for rpId=${metadata.rpId}, credentialId=${encodeBase64Url(metadata.credentialId)}: ${error.message}"
+          }
+          metadata
+        },
+      )
+  }
+
   /**
    * Builds a WebAuthn assertion response JSON for authentication.
    *
@@ -79,7 +135,7 @@ public object PasskeyProviderUtils {
         type = "public-key",
         response =
           AssertionResponseData(
-            clientDataJSON = encodeBase64Url(assertion.clientDataJSON.toByteArray()),
+            clientDataJSON = encodeBase64Url(assertion.clientDataJSON),
             authenticatorData = encodeBase64Url(assertion.authenticatorData),
             signature = encodeBase64Url(assertion.signature),
             userHandle = assertion.userHandle?.let(::encodeBase64Url),
@@ -93,19 +149,30 @@ public object PasskeyProviderUtils {
    *
    * @param credential The newly created credential
    * @param requestJson The original request JSON
+   * @param verifiedContext The verified caller context providing the trusted origin
    * @return JSON-encoded attestation response
    */
-  public fun buildAttestationResponse(credential: PasskeyCredential, requestJson: String): String {
+  public fun buildAttestationResponse(
+    credential: PasskeyCredential,
+    requestJson: String,
+    verifiedContext: VerifiedWebAuthnContext,
+  ): String {
     val request = json.decodeFromString<WebAuthnCreateRequest>(requestJson)
-    return buildAttestationResponse(credential, request)
+    return buildAttestationResponse(credential, request, verifiedContext)
   }
 
   internal fun buildAttestationResponse(
     credential: PasskeyCredential,
     request: WebAuthnCreateRequest,
+    verifiedContext: VerifiedWebAuthnContext,
   ): String {
-    val origin = "https://${credential.rpId}"
-    val clientDataJson = buildClientDataJson("webauthn.create", request.challenge, origin)
+    val clientDataBytes =
+      when (val binding = verifiedContext.clientDataBinding) {
+        is ClientDataBinding.FrameworkHash -> binding.responseClientDataJson
+        is ClientDataBinding.ProviderConstructed ->
+          buildClientDataJson("webauthn.create", request.challenge, verifiedContext.origin)
+            .toByteArray()
+      }
     val coseKey = encodeCoseEcPublicKey(credential.publicKey)
     val authData = buildAttestedAuthenticatorData(credential, coseKey)
     val spkiPublicKey = buildSpkiPublicKey(credential.publicKey)
@@ -116,7 +183,7 @@ public object PasskeyProviderUtils {
         type = "public-key",
         response =
           AttestationResponseData(
-            clientDataJSON = encodeBase64Url(clientDataJson.toByteArray()),
+            clientDataJSON = encodeBase64Url(clientDataBytes),
             attestationObject = encodeBase64Url(buildAttestationObjectFromAuthData(authData)),
             transports = listOf("internal"),
             publicKeyAlgorithm = -7L,
@@ -187,15 +254,15 @@ public object PasskeyProviderUtils {
     require(credential.credentialId.size <= 1023) {
       "Credential ID too large: ${credential.credentialId.size} bytes (max 1023)"
     }
-    require(credential.credentialId.size <= 65535) {
-      "Credential ID exceeds 16-bit length encoding: ${credential.credentialId.size}"
-    }
     val rpIdHash = MessageDigest.getInstance("SHA-256").digest(credential.rpId.toByteArray())
     val flags =
-      (ES256CryptoHandler.FLAG_USER_PRESENT.toInt() or
-          ES256CryptoHandler.FLAG_USER_VERIFIED.toInt() or
-          ES256CryptoHandler.FLAG_ATTESTED_CREDENTIAL_DATA.toInt())
-        .toByte()
+      AuthenticatorFlags.build(
+        userPresent = true,
+        userVerified = true,
+        backupEligible = credential.backupEligible,
+        backupState = credential.backupState,
+        attestedCredentialData = true,
+      )
     val signCountBytes =
       byteArrayOf(
         ((credential.signCount shr 24) and 0xFFu).toByte(),

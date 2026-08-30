@@ -25,6 +25,7 @@ import app.passwordstore.data.crypto.CryptoRepository
 import app.passwordstore.data.repo.PasswordRepository
 import app.passwordstore.injection.prefs.PGPPassphrases
 import app.passwordstore.injection.prefs.SettingsPreferences
+import app.passwordstore.injection.prefs.UnlockPins
 import app.passwordstore.ui.dialogs.PasswordDialog
 import app.passwordstore.ui.pgp.PGPKeyListActivity
 import app.passwordstore.util.auth.BiometricAuthenticator
@@ -53,6 +54,8 @@ import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
+import kotlin.math.max
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -144,6 +147,8 @@ open class BasePGPActivity : AppCompatActivity() {
    * [SharedPreferences] instance used by subclasses for persistent caching of encrypted passphrases
    */
   @PGPPassphrases @Inject lateinit var persistentPassphrases: SharedPreferences
+
+  @UnlockPins @Inject lateinit var unlockPins: SharedPreferences
 
   @Inject lateinit var repository: CryptoRepository
   @Inject lateinit var dispatcherProvider: DispatcherProvider
@@ -472,129 +477,136 @@ open class BasePGPActivity : AppCompatActivity() {
         var cacheEnabled = bundle.getBoolean(PasswordDialog.PASSWORD_CACHE_KEY)
         lifecycleScope.launch(dispatcherProvider.main()) {
           decryptWithPassphrase(mapOf("" to passphrase), identifiers) { id -> // onSuccess
+            var biometricSetupCompletion: CompletableDeferred<Unit>? = null
             runCatching {
-                // update temporary passphrase cache
-                val isHardwareBacked = AESEncryption.isHardwareBacked()
-                val encryptedPassphrase = AESEncryption.encrypt(passphrase)
-                if (isHardwareBacked && cacheEnabled && encryptedPassphrase != null)
-                  cachedPassphrases.put(id, encryptedPassphrase)
-                settings.edit {
-                  putBoolean(
-                    PreferenceKeys.CACHE_PASSPHRASE,
-                    isHardwareBacked && cacheEnabled && encryptedPassphrase != null,
-                  )
-                }
+              // update temporary passphrase cache
+              val isHardwareBacked = AESEncryption.isHardwareBacked()
+              val encryptedPassphrase = AESEncryption.encrypt(passphrase)
+              if (isHardwareBacked && cacheEnabled && encryptedPassphrase != null)
+                cachedPassphrases.put(id, encryptedPassphrase)
+              settings.edit {
+                putBoolean(
+                  PreferenceKeys.CACHE_PASSPHRASE,
+                  isHardwareBacked && cacheEnabled && encryptedPassphrase != null,
+                )
+              }
 
-                // update persistent passphrase cache
-                var cipher = // cipher for encrypting the passphrase with biometrics
-                  if (
-                    AESEncryption.isHardwareBacked(KeyType.PERSISTENT_WITH_AUTHENTICATION) &&
-                      BiometricAuthenticator.canAuthenticate(this@BasePGPActivity)
-                  ) {
-                    AESEncryption.getCipher(KeyType.PERSISTENT_WITH_AUTHENTICATION)
-                      ?: run {
-                        if (
-                          settings.getString(PreferenceKeys.PREF_FAST_UNLOCK_OPTION, "disabled") ==
-                            "fingerprint"
-                        )
-                          persistentPassphrases.edit { clear() }
-                        // recover from invalidated AES key
-                        AESEncryption.deleteKey(KeyType.PERSISTENT_WITH_AUTHENTICATION)
-                        AESEncryption.getCipher(KeyType.PERSISTENT_WITH_AUTHENTICATION)
-                      }
-                  } else null
-
+              // update persistent passphrase cache
+              var cipher = // cipher for encrypting the passphrase with biometrics
                 if (
-                  settings.getString(PreferenceKeys.PREF_FAST_UNLOCK_OPTION, "disabled") ==
-                    "fingerprint" && cipher != null
+                  AESEncryption.isHardwareBacked(KeyType.PERSISTENT_WITH_AUTHENTICATION) &&
+                    BiometricAuthenticator.canAuthenticate(this@BasePGPActivity)
                 ) {
-                  BiometricAuthenticator.authenticate(
-                    this@BasePGPActivity,
-                    dialogDescriptionRes =
-                      R.string.biometric_prompt_description_persistently_cache_password,
-                    cipher = cipher,
-                  ) { result ->
-                    if (result is BiometricResult.Success) {
-                      persistentPassphrases.edit {
-                        putString(
-                          id,
-                          AESEncryption.encrypt(
-                              passphrase,
-                              keyType = KeyType.PERSISTENT_WITH_AUTHENTICATION,
-                              cipher = result.cryptoObject?.cipher,
-                            )
-                            ?.concatToString(),
-                        )
-                        putLong(
-                          PreferenceKeys.BIOMETRICS_AND_PIN_LAST_USE,
-                          Instant.now().toEpochMilli(),
-                        )
-                      }
-                    }
-                    passphrase.wipe()
-                  }
-                } else if (
-                  settings.getString(PreferenceKeys.PREF_FAST_UNLOCK_OPTION, "disabled") == "PIN" &&
-                    AESEncryption.isHardwareBacked(KeyType.PERSISTENT)
-                ) {
-                  /* Ask user for setting a PIN if not yet existing, encrypt and store it on the
-                   * device, then update passphrase in cache */
-                  if (persistentPassphrases.getString("unlock_pin", null) == null) {
-                    val pinDialog =
-                      PinDialog.newInstance(
-                        title = resources.getString(R.string.pin_new_entry_title),
-                        description = resources.getString(R.string.pin_new_entry_description),
-                        clearOnDismiss = passphrase,
+                  AESEncryption.getCipher(KeyType.PERSISTENT_WITH_AUTHENTICATION)
+                    ?: run {
+                      if (
+                        settings.getString(PreferenceKeys.PREF_FAST_UNLOCK_OPTION, "disabled") ==
+                          "fingerprint"
                       )
-                    pinDialog.show(supportFragmentManager, "PIN_DIALOG")
-                    pinDialog.setFragmentResultListener(PinDialog.PIN_RESULT_KEY) { key, bundle ->
-                      if (key == PinDialog.PIN_RESULT_KEY) {
-                        val pin =
-                          requireNotNull(bundle.getCharArray(PinDialog.PIN_KEY)) {
-                            "returned PIN is null"
-                          }
-                        if (pin.size >= 4) {
-                          persistentPassphrases.edit {
-                            putString(
-                              "unlock_pin", // reset and prepend PIN attempt counter
-                              AESEncryption.encrypt(
-                                  charArrayOf('0', ':') + pin,
-                                  keyType = KeyType.PERSISTENT,
-                                )
-                                ?.concatToString(),
-                            )
-                            putString(
-                              id,
-                              AESEncryption.encrypt(passphrase, keyType = KeyType.PERSISTENT)
-                                ?.concatToString(),
-                            )
-                            putLong(
-                              PreferenceKeys.BIOMETRICS_AND_PIN_LAST_USE,
-                              Instant.now().toEpochMilli(),
-                            )
-                          }
-                        }
-                        pin.wipe()
-                      }
+                        persistentPassphrases.edit { clear() }
+                      // recover from invalidated AES key
+                      AESEncryption.deleteKey(KeyType.PERSISTENT_WITH_AUTHENTICATION)
+                      AESEncryption.getCipher(KeyType.PERSISTENT_WITH_AUTHENTICATION)
                     }
-                  } else {
+                } else null
+
+              if (
+                settings.getString(PreferenceKeys.PREF_FAST_UNLOCK_OPTION, "disabled") ==
+                  "fingerprint" && cipher != null
+              ) {
+                val completion = CompletableDeferred<Unit>()
+                biometricSetupCompletion = completion
+                BiometricAuthenticator.authenticate(
+                  this@BasePGPActivity,
+                  dialogDescriptionRes =
+                    R.string.biometric_prompt_description_persistently_cache_password,
+                  cipher = cipher,
+                ) { result ->
+                  if (result is BiometricResult.Success) {
                     persistentPassphrases.edit {
                       putString(
                         id,
-                        AESEncryption.encrypt(passphrase, keyType = KeyType.PERSISTENT)
+                        AESEncryption.encrypt(
+                            passphrase,
+                            keyType = KeyType.PERSISTENT_WITH_AUTHENTICATION,
+                            cipher = result.cryptoObject?.cipher,
+                          )
                           ?.concatToString(),
                       )
+                      putLong(
+                        PreferenceKeys.BIOMETRICS_AND_PIN_LAST_USE,
+                        Instant.now().toEpochMilli(),
+                      )
                     }
+                  }
+                  if (result !is BiometricResult.Retry) {
                     passphrase.wipe()
+                    completion.complete(Unit)
+                  }
+                }
+              } else if (
+                settings.getString(PreferenceKeys.PREF_FAST_UNLOCK_OPTION, "disabled") == "PIN" &&
+                  AESEncryption.isHardwareBacked(KeyType.PERSISTENT)
+              ) {
+                /* Ask user for setting a PIN if not yet existing, encrypt and store it on the
+                 * device, then update passphrase in cache */
+                if (unlockPins.getString(id, null) == null) {
+                  val pinDialog =
+                    PinDialog.newInstance(
+                      title = resources.getString(R.string.pin_new_entry_title),
+                      description = resources.getString(R.string.pin_new_entry_description),
+                      clearOnDismiss = passphrase,
+                    )
+                  pinDialog.show(supportFragmentManager, "PIN_DIALOG")
+                  pinDialog.setFragmentResultListener(PinDialog.PIN_RESULT_KEY) { key, bundle ->
+                    if (key == PinDialog.PIN_RESULT_KEY) {
+                      val pin = bundle.getCharArray(PinDialog.PIN_KEY)
+                      if (pin != null && pin.size >= 4) {
+                        unlockPins.edit {
+                          putString(
+                            id, // reset and prepend PIN attempt counter
+                            AESEncryption.encrypt(
+                                charArrayOf('0', ':') + pin,
+                                keyType = KeyType.PERSISTENT,
+                              )
+                              ?.concatToString(),
+                          )
+                        }
+                        persistentPassphrases.edit {
+                          putString(
+                            id,
+                            AESEncryption.encrypt(passphrase, keyType = KeyType.PERSISTENT)
+                              ?.concatToString(),
+                          )
+                          putLong(
+                            PreferenceKeys.BIOMETRICS_AND_PIN_LAST_USE,
+                            Instant.now().toEpochMilli(),
+                          )
+                        }
+                      }
+                      pin?.wipe()
+                    }
                   }
                 } else {
+                  persistentPassphrases.edit {
+                    putString(
+                      id,
+                      AESEncryption.encrypt(passphrase, keyType = KeyType.PERSISTENT)
+                        ?.concatToString(),
+                    )
+                  }
                   passphrase.wipe()
                 }
+              } else {
+                passphrase.wipe()
               }
+            }
               .onErr { e ->
                 logcat { e.asLog() }
                 passphrase.wipe()
+                biometricSetupCompletion?.complete(Unit)
               }
+            biometricSetupCompletion?.await()
           }
         }
       }
@@ -603,7 +615,7 @@ open class BasePGPActivity : AppCompatActivity() {
 
   /* Find persistent PGP passphrases with matching key ID, unlock the first one
    * with biometrics or after PIN verification */
-  protected fun getPersistentAndDecrypt(identifiers: List<PGPIdentifier>) {
+  protected fun getPersistentAndDecrypt(identifiers: List<PGPIdentifier>, action: String? = null) {
     // Detect AES key invalidation due to enrollment of a new fingerprint and emit warning
     if (
       BiometricAuthenticator.canAuthenticate(this@BasePGPActivity) &&
@@ -624,16 +636,22 @@ open class BasePGPActivity : AppCompatActivity() {
     val biometrics_and_pin_last_use =
       persistentPassphrases.getLong(PreferenceKeys.BIOMETRICS_AND_PIN_LAST_USE, 0L)
     val biometrics_and_pin_timeout =
-      settings.getString(PreferenceKeys.BIOMETRICS_AND_PIN_TIMEOUT)?.toLong() ?: 3L
+      settings.getString(PreferenceKeys.BIOMETRICS_AND_PIN_TIMEOUT)?.toLongOrNull() ?: 3L
     if (
       biometrics_and_pin_timeout > 0L &&
         now - biometrics_and_pin_last_use >= TimeUnit.DAYS.toMillis(biometrics_and_pin_timeout)
-    )
+    ) {
       persistentPassphrases.edit { clear() }
+      unlockPins.edit { clear() }
+    }
 
     val persistentIds =
       identifiers.map { it.toString() }.filter { persistentPassphrases.contains(it) }
-    val pinEncrypted = persistentPassphrases.getString("unlock_pin", null)?.toCharArray()
+    val encryptedPins =
+      unlockPins
+        .getAll()
+        .filterKeys { persistentIds.contains(it) }
+        .mapValues { (it.value as String).toCharArray() }
     if (
       !persistentIds.none() &&
         identifiers.map { it.toString() }.filter { cachedPassphrases.containsKey(it) }.none() &&
@@ -667,13 +685,12 @@ open class BasePGPActivity : AppCompatActivity() {
         if (result !is BiometricResult.Retry) decrypt(identifiers)
       }
     } else if (
-      !persistentIds.none() &&
+      !encryptedPins.none() &&
         identifiers.map { it.toString() }.filter { cachedPassphrases.containsKey(it) }.none() &&
         AESEncryption.isHardwareBacked(KeyType.PERSISTENT) &&
-        settings.getString(PreferenceKeys.PREF_FAST_UNLOCK_OPTION, "disabled") == "PIN" &&
-        pinEncrypted != null
+        settings.getString(PreferenceKeys.PREF_FAST_UNLOCK_OPTION, "disabled") == "PIN"
     ) {
-      verifyPin(pinEncrypted, persistentIds, identifiers)
+      verifyPin(encryptedPins, identifiers, action)
     } else {
       decrypt(identifiers)
     }
@@ -681,81 +698,116 @@ open class BasePGPActivity : AppCompatActivity() {
 
   /* Asks for and verifies the user PIN for unlocking a store entry. */
   private fun verifyPin(
-    pinEncrypted: CharArray,
-    ids: List<String>,
+    encryptedPins: Map<String, CharArray>,
     identifiers: List<PGPIdentifier>,
+    action: String?,
     isError: Boolean = false,
   ) {
     val pinDialog =
       PinDialog.newInstance(
         title = resources.getString(R.string.pin_entry_title),
-        description = resources.getString(R.string.pin_entry_description),
+        description =
+          when (action) {
+            "autofill" -> resources.getString(R.string.pin_entry_autofill_description)
+            "passkey" -> resources.getString(R.string.pin_entry_passkey_description)
+            else -> resources.getString(R.string.pin_entry_description)
+          },
       )
     if (isError) pinDialog.setError()
     pinDialog.show(supportFragmentManager, "PIN_DIALOG")
     pinDialog.setFragmentResultListener(PinDialog.PIN_RESULT_KEY) { key, bundle ->
       if (key == PinDialog.PIN_RESULT_KEY) {
-        val pin = requireNotNull(bundle.getCharArray(PinDialog.PIN_KEY)) { "returned PIN is null" }
-        var (pinRetries, cachedPin) =
-          AESEncryption.decrypt(pinEncrypted, keyType = KeyType.PERSISTENT)?.let { cached ->
-            if (cached[1] == ':') {
-              Pair(cached[0].digitToInt(), cached.filterIndexed { i, _ -> i > 1 }.toCharArray())
-            } else {
-              // fix PIN cache that does not have an attempt count prepended (old app version)
-              persistentPassphrases.edit {
-                putString(
-                  "unlock_pin",
-                  AESEncryption.encrypt(
-                      charArrayOf('0', ':') + cached,
-                      keyType = KeyType.PERSISTENT,
-                    )
-                    ?.concatToString(),
-                )
-              }
-              Pair(0, cached)
-            }
-          } ?: Pair(MAX_RETRIES, null)
-        if (cachedPin?.let { it.contentEquals(pin) } ?: false) { // PIN verifies successfully
-          persistentPassphrases.edit {
-            putString(
-              "unlock_pin", // reset to zero and prepend attempt counter
-              AESEncryption.encrypt(charArrayOf('0', ':') + pin, keyType = KeyType.PERSISTENT)
-                ?.concatToString(),
-            )
-            putLong(PreferenceKeys.BIOMETRICS_AND_PIN_LAST_USE, Instant.now().toEpochMilli())
-          }
-          ids.forEach { id ->
-            val passEncrypted = persistentPassphrases.getString(id, null)?.toCharArray()
-            val pass =
-              // re-encrypt passphrase for use until screen-off
-              AESEncryption.encrypt(
-                // decrypt persistently cached passphrase
-                AESEncryption.decrypt(passEncrypted, keyType = KeyType.PERSISTENT)
-              )
-            pass?.let { cachedPassphrases.put(id, it) }
-          }
+        if (bundle.getBoolean(PinDialog.PIN_CANCEL)) {
           decrypt(identifiers)
-        } else if (
-          cachedPin != null && ++pinRetries < MAX_RETRIES
-        ) { // PIN verification failed, try again
-          val pinEncryptedUpdate =
-            AESEncryption.encrypt(
-              charArrayOf(pinRetries.digitToChar(), ':') + cachedPin,
-              keyType = KeyType.PERSISTENT,
-            )
-          pinEncryptedUpdate?.let { // update PIN cache with incremented attempt counter
-            persistentPassphrases.edit {
-              putString("unlock_pin", pinEncryptedUpdate.concatToString())
+        } else {
+          val pin =
+            requireNotNull(bundle.getCharArray(PinDialog.PIN_KEY)) { "returned PIN is null" }
+          var pinRetries = 0
+          var pinOk = false
+
+          for ((id, encryptedPin) in encryptedPins) {
+            val cachedPin =
+              AESEncryption.decrypt(encryptedPin, keyType = KeyType.PERSISTENT)?.let { cached ->
+                cached.copyOfRange(cached.indexOf(':') + 1, cached.size).also {
+                  pinRetries =
+                    max(
+                      pinRetries,
+                      cached.copyOfRange(0, cached.indexOf(':')).concatToString().toIntOrNull()
+                        ?: MAX_RETRIES,
+                    )
+                  cached.wipe()
+                }
+              }
+            pinOk = cachedPin?.let { it.contentEquals(pin) } ?: false
+            cachedPin?.wipe()
+            if (pinOk) {
+              updatePinAttemptCounter(encryptedPins, 0)
+              persistentPassphrases
+                .getString(id, null)
+                ?.toCharArray()
+                ?.let { passEncrypted ->
+                  AESEncryption.decrypt(passEncrypted, keyType = KeyType.PERSISTENT)
+                }
+                ?.let { pass ->
+                  AESEncryption.encrypt(pass)?.let { cachedPassphrases.put(id, it) }
+                  pass.wipe()
+                }
+              break
             }
-            verifyPin(pinEncryptedUpdate, ids, identifiers, isError = true)
-          } ?: throw NullPointerException()
-        } else { // PIN verification failed, do not try again
-          persistentPassphrases.edit { clear() } // reset PIN to prevent bruteforcing
-          decrypt(identifiers) // decrypt with passphrase verification
+          }
+
+          pin.wipe()
+
+          if (pinOk) {
+            decrypt(identifiers)
+          } else if (++pinRetries < MAX_RETRIES) {
+            val encryptedPinsUpdated = updatePinAttemptCounter(encryptedPins, pinRetries)
+            verifyPin(encryptedPinsUpdated, identifiers, action, isError = true)
+          } else {
+            // Reset only the relevant identities after the retry budget is exhausted.
+            encryptedPins.keys.forEach { id ->
+              cachedPassphrases.remove(id)
+              persistentPassphrases.edit { remove(id) }
+              unlockPins.edit { remove(id) }
+            }
+            decrypt(identifiers)
+          }
         }
-        pin.wipe()
       }
     }
+  }
+
+  /** Updates and persists the shared retry counter for the relevant per-PGP-ID PINs. */
+  private fun updatePinAttemptCounter(
+    encryptedPins: Map<String, CharArray>,
+    attempts: Int,
+  ): Map<String, CharArray> {
+    val updatedEncryptedPins = mutableMapOf<String, CharArray>()
+    unlockPins.edit {
+      encryptedPins.forEach { (id, encryptedPin) ->
+        AESEncryption.decrypt(encryptedPin, keyType = KeyType.PERSISTENT)
+          ?.let { cached ->
+            cached.copyOfRange(cached.indexOf(':') + 1, cached.size).also { cached.wipe() }
+          }
+          ?.let { pin ->
+            AESEncryption.encrypt(
+                (attempts.toString() + ":").toCharArray() + pin,
+                keyType = KeyType.PERSISTENT,
+              )
+              ?.let { updated ->
+                putString(id, updated.concatToString())
+                updatedEncryptedPins[id] = updated
+              }
+            pin.wipe()
+          } ?: remove(id)
+      }
+    }
+    if (attempts == 0) {
+      persistentPassphrases.edit {
+        putLong(PreferenceKeys.BIOMETRICS_AND_PIN_LAST_USE, Instant.now().toEpochMilli())
+      }
+    }
+    return updatedEncryptedPins
   }
 
   protected fun decrypt(identifiers: List<PGPIdentifier>, isError: Boolean = false) {

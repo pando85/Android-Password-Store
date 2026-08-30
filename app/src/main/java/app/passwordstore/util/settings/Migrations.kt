@@ -31,6 +31,7 @@ fun runMigrations(
   filesDirPath: String,
   sharedPrefs: SharedPreferences,
   gitSettings: GitSettings,
+  persistentPassphrases: SharedPreferences,
   context: Context = Application.instance.applicationContext,
   runTest: Boolean = false,
 ) {
@@ -43,7 +44,7 @@ fun runMigrations(
   removePersistentCredentialCache(sharedPrefs, gitSettings, context, runTest)
   if (!runTest) moveToPasswordGeneratorPrefs(sharedPrefs, context)
   deleteKeystoreWrappedEd25519Key(sharedPrefs, context)
-  migrateToFastUnlockOptions(sharedPrefs)
+  migrateToFastUnlockOptions(sharedPrefs, persistentPassphrases)
 }
 
 private fun deleteKeystoreWrappedEd25519Key(sharedPrefs: SharedPreferences, context: Context) {
@@ -61,7 +62,7 @@ private fun deleteKeystoreWrappedEd25519Key(sharedPrefs: SharedPreferences, cont
     androidKeystore.deleteEntry(KEYSTORE_ALIAS)
 
     val ANDROIDX_SECURITY_KEYSET_PREF_NAME = "androidx_sshkey_keyset_prefs"
-    context.getSharedPreferences(ANDROIDX_SECURITY_KEYSET_PREF_NAME, Context.MODE_PRIVATE).edit {
+    context.getSharedPreferences(ANDROIDX_SECURITY_KEYSET_PREF_NAME, 0).edit {
       clear()
     }
 
@@ -132,8 +133,7 @@ private fun moveToPasswordGeneratorPrefs(sharedPrefs: SharedPreferences, context
   // Old, encrypted preferences
   val pwgenPrefs = createEncryptedPreferences(context, "pwgen_preferences")
   // New destination
-  val passwordGeneratorPrefs =
-    context.getSharedPreferences("PasswordGenerator", Context.MODE_PRIVATE)
+  val passwordGeneratorPrefs = context.getSharedPreferences("PasswordGenerator", 0)
 
   val separator =
     pwgenPrefs.getString(PreferenceKeys.DICEWARE_SEPARATOR, null)
@@ -295,7 +295,11 @@ private fun createEncryptedPreferences(context: Context, fileName: String): Shar
   )
 }
 
-private fun migrateToFastUnlockOptions(sharedPrefs: SharedPreferences) {
+private fun migrateToFastUnlockOptions(
+  sharedPrefs: SharedPreferences,
+  persistentPassphrases: SharedPreferences,
+) {
+  persistentPassphrases.edit { remove("unlock_pin") }
   sharedPrefs.edit {
     if (sharedPrefs.getBoolean(PreferenceKeys.UNLOCK_PASSWORDS_WITH_PIN, false))
       putString(PreferenceKeys.PREF_FAST_UNLOCK_OPTION, "fingerprint")

@@ -134,8 +134,8 @@
   <string name="pref_autofill_enable_title">Enable Autofill</string>
   <string name="pref_category_misc_title">Misc</string>
   <string name="pref_category_passkey_title">Passkeys</string>
-  <string name="pref_passkey_constant_signature_counter_title">Constant signature counter</string>
-  <string name="pref_passkey_constant_signature_counter_summary">Keep signCount at 0 to help detect cloned authenticators (passless compatible).</string>
+  <string name="pref_passkey_signature_counter_policy_title">Zero signature counter (recommended for synced repos)</string>
+  <string name="pref_passkey_signature_counter_policy_summary">Always reports counter = 0 to websites, preventing Git merge conflicts across devices. Trade-off: websites cannot detect if your passkey was cloned to another device. Disable only for local-only (non-synced) repositories to enable monotonic counter with clone detection.</string>
   <string name="pref_passkey_auto_git_sync_title">Auto Git sync</string>
   <string name="pref_passkey_auto_git_sync_summary">Automatically sync passkeys with Git remote when repository is configured.</string>
   <string name="pref_clear_clipboard_title">Scramble clipboard history</string>
@@ -225,6 +225,8 @@
   <string name="git_log">Show commit log</string>
   <string name="show_password_pref_title">Show the password</string>
   <string name="show_password_pref_summary">Control the visibility of the passwords once decrypted. This does not disable copying to clipboard.</string>
+  <string name="show_extra_content_pref_title">Show extra content</string>
+  <string name="show_extra_content_pref_summary">Control the visibility of the extra content once decrypted.</string>
   <string name="fast_unlock_pref_title">Fast unlocking of entries</string>
   <string name="pwd_generate_button">Generate</string>
   <string name="refresh_list">Refresh list</string>
@@ -480,6 +482,8 @@
   <string name="pgp_unknown_key_identifier">unknown key ID</string>
   <string name="no_pgp_keys_dialog_title">No PGP keys found</string>
   <string name="no_pgp_keys_dialog_message">Open the PGP key manager and import matching PGP keys from backups for key ID(s): </string>
+  <string name="passkey_missing_recipient_key_title">Missing PGP recipient key</string>
+  <string name="passkey_missing_recipient_key_message">This passkey cannot be saved because a public PGP key required by .gpg-id is not imported:\n\n%1$s\n\nImport the matching PGP key, then try again.</string>
   <string name="no_decryption_keys_dialog_title">No decryption keys found</string>
   <string name="no_decryption_keys_dialog_message">Open the PGP key manager and import matching secret PGP keys from backups for key ID(s): </string>
   <string name="pgp_unknown">unknown</string>
@@ -503,8 +507,10 @@
   <!-- PIN input -->
   <string name="pin_entry_hint" translatable="false">PIN</string>
   <string name="pin_new_entry_title">Set PIN</string>
-  <string name="pin_new_entry_description">Your PIN code for fast unlocking must be at least 4 digits long</string>
+  <string name="pin_new_entry_description">Your PIN for fast unlocking must be at least 4 digits long.</string>
   <string name="pin_entry_title">PIN verification</string>
-  <string name="pin_entry_description">Enter your PIN code to show this entry</string>
+  <string name="pin_entry_description">Enter your PIN to show this entry.</string>
+  <string name="pin_entry_passkey_description">Enter your PIN to unlock the passkey.</string>
+  <string name="pin_entry_autofill_description">Enter your PIN to unlock the credentials.</string>
   <string name="pin_entry_wrong_input">Wrong input</string>
 </resources>

@@ -3,16 +3,26 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
+@file:OptIn(kotlin.time.ExperimentalTime::class)
+
 package app.passwordstore.passkeys.provider
 
 import app.passwordstore.passkeys.crypto.AssertionResult
+import app.passwordstore.passkeys.crypto.CallerType
+import app.passwordstore.passkeys.crypto.ClientDataBinding
 import app.passwordstore.passkeys.crypto.ES256CryptoHandler
+import app.passwordstore.passkeys.crypto.VerifiedWebAuthnContext
 import app.passwordstore.passkeys.model.FidoUser
 import app.passwordstore.passkeys.model.PasskeyCredential
+import app.passwordstore.passkeys.model.PasskeyMetadata
+import app.passwordstore.passkeys.storage.InMemoryPasskeyStorage
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
-import kotlinx.datetime.Clock
+import kotlin.time.Clock
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 
 class PasskeyProviderUtilsTest {
@@ -22,11 +32,49 @@ class PasskeyProviderUtilsTest {
 
   @Test
   fun `selectCredentials returns all credentials when allow list is empty`() {
-    val credentials = listOf(sampleCredential("one"), sampleCredential("two"))
+    val credentials = listOf(sampleCredential("one").first, sampleCredential("two").first)
 
     val selected = PasskeyProviderUtils.selectCredentials(credentials, emptyList())
 
     assertEquals(credentials, selected)
+  }
+
+  @Test
+  fun `discoverable accounts retain distinct usernames when display names match`() {
+    val first = sampleMetadata("pando85", "Same Person", byteArrayOf(1))
+    val second = sampleMetadata("forkline", "Same Person", byteArrayOf(2))
+
+    assertEquals("pando85", PasskeyProviderUtils.credentialEntryIdentity(first).username)
+    assertEquals("forkline", PasskeyProviderUtils.credentialEntryIdentity(second).username)
+  }
+
+  @Test
+  fun `multiple discoverable accounts cannot be auto selected`() {
+    assertTrue(PasskeyProviderUtils.isAutoSelectAllowed(1))
+    assertFalse(PasskeyProviderUtils.isAutoSelectAllowed(0))
+    assertFalse(PasskeyProviderUtils.isAutoSelectAllowed(2))
+  }
+
+  @Test
+  fun `each credential has a unique pending intent identity`() {
+    assertNotEquals(
+      PasskeyProviderUtils.credentialIntentUri(byteArrayOf(1)),
+      PasskeyProviderUtils.credentialIntentUri(byteArrayOf(2)),
+    )
+  }
+
+  @Test
+  fun `file-only metadata loads account identity without changing credential`() = runBlocking {
+    val storage = InMemoryPasskeyStorage()
+    val (credential, privateKey) = sampleCredential("forkline")
+    assertTrue(storage.saveCredential(credential, privateKey).isOk)
+    val fileOnlyMetadata = sampleMetadata("", "", credential.credentialId)
+
+    val hydrated = PasskeyProviderUtils.loadStoredIdentity(storage, fileOnlyMetadata)
+
+    assertEquals("forkline", hydrated.userName)
+    assertEquals("forkline", hydrated.userDisplayName)
+    assertEquals(fileOnlyMetadata.credentialId.toList(), hydrated.credentialId.toList())
   }
 
   @Test
@@ -36,21 +84,21 @@ class PasskeyProviderUtilsTest {
 
     val selected =
       PasskeyProviderUtils.selectCredentials(
-        listOf(first, second),
+        listOf(first.first, second.first),
         listOf(
           PublicKeyCredentialDescriptor(
             type = "public-key",
-            id = PasskeyProviderUtils.encodeBase64Url(second.credentialId),
+            id = PasskeyProviderUtils.encodeBase64Url(second.first.credentialId),
           )
         ),
       )
 
-    assertEquals(listOf(second), selected)
+    assertEquals(listOf(second.first), selected)
   }
 
   @Test
   fun `buildAssertionResponse preserves assertion and request metadata`() {
-    val credential = sampleCredential("alice")
+    val (credential, _) = sampleCredential("alice")
     val assertion =
       AssertionResult(
         credentialId = credential.credentialId,
@@ -58,7 +106,8 @@ class PasskeyProviderUtilsTest {
         signature = ByteArray(64) { (it + 1).toByte() },
         userHandle = credential.user.id,
         clientDataJSON =
-          """{"type":"webauthn.get","challenge":"Y2hhbGxlbmdl","origin":"https://example.com","crossOrigin":false}""",
+          """{"type":"webauthn.get","challenge":"Y2hhbGxlbmdl","origin":"https://example.com","crossOrigin":false}"""
+            .toByteArray(),
       )
 
     val responseJson =
@@ -99,7 +148,15 @@ class PasskeyProviderUtilsTest {
 
   @Test
   fun `buildAttestationResponse encodes none attestation with auth data`() {
-    val credential = sampleCredential("alice")
+    val (credential, _) = sampleCredential("alice")
+    val verifiedContext =
+      VerifiedWebAuthnContext(
+        callingPackage = "com.test.app",
+        origin = "https://example.com",
+        callerType = CallerType.NATIVE_APP,
+        signingCertificateDigests = setOf("testdigest"),
+        clientDataBinding = ClientDataBinding.ProviderConstructed,
+      )
 
     val responseJson =
       PasskeyProviderUtils.buildAttestationResponse(
@@ -112,6 +169,7 @@ class PasskeyProviderUtilsTest {
         }
         """
           .trimIndent(),
+        verifiedContext,
       )
 
     val response = json.decodeFromString(AttestationResponseJson.serializer(), responseJson)
@@ -130,17 +188,32 @@ class PasskeyProviderUtilsTest {
     assertTrue(attestationObject.indexOfSubsequence(credential.publicKey.copyOfRange(33, 65)) >= 0)
   }
 
-  private fun sampleCredential(userName: String): PasskeyCredential {
+  private fun sampleCredential(userName: String): Pair<PasskeyCredential, ByteArray> {
     val (privateKey, publicKey) = cryptoHandler.generateKeyPair()
-    return PasskeyCredential(
-      credentialId = "credential-$userName".toByteArray(),
-      privateKey = privateKey,
-      publicKey = publicKey,
-      rpId = "example.com",
-      user = FidoUser(id = "user-$userName".toByteArray(), name = userName, displayName = userName),
+    val credential =
+      PasskeyCredential(
+        credentialId = "credential-$userName".toByteArray(),
+        publicKey = publicKey,
+        rpId = "example.com",
+        user =
+          FidoUser(id = "user-$userName".toByteArray(), name = userName, displayName = userName),
+        createdAt = Clock.System.now(),
+      )
+    return Pair(credential, privateKey)
+  }
+
+  private fun sampleMetadata(
+    userName: String,
+    displayName: String,
+    credentialId: ByteArray,
+  ): PasskeyMetadata =
+    PasskeyMetadata(
+      credentialId = credentialId,
+      rpId = "github.com",
+      userName = userName,
+      userDisplayName = displayName,
       createdAt = Clock.System.now(),
     )
-  }
 
   private fun ByteArray.indexOfSubsequence(other: ByteArray): Int {
     if (other.isEmpty() || other.size > size) return -1

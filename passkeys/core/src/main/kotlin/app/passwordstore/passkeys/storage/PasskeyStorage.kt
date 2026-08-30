@@ -3,76 +3,123 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
+@file:OptIn(kotlin.time.ExperimentalTime::class)
+
 package app.passwordstore.passkeys.storage
 
 import app.passwordstore.passkeys.model.PasskeyCredential
+import app.passwordstore.passkeys.model.PasskeyMetadata
+import app.passwordstore.passkeys.model.SensitivePasskeyCredential
+import com.github.michaelbull.result.Err
+import com.github.michaelbull.result.Ok
 import com.github.michaelbull.result.Result
+import com.github.michaelbull.result.fold
 
-/**
- * Interface for storing and retrieving passkey credentials.
- *
- * Implementations should handle encryption of sensitive data (private keys) and provide thread-safe
- * access to stored credentials.
- */
 public interface PasskeyStorage {
 
-  /**
-   * Lists all stored credentials, optionally filtered by Relying Party ID.
-   *
-   * @param rpId Optional RP ID to filter credentials. If null, returns all credentials.
-   * @return A list of credentials or an error
-   */
-  public suspend fun listCredentials(
-    rpId: String? = null
-  ): Result<List<PasskeyCredential>, Throwable>
+  public suspend fun listMetadata(rpId: String? = null): Result<List<PasskeyMetadata>, Throwable>
 
-  /**
-   * Retrieves a specific credential by its ID.
-   *
-   * @param credentialId The unique identifier for the credential
-   * @return The credential if found, null if not found, or an error
-   */
-  public suspend fun getCredential(credentialId: ByteArray): Result<PasskeyCredential?, Throwable>
+  public suspend fun loadForSigning(
+    credentialId: ByteArray
+  ): Result<SensitivePasskeyCredential, Throwable>
 
-  /**
-   * Stores a new credential or updates an existing one.
-   *
-   * @param credential The credential to store
-   * @return Success or an error
-   */
-  public suspend fun saveCredential(credential: PasskeyCredential): Result<Unit, Throwable>
+  public suspend fun loadForSigningExact(
+    ref: PasskeyFileRef,
+    expectedVersion: CredentialSourceVersion? = null,
+  ): Result<SensitivePasskeyCredential, Throwable> {
+    return loadForSigning(ref.credentialId)
+  }
 
-  /**
-   * Deletes a credential by its ID.
-   *
-   * @param credentialId The unique identifier for the credential
-   * @return True if the credential was deleted, false if it didn't exist, or an error
-   */
+  public suspend fun saveCredential(
+    credential: PasskeyCredential,
+    privateKey: ByteArray,
+  ): Result<Unit, Throwable>
+
   public suspend fun deleteCredential(credentialId: ByteArray): Result<Boolean, Throwable>
 
-  /**
-   * Updates the sign count for a credential.
-   *
-   * The sign count should be incremented after each successful authentication to help detect cloned
-   * authenticators.
-   *
-   * @param credentialId The unique identifier for the credential
-   * @param newSignCount The new sign count value
-   * @return Success or an error
-   */
+  public suspend fun deleteCredentialExact(ref: PasskeyFileRef): Result<Boolean, Throwable> {
+    return deleteCredential(ref.credentialId)
+  }
+
   public suspend fun updateSignCount(
     credentialId: ByteArray,
     newSignCount: ULong,
   ): Result<Unit, Throwable>
+
+  public suspend fun resolveSourceVersion(
+    credentialId: ByteArray
+  ): Result<SourceVersionResult, Throwable> {
+    return Ok(SourceVersionResult.Missing)
+  }
+
+  public suspend fun resolveSourceVersionExact(
+    ref: PasskeyFileRef
+  ): Result<SourceVersionResult, Throwable> {
+    return resolveSourceVersion(ref.credentialId)
+  }
+
+  public suspend fun loadCredentialMetadata(
+    ref: PasskeyFileRef,
+    expectedVersion: CredentialSourceVersion? = null,
+  ): Result<PasskeyMetadata, Throwable> {
+    return loadForSigningExact(ref, expectedVersion)
+      .fold(
+        success = { credential ->
+          credential.use {
+            Ok(
+              PasskeyMetadata(
+                credentialId = credential.credentialId,
+                rpId = credential.rpId,
+                userName = credential.user.name,
+                userDisplayName = credential.user.displayName,
+                createdAt = credential.createdAt,
+                signCount = credential.signCount,
+                backupEligible = credential.backupEligible,
+                backupState = credential.backupState,
+              )
+            )
+          }
+        },
+        failure = { Err(it) },
+      )
+  }
+
+  public suspend fun listMetadataWithRefs(
+    rpId: String? = null
+  ): Result<List<PasskeyMetadataWithRef>, Throwable> {
+    return listMetadata(rpId)
+      .fold(
+        success = { list ->
+          Ok(list.map { PasskeyMetadataWithRef(metadata = it, fileRef = null) })
+        },
+        failure = { Err(it) },
+      )
+  }
 }
 
-/**
- * Configuration for passkey storage.
- *
- * @property passkeyDirectory Directory name within the repository root for storing credentials
- * @property fileExtension File extension for credential files (e.g., ".gpg")
- */
 public data class PasskeyStorageConfig(
   public val passkeyDirectory: String = "fido2",
   public val fileExtension: String = ".gpg",
 )
+
+public data class PasskeyMetadataWithRef(
+  val metadata: PasskeyMetadata,
+  val fileRef: PasskeyFileRef?,
+  val sourceVersion: CredentialSourceVersion? = null,
+)
+
+internal fun hexToBytes(hex: String): ByteArray? {
+  if (hex.length % 2 != 0) return null
+  return try {
+    ByteArray(hex.length / 2) { i ->
+      hex.substring(i * 2, i * 2 + 2).toInt(16).toByte()
+    }
+  } catch (_: Exception) {
+    null
+  }
+}
+
+internal fun sanitizeRpId(rpId: String): String {
+  val sanitized = rpId.filter { it.isLetterOrDigit() || it == '.' || it == '-' }
+  return sanitized.ifEmpty { "_" }
+}

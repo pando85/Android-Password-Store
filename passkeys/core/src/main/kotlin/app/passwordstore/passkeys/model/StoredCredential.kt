@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: GPL-3.0-only
  */
 
+@file:OptIn(kotlin.time.ExperimentalTime::class)
+
 package app.passwordstore.passkeys.model
 
 import app.passwordstore.passkeys.cbor.Cbor
@@ -10,7 +12,9 @@ import app.passwordstore.passkeys.cbor.CborMap
 import app.passwordstore.passkeys.cbor.CborValue
 import app.passwordstore.passkeys.cbor.toCborIntegerArray
 import java.math.BigInteger
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
+import logcat.LogPriority
+import logcat.logcat
 import org.bouncycastle.crypto.ec.CustomNamedCurves
 
 public data class StoredCredential(
@@ -24,10 +28,27 @@ public data class StoredCredential(
   val created: Long,
   val discoverable: Boolean = true,
   val extensions: Extensions = Extensions(),
-) {
+  val backupEligible: Boolean = true,
+  val backupState: Boolean = false,
+) : AutoCloseable {
+
+  @Volatile private var wiped = false
+
+  public fun wipe() {
+    privateKey.fill(0)
+    publicKey?.fill(0)
+    id.fill(0)
+    user.id.fill(0)
+    extensions.credRandom?.fill(0)
+    wiped = true
+  }
+
+  override fun close() {
+    wipe()
+  }
 
   override fun toString(): String =
-    "StoredCredential(id=${'$'}{id.contentToString()}, rp=$'$'{rp}, signCount=$'$'{signCount}, alg=$'$'{alg}, privateKey=<REDACTED>, publicKey=${'$'}{publicKey?.let { \"<present>\" } ?: \"<null>\"}, created=$'$'{created})"
+    "StoredCredential(id=<redacted>, rp=$'$'{rp}, signCount=$'$'{signCount}, alg=$'$'{alg}, privateKey=<REDACTED>, publicKey=${'$'}{publicKey?.let { \"<present>\" } ?: \"<null>\"}, created=$'$'{created})"
 
   public fun toCbor(): ByteArray {
     val map = mutableMapOf<String, CborValue>()
@@ -42,13 +63,18 @@ public data class StoredCredential(
     map["created"] = CborValue.UnsignedInteger(BigInteger.valueOf(created))
     map["discoverable"] = if (discoverable) CborValue.True else CborValue.False
     map["extensions"] = CborValue.Map(extensions.toCborMap())
+    val credentialBackupState =
+      CredentialBackupState.fromFlags(
+        backupEligible = backupEligible,
+        backupState = backupState,
+      )
+    map["backup_state"] = CborValue.TextString(credentialBackupState.serializedName)
     return Cbor.fromMap(CborMap.from(map)).toBytes()
   }
 
   public fun toPasskeyCredential(): PasskeyCredential {
     return PasskeyCredential(
       credentialId = id,
-      privateKey = privateKey,
       publicKey = publicKey ?: deriveP256PublicKey(privateKey),
       rpId = rp.id,
       user = FidoUser(id = user.id, name = user.name ?: "", displayName = user.displayName ?: ""),
@@ -56,6 +82,8 @@ public data class StoredCredential(
       createdAt = Instant.fromEpochSeconds(created),
       transports = listOf("internal"),
       uvInitialized = true,
+      backupEligible = backupEligible,
+      backupState = backupState,
     )
   }
 
@@ -79,6 +107,8 @@ public data class StoredCredential(
     if (created != other.created) return false
     if (discoverable != other.discoverable) return false
     if (extensions != other.extensions) return false
+    if (backupEligible != other.backupEligible) return false
+    if (backupState != other.backupState) return false
     return true
   }
 
@@ -93,6 +123,8 @@ public data class StoredCredential(
     result = 31 * result + created.hashCode()
     result = 31 * result + discoverable.hashCode()
     result = 31 * result + extensions.hashCode()
+    result = 31 * result + backupEligible.hashCode()
+    result = 31 * result + backupState.hashCode()
     return result
   }
 
@@ -100,6 +132,51 @@ public data class StoredCredential(
     public const val ALG_ES256: Int = -7
 
     private val p256Curve by lazy { CustomNamedCurves.getByName("secp256r1") }
+
+    /**
+     * Decodes the canonical soft-fido2 representation and the legacy APS boolean representation.
+     * Writers always emit the canonical text value, so legacy credentials migrate on their next
+     * save without requiring an eager repository rewrite.
+     */
+    private fun parseBackupState(map: CborMap): CredentialBackupState {
+      val hasBackupState = map.contains("backup_state")
+      val hasBackupEligible = map.contains("backup_eligible")
+      val canonicalState = map.getString("backup_state")
+
+      if (canonicalState != null) {
+        require(!hasBackupEligible) {
+          "Credential mixes canonical 'backup_state' with legacy 'backup_eligible'"
+        }
+        return CredentialBackupState.fromSerializedName(canonicalState)
+      }
+
+      if (!hasBackupState && !hasBackupEligible) {
+        // Existing Git/OpenPGP credentials are syncable under APS's established migration policy.
+        return CredentialBackupState.ELIGIBLE
+      }
+
+      val legacyBackupEligible =
+        if (hasBackupEligible) {
+          map.getBoolean("backup_eligible")
+            ?: throw IllegalArgumentException("Legacy 'backup_eligible' must be a CBOR boolean")
+        } else {
+          true
+        }
+      val legacyBackupState =
+        if (hasBackupState) {
+          map.getBoolean("backup_state")
+            ?: throw IllegalArgumentException(
+              "'backup_state' must be a canonical CBOR text value or legacy boolean"
+            )
+        } else {
+          false
+        }
+
+      return CredentialBackupState.fromFlags(
+        backupEligible = legacyBackupEligible,
+        backupState = legacyBackupState,
+      )
+    }
 
     public fun deriveP256PublicKey(privateKeyScalar: ByteArray): ByteArray {
       val n = p256Curve.n
@@ -118,13 +195,41 @@ public data class StoredCredential(
         map.getLong("sign_count")?.toUInt()
           ?: throw IllegalArgumentException("Missing 'sign_count' field")
       val alg = map.getInt("alg") ?: throw IllegalArgumentException("Missing 'alg' field")
-      val privateKey =
+      val rawPrivateKey =
         map.getBytes("private_key") ?: throw IllegalArgumentException("Missing 'private_key' field")
-      val publicKey = if (map.isNull("public_key")) null else map.getBytes("public_key")
+      val privateKey =
+        if (rawPrivateKey.size < 32) {
+          ByteArray(32 - rawPrivateKey.size) + rawPrivateKey
+        } else {
+          rawPrivateKey
+        }
+      val rawPublicKey = if (map.isNull("public_key")) null else map.getBytes("public_key")
+      val publicKey =
+        if (rawPublicKey != null) {
+          try {
+            val derived = deriveP256PublicKey(privateKey)
+            if (!derived.contentEquals(rawPublicKey)) {
+              logcat(LogPriority.WARN) {
+                "Stored public key does not match derived key, re-deriving from private scalar"
+              }
+              null
+            } else {
+              rawPublicKey
+            }
+          } catch (_: Exception) {
+            logcat(LogPriority.WARN) {
+              "Failed to derive public key for validation, will re-derive"
+            }
+            null
+          }
+        } else {
+          null
+        }
       val created =
         map.getLong("created") ?: throw IllegalArgumentException("Missing 'created' field")
       val discoverable = map.getBoolean("discoverable") ?: true
       val extensionsMap = map.getMap("extensions")
+      val credentialBackupState = parseBackupState(map)
 
       return StoredCredential(
         id = id,
@@ -137,26 +242,63 @@ public data class StoredCredential(
         created = created,
         discoverable = discoverable,
         extensions = extensionsMap?.let { Extensions.fromCborMap(it) } ?: Extensions(),
+        backupEligible = credentialBackupState.isEligible,
+        backupState = credentialBackupState.isBackedUp,
       )
     }
 
-    public fun fromPasskeyCredential(credential: PasskeyCredential): StoredCredential {
+    public fun metadataFromCbor(bytes: ByteArray): PasskeyMetadata {
+      val map = Cbor.parse(bytes).asMap()
+
+      val id = map.getBytes("id") ?: throw IllegalArgumentException("Missing 'id' field")
+      val rpMap = map.getMap("rp") ?: throw IllegalArgumentException("Missing 'rp' field")
+      val userMap = map.getMap("user")
+      val signCount = map.getLong("sign_count")?.toULong() ?: 0uL
+      val created = map.getLong("created") ?: 0L
+      val credentialBackupState = parseBackupState(map)
+
+      val rpId = rpMap.getString("id") ?: throw IllegalArgumentException("Missing 'rp.id' field")
+      val userName =
+        if (userMap != null && !userMap.isNull("name")) userMap.getString("name") ?: "" else ""
+      val userDisplayName =
+        if (userMap != null && !userMap.isNull("display_name"))
+          userMap.getString("display_name") ?: ""
+        else ""
+
+      return PasskeyMetadata(
+        credentialId = id,
+        rpId = rpId,
+        userName = userName,
+        userDisplayName = userDisplayName,
+        createdAt = kotlin.time.Instant.fromEpochSeconds(created),
+        signCount = signCount,
+        backupEligible = credentialBackupState.isEligible,
+        backupState = credentialBackupState.isBackedUp,
+      )
+    }
+
+    public fun fromPasskeyCredential(
+      credential: PasskeyCredential,
+      privateKey: ByteArray,
+    ): StoredCredential {
       return StoredCredential(
-        id = credential.credentialId,
+        id = credential.credentialId.copyOf(),
         rp = RelyingParty(id = credential.rpId, name = null),
         user =
           User(
-            id = credential.user.id,
+            id = credential.user.id.copyOf(),
             name = credential.user.name,
             displayName = credential.user.displayName,
           ),
         signCount = credential.signCount.toUInt(),
         alg = ALG_ES256,
-        privateKey = credential.privateKey,
-        publicKey = credential.publicKey,
+        privateKey = privateKey.copyOf(),
+        publicKey = credential.publicKey.copyOf(),
         created = credential.createdAt.epochSeconds,
         discoverable = true,
         extensions = Extensions(),
+        backupEligible = credential.backupEligible,
+        backupState = credential.backupState,
       )
     }
   }

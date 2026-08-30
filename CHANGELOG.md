@@ -4,6 +4,109 @@ All notable changes to this project will be documented in this file
 
 ## [Unreleased]
 
+## [1.20.0] - 2026-08-02
+
+### Fixed
+
+- Passkey backup state credential encoding is now canonicalized for consistent Git sync
+
+### Changed
+
+- Removed provenance metadata fields from passkey storage
+
+## [1.19.3] - 2026-07-31
+
+### Fixed
+
+- Git sync for passkey credentials is now durable and recovers remote credentials on miss
+
+## [1.19.2] - 2026-07-29
+
+### Fixed
+
+- Restored privileged browser Credential Manager responses for passkey authentication
+
+## [1.19.1] - 2026-07-28
+
+### Fixed
+
+- Autofill biometric fast unlock setup now works correctly
+
+## [1.19.0] - 2026-07-26
+
+### Added
+
+- Keystore-backed passphrase caching makes subsequent passkey unlocks within the same app session faster
+- Persistent credential metadata lets the passkey picker show account names without decrypting private keys
+
+### Fixed
+
+- Browser WebAuthn responses now include the challenge and correct ceremony type in `clientDataJSON`
+- Authenticator data now reports the user-verification flag from the actual biometric result
+- Passkey credentials created with short private keys load correctly, and oversized sensitive buffers no longer cause CBOR trailing-data failures
+- Passkey encryption now resolves recipients from the nearest applicable `.gpg-id`, matching standard password-store behavior
+- Updated dependencies: JGit 7.7.1, Android Gradle Plugin 9.3.1, and test-parameter-injector 1.22
+
+### Security
+
+- Passkey files are confined to exact no-follow repository paths, with traversal, symlink, duplicate-ID, and payload-binding checks
+- Repository, OpenPGP, CBOR, and Digital Asset Links inputs are streamed with strict size and concurrency limits
+- Private-key and passphrase buffers now have single-owner lifetime tracking and deterministic zeroization
+- Credential source versions are validated fail-closed against the exact decrypted file before signing
+- Passkey writes require atomic replacement and report indeterminate directory durability instead of silently continuing
+- Privileged browser ceremonies sign the framework-provided client data hash directly
+- Native app callers must provide the credential-sharing Digital Asset Links relation for passkey ceremonies
+- `credProtect` policies are enforced during assertions, and RP IDs use allowlist-based validation
+
+### Fork infrastructure
+
+- Switched same-repository workflow actions to local paths and disabled Renovate digest pinning
+- Updated CodeQL to 4.37.3 and refreshed CI workflow references
+
+## [1.18.0] - 2026-07-22
+
+### Added
+
+- WebAuthn backup eligibility and state are now reported correctly for Git-synchronized credentials
+- Explicit signature counter policy with fail-safe monotonic mode
+
+### Security
+
+- Private keys are now isolated from the metadata index and decrypted only after user verification
+- WebAuthn requests are bound to verified Android caller and trusted origin
+- Matching OpenPGP decryption key selection with support for protected secret keys
+
+### Fixed
+
+- Restored passkey login with binary OpenPGP credentials created by 1.17.3 and passless
+- Fixed native app and pinned Chrome/Firefox caller verification
+- Fixed usernameless login origin canonicalization and multi-account selection
+- Credential metadata is now invalidated after Git/filesystem changes and revalidated before signing
+- Atomic, durable, serialized credential writes prevent corruption
+- Updated dependencies: jgit v7, Kotlin/Compose, BouncyCastle v1.85, AGP v9.3.0, AndroidX, Hilt v2.60.1, PGPainless v2.0.4
+
+### Testing
+
+- Added a dedicated passkey compatibility CI suite and implementation guidance
+
+### Fork infrastructure
+
+- Added Renovate dependency automation configuration
+- Added pre-commit hooks, forkline setup, and pre-merge CI skill
+- Updated GitHub Actions (checkout v7, setup-java v5.6.0, upload-artifact v7.0.1, codeql v4.37.2, gradle/actions v6, softprops/action-gh-release v3)
+
+## [1.17.3] - 2026-07-12
+
+### Fixed
+
+- Crash on empty biometrics/PIN timeout preference
+
+### Fork infrastructure
+
+- Added release skill and automation
+- Fixed F-Droid scanignore for build-logic included build
+- Disabled lint CredentialDependency check after dropping Play Services auth
+
 ## [1.17.2] - 2026-06-30
 
 ### Added
@@ -746,8 +849,17 @@ All notable changes to this project will be documented in this file
 
 - Fix elements overlapping.
 
-[unreleased]: https://github.com/agrahn/Android-Password-Store/compare/v1.16.3...HEAD
-[1.16.3]: https://github.com/agrahn/Android-Password-Store/compare/v1.16.2...v1.16.3
+[unreleased]: https://github.com/pando85/Android-Password-Store/compare/v1.19.3...HEAD
+[1.19.3]: https://github.com/pando85/Android-Password-Store/compare/v1.19.2...v1.19.3
+[1.19.2]: https://github.com/pando85/Android-Password-Store/compare/v1.19.1...v1.19.2
+[1.19.1]: https://github.com/pando85/Android-Password-Store/compare/v1.19.0...v1.19.1
+[1.19.0]: https://github.com/pando85/Android-Password-Store/compare/v1.18.0...v1.19.0
+[1.18.0]: https://github.com/pando85/Android-Password-Store/compare/v1.17.3...v1.18.0
+[1.17.3]: https://github.com/pando85/Android-Password-Store/compare/v1.17.2...v1.17.3
+[1.17.2]: https://github.com/pando85/Android-Password-Store/compare/v1.17.1...v1.17.2
+[1.17.1]: https://github.com/pando85/Android-Password-Store/compare/v1.17.0...v1.17.1
+[1.17.0]: https://github.com/pando85/Android-Password-Store/compare/v1.16.3...v1.17.0
+[1.16.3]: https://github.com/pando85/Android-Password-Store/compare/v1.16.2...v1.16.3
 [1.16.2]: https://github.com/agrahn/Android-Password-Store/compare/v1.16.1...v1.16.2
 [1.16.1]: https://github.com/agrahn/Android-Password-Store/compare/v1.16.0...v1.16.1
 [1.16.0]: https://github.com/agrahn/Android-Password-Store/compare/v1.15.4...v1.16.0
