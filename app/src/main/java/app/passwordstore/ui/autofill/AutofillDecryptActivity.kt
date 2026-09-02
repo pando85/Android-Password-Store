@@ -27,6 +27,7 @@ import app.passwordstore.util.extensions.toCharArray
 import app.passwordstore.util.extensions.wipe
 import app.passwordstore.util.settings.PreferenceKeys
 import com.github.androidpasswordstore.autofillparser.AutofillAction
+import com.github.androidpasswordstore.autofillparser.FormOrigin
 import com.github.michaelbull.result.getError
 import com.github.michaelbull.result.getOrThrow
 import com.github.michaelbull.result.onSuccess
@@ -50,6 +51,8 @@ class AutofillDecryptActivity : BasePGPActivity() {
   private lateinit var repositoryPath: String
   private lateinit var clientState: Bundle
   private lateinit var action: AutofillAction
+  private var formOrigin: FormOrigin? = null
+  private var origin: String? = null
 
   override fun onStart() {
     super.onStart()
@@ -68,6 +71,10 @@ class AutofillDecryptActivity : BasePGPActivity() {
           finish()
           return
         }
+    // Derive the form origin from the client state instead of static state so it survives process
+    // death between the fill request and the dataset authentication.
+    formOrigin = FormOrigin.fromBundle(clientState)
+    origin = formOrigin?.getPrettyIdentifier(this, untrusted = false) // web origin or app name
     val isSearchAction =
       intent?.getBooleanExtra(EXTRA_SEARCH_ACTION, true) ?: throw NullPointerException()
     action = if (isSearchAction) AutofillAction.Search else AutofillAction.Match
@@ -102,6 +109,7 @@ class AutofillDecryptActivity : BasePGPActivity() {
                 this,
                 encryptedFile,
                 entry,
+                origin,
                 directoryStructure,
               )
             val fillInDataset =
@@ -184,6 +192,7 @@ class AutofillDecryptActivity : BasePGPActivity() {
           this,
           encryptedFile,
           entry,
+          origin,
           directoryStructure,
         )
       val fillInDataset =
