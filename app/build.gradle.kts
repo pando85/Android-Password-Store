@@ -42,6 +42,7 @@ android {
 
 dependencies {
   implementation(platform(libs.compose.bom))
+  implementation(platform(libs.thirdparty.bouncycastle.bom))
   ksp(libs.dagger.hilt.compiler)
   implementation(libs.androidx.annotation)
   coreLibraryDesugaring(libs.android.desugarJdkLibs)
@@ -76,7 +77,7 @@ dependencies {
   implementation(libs.dagger.hilt.android)
 
   implementation(libs.kotlinx.collections.immutable)
-  implementation(libs.kotlinx.coroutines.android)
+  implementation(platform(libs.kotlinx.coroutines.bom))
   implementation(libs.kotlinx.coroutines.core)
   implementation(libs.kotlinx.serialization.json)
 

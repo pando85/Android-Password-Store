@@ -13,6 +13,7 @@ dependencies {
   implementation(libs.thirdparty.commons.codec)
   implementation(libs.thirdparty.uri)
   testImplementation(libs.bundles.testDependencies)
+  testImplementation(platform(libs.kotlinx.coroutines.bom))
   testImplementation(libs.kotlinx.coroutines.test)
   testImplementation(libs.testing.turbine)
   implementation(libs.thirdparty.logcat)
