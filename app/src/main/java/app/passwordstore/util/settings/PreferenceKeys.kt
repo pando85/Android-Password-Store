@@ -60,6 +60,8 @@ object PreferenceKeys {
   const val DIRECTORY_STRUCTURE = "oreo_autofill_directory_structure"
   const val AUTOFILL_SAVE_DIRECTORY = "oreo_autofill_save_directory"
   const val STRICT_DOMAIN_SEARCH = "oreo_autofill_strict_domain_search"
+  const val DOMAIN_QUICK_SELECT_ADD = "oreo_autofill_domain_quick_select_add"
+  const val DOMAIN_QUICK_SELECT_REMOVE = "oreo_autofill_domain_quick_select_remove"
   const val PREF_KEY_PWGEN_TYPE = "pref_key_pwgen_type"
   const val REPOSITORY_INITIALIZED = "repository_initialized"
   const val REPO_CHANGED = "repo_changed"
