@@ -20,7 +20,7 @@ data class PasswordItem(
   val mappedName: String? = null,
 ) : Comparable<PasswordItem> {
 
-  private val physicalName = name.replace("\\.gpg$".toRegex(), "")
+  val physicalName = name.replace("\\.gpg$".toRegex(), "")
 
   val fullPathToParent = PasswordRepository.getParentPath(file.absolutePath, rootDir.absolutePath)
 
@@ -68,7 +68,9 @@ data class PasswordItem(
   /** Creates an [Intent] to launch this [PasswordItem] through the authentication process. */
   fun createAuthEnabledIntent(context: Context): Intent {
     val intent = Intent(context, LaunchActivity::class.java)
-    intent.putExtra("NAME", toString())
+    // Intent extras may outlive the current UI process through Android shortcuts. Keep the
+    // persisted identity physical even when a Pass-Secrets label is currently unlocked.
+    intent.putExtra("NAME", physicalName)
     intent.putExtra(BasePGPActivity.EXTRA_FILE_PATH, file.absolutePath)
     intent.putExtra(
       BasePGPActivity.EXTRA_REPO_PATH,
