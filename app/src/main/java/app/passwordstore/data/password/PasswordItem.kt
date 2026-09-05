@@ -29,8 +29,7 @@ data class PasswordItem(
 
   val longName = PasswordRepository.getLongName(fullPathToParent, rootDir.absolutePath, toString())
 
-  val searchableName =
-    if (mappedName != null) "$longName $physicalLongName" else physicalLongName
+  val searchableName = if (mappedName != null) "$longName $physicalLongName" else physicalLongName
 
   fun matchesSearch(filter: String): Boolean = searchableName.contains(filter, ignoreCase = true)
 
