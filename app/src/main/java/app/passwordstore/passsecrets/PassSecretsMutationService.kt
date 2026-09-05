@@ -44,8 +44,7 @@ constructor(
   )
 
   data class FileMovePlan(
-    val source: File,
-    val destination: File,
+    val moves: List<Pair<File, File>>,
     val updates: List<Update>,
     val rollbackUpdates: List<Update>,
   )
@@ -55,6 +54,8 @@ constructor(
     val updates: List<Update>,
     val rollbackUpdates: List<Update>,
   )
+
+  private data class StagedMove(val source: File, val destination: File, val backup: File?)
 
   fun requiredMetadataForPasswordWrite(
     sourceFile: File?,
@@ -188,93 +189,146 @@ constructor(
     }
   }
 
-  fun requiredMetadataForMove(source: File, destination: File, repositoryRoot: File): List<File> {
-    if (PassSecretsMapStore.isProtectedIdentityMarker(source)) {
-      throw ProtectedIdentityMarkerException(source)
+  fun requiredMetadataForMoves(
+    moves: List<Pair<File, File>>,
+    repositoryRoot: File,
+  ): List<File> {
+    val metadata = linkedMapOf<String, File>()
+    moves.forEach { (source, destination) ->
+      if (PassSecretsMapStore.isProtectedIdentityMarker(source)) {
+        throw ProtectedIdentityMarkerException(source)
+      }
+      if (PassSecretsMapStore.moveRequiresReencryption(source, destination, repositoryRoot)) {
+        throw ReencryptionRequiredException(source, destination)
+      }
+      val sourceParent = source.parentFile ?: return@forEach
+      val sourceIdentity = PassSecretsMapStore.identityForDirectory(sourceParent, repositoryRoot)
+        ?: return@forEach
+      val destinationIdentity =
+        PassSecretsMapStore.identityForDirectory(destination.parentFile ?: return@forEach, repositoryRoot)
+      if (sourceIdentity.canonicalPath != destinationIdentity?.canonicalPath) {
+        // Moving an entire nested identity is safe cryptographically because its .gpg-id moves
+        // with it, but parent Pass-Secrets metadata could reference that directory. Refuse when
+        // such parent metadata exists rather than silently leaving stale associations.
+        val parentMetadata =
+          PassSecretsMapStore.metadataFilesForDirectory(sourceParent, repositoryRoot).existingFiles
+        if (parentMetadata.isNotEmpty()) throw ReencryptionRequiredException(source, destination)
+        return@forEach
+      }
+      PassSecretsMapStore.metadataFilesForDirectory(sourceParent, repositoryRoot)
+        .existingFiles
+        .forEach { file -> metadata[file.canonicalPath] = file }
     }
-    if (PassSecretsMapStore.moveRequiresReencryption(source, destination, repositoryRoot)) {
-      throw ReencryptionRequiredException(source, destination)
-    }
-    val sourceParent = source.parentFile ?: return emptyList()
-    val sourceIdentity = PassSecretsMapStore.identityForDirectory(sourceParent, repositoryRoot)
-      ?: return emptyList()
-    val destinationIdentity =
-      PassSecretsMapStore.identityForDirectory(destination.parentFile ?: return emptyList(), repositoryRoot)
-    if (sourceIdentity.canonicalPath != destinationIdentity?.canonicalPath) return emptyList()
-
-    return PassSecretsMapStore.metadataFilesForDirectory(sourceParent, repositoryRoot)
-      .existingFiles
-      .filterNot(PassSecretsMapStore::isLoaded)
+    return metadata.values.filterNot(PassSecretsMapStore::isLoaded)
   }
 
-  fun planMove(source: File, destination: File, repositoryRoot: File): FileMovePlan {
-    requiredMetadataForMove(source, destination, repositoryRoot).firstOrNull()?.let {
+  fun requiredMetadataForMove(source: File, destination: File, repositoryRoot: File): List<File> =
+    requiredMetadataForMoves(listOf(source to destination), repositoryRoot)
+
+  fun planMoves(moves: List<Pair<File, File>>, repositoryRoot: File): FileMovePlan {
+    requiredMetadataForMoves(moves, repositoryRoot).firstOrNull()?.let {
       throw MetadataLockedException(it)
     }
-    val sourceParent = source.parentFile
-      ?: return FileMovePlan(source, destination, emptyList(), emptyList())
-    val sourceIdentity = PassSecretsMapStore.identityForDirectory(sourceParent, repositoryRoot)
-      ?: return FileMovePlan(source, destination, emptyList(), emptyList())
-    val destinationIdentity =
-      PassSecretsMapStore.identityForDirectory(destination.parentFile ?: sourceParent, repositoryRoot)
-    if (sourceIdentity.canonicalPath != destinationIdentity?.canonicalPath) {
-      // A self-contained nested identity can move without re-encrypting its contents. Its own maps
-      // are relative to its root and therefore remain unchanged. Parent aliases are intentionally
-      // not guessed across trust boundaries.
-      return FileMovePlan(source, destination, emptyList(), emptyList())
-    }
+    val normalizedMoves = moves.distinctBy { (source, _) -> source.canonicalPath }
+    val original = linkedMapOf<String, Update>()
+    val current = linkedMapOf<String, Update>()
 
-    val metadata = PassSecretsMapStore.metadataFilesForDirectory(sourceParent, repositoryRoot)
-    val sourceRelative = relativeEntryPath(source, sourceIdentity)
-    val destinationRelative = relativeEntryPath(destination, sourceIdentity)
-    val updates = mutableListOf<Update>()
-    val rollback = mutableListOf<Update>()
+    normalizedMoves.forEach { (source, destination) ->
+      val sourceParent = source.parentFile ?: return@forEach
+      val sourceIdentity = PassSecretsMapStore.identityForDirectory(sourceParent, repositoryRoot)
+        ?: return@forEach
+      val destinationIdentity =
+        PassSecretsMapStore.identityForDirectory(destination.parentFile ?: sourceParent, repositoryRoot)
+      if (sourceIdentity.canonicalPath != destinationIdentity?.canonicalPath) return@forEach
 
-    metadata.mapFile?.let { mapFile ->
-      val old = mapFile.requireMapSnapshot()
-      val new =
-        PassSecretsMapStore.mapAfterMove(old, sourceRelative, destinationRelative, source.isDirectory)
-      if (new != old) {
-        updates += Update.Secrets(mapFile, new)
-        rollback += Update.Secrets(mapFile, old)
+      val sourceRelative = relativeEntryPath(source, sourceIdentity)
+      val destinationRelative = relativeEntryPath(destination, sourceIdentity)
+      val metadata = PassSecretsMapStore.metadataFilesForDirectory(sourceParent, repositoryRoot)
+
+      metadata.mapFile?.let { mapFile ->
+        val key = mapFile.canonicalPath
+        val old =
+          (original[key] as? Update.Secrets)?.values ?: mapFile.requireMapSnapshot().also {
+            original[key] = Update.Secrets(mapFile, it)
+          }
+        val values = (current[key] as? Update.Secrets)?.values ?: old
+        current[key] =
+          Update.Secrets(
+            mapFile,
+            PassSecretsMapStore.mapAfterMove(
+              values,
+              sourceRelative,
+              destinationRelative,
+              source.isDirectory,
+            ),
+          )
+      }
+      metadata.maskFile?.let { maskFile ->
+        val key = maskFile.canonicalPath
+        val old =
+          (original[key] as? Update.Mask)?.associations ?: maskFile.requireMaskSnapshot().also {
+            original[key] = Update.Mask(maskFile, it)
+          }
+        val values = (current[key] as? Update.Mask)?.associations ?: old
+        current[key] =
+          Update.Mask(
+            maskFile,
+            if (source.isDirectory)
+              PassSecretsMapStore.maskAfterMove(values, sourceRelative, destinationRelative)
+            else values,
+          )
       }
     }
-    metadata.maskFile?.let { maskFile ->
-      val old = maskFile.requireMaskSnapshot()
-      val new =
-        if (source.isDirectory)
-          PassSecretsMapStore.maskAfterMove(old, sourceRelative, destinationRelative)
-        else old
-      if (new != old) {
-        updates += Update.Mask(maskFile, new)
-        rollback += Update.Mask(maskFile, old)
-      }
-    }
-    return FileMovePlan(source, destination, updates, rollback)
+
+    return FileMovePlan(
+      moves = normalizedMoves,
+      updates = current.filter { (key, value) -> value != original[key] }.values.toList(),
+      rollbackUpdates = original.filter { (key, value) -> value != current[key] }.values.toList(),
+    )
   }
 
-  suspend fun commitMove(plan: FileMovePlan) {
+  fun planMove(source: File, destination: File, repositoryRoot: File): FileMovePlan =
+    planMoves(listOf(source to destination), repositoryRoot)
+
+  suspend fun commitMoves(plan: FileMovePlan) {
     withContext(dispatcherProvider.io()) {
-      if (!plan.source.renameTo(plan.destination)) {
-        throw IOException("Could not move ${plan.source} to ${plan.destination}")
-      }
+      val staged = mutableListOf<StagedMove>()
       try {
+        plan.moves.forEach { (source, destination) ->
+          destination.parentFile?.mkdirs()
+          val backup =
+            if (destination.exists()) {
+              File(destination.parentFile, ".aps-move-backup-${UUID.randomUUID()}-${destination.name}")
+                .also { backupFile ->
+                  if (!destination.renameTo(backupFile)) {
+                    throw IOException("Could not stage existing destination $destination")
+                  }
+                }
+            } else null
+          if (!source.renameTo(destination)) {
+            backup?.renameTo(destination)
+            throw IOException("Could not move $source to $destination")
+          }
+          staged += StagedMove(source, destination, backup)
+        }
+
         writer.persist(plan.updates)
+        staged.forEach { it.backup?.deleteRecursively() }
       } catch (error: Throwable) {
-        if (!plan.destination.renameTo(plan.source)) {
-          throw IOException(
-            "Pass-Secrets metadata update failed and filesystem move could not be rolled back",
-            error,
-          )
+        staged.asReversed().forEach { move ->
+          if (move.destination.exists()) move.destination.renameTo(move.source)
+          move.backup?.takeIf { it.exists() }?.renameTo(move.destination)
         }
         throw error
       }
     }
   }
 
+  suspend fun commitMove(plan: FileMovePlan) = commitMoves(plan)
+
   fun requiredMetadataForDelete(targets: List<File>, repositoryRoot: File): List<File> {
     val metadata = linkedMapOf<String, File>()
-    targets.forEach { target ->
+    normalizeDeleteTargets(targets).forEach { target ->
       if (PassSecretsMapStore.isProtectedIdentityMarker(target)) {
         throw ProtectedIdentityMarkerException(target)
       }
@@ -287,13 +341,14 @@ constructor(
   }
 
   fun planDelete(targets: List<File>, repositoryRoot: File): DeletePlan {
-    requiredMetadataForDelete(targets, repositoryRoot).firstOrNull()?.let {
+    val normalizedTargets = normalizeDeleteTargets(targets)
+    requiredMetadataForDelete(normalizedTargets, repositoryRoot).firstOrNull()?.let {
       throw MetadataLockedException(it)
     }
-    val oldUpdates = linkedMapOf<String, Update>()
-    val newUpdates = linkedMapOf<String, Update>()
+    val original = linkedMapOf<String, Update>()
+    val current = linkedMapOf<String, Update>()
 
-    targets.forEach { target ->
+    normalizedTargets.forEach { target ->
       val parent = target.parentFile ?: return@forEach
       val identity = PassSecretsMapStore.identityForDirectory(parent, repositoryRoot) ?: return@forEach
       val relativePath = relativeEntryPath(target, identity)
@@ -302,36 +357,36 @@ constructor(
       metadata.mapFile?.let { mapFile ->
         val key = mapFile.canonicalPath
         val old =
-          (oldUpdates[key] as? Update.Secrets)?.values ?: mapFile.requireMapSnapshot().also {
-            oldUpdates[key] = Update.Secrets(mapFile, it)
+          (original[key] as? Update.Secrets)?.values ?: mapFile.requireMapSnapshot().also {
+            original[key] = Update.Secrets(mapFile, it)
           }
-        val current = (newUpdates[key] as? Update.Secrets)?.values ?: old
-        newUpdates[key] =
+        val values = (current[key] as? Update.Secrets)?.values ?: old
+        current[key] =
           Update.Secrets(
             mapFile,
-            PassSecretsMapStore.mapAfterDelete(current, relativePath, target.isDirectory),
+            PassSecretsMapStore.mapAfterDelete(values, relativePath, target.isDirectory),
           )
       }
       metadata.maskFile?.let { maskFile ->
         val key = maskFile.canonicalPath
         val old =
-          (oldUpdates[key] as? Update.Mask)?.associations ?: maskFile.requireMaskSnapshot().also {
-            oldUpdates[key] = Update.Mask(maskFile, it)
+          (original[key] as? Update.Mask)?.associations ?: maskFile.requireMaskSnapshot().also {
+            original[key] = Update.Mask(maskFile, it)
           }
-        val current = (newUpdates[key] as? Update.Mask)?.associations ?: old
-        newUpdates[key] =
+        val values = (current[key] as? Update.Mask)?.associations ?: old
+        current[key] =
           Update.Mask(
             maskFile,
-            PassSecretsMapStore.maskAfterDelete(current, relativePath, target.isDirectory),
+            PassSecretsMapStore.maskAfterDelete(values, relativePath, target.isDirectory),
           )
       }
     }
 
-    val updates =
-      newUpdates.filter { (key, value) -> value != oldUpdates[key] }.values.toList()
-    val rollback =
-      oldUpdates.filter { (key, value) -> value != newUpdates[key] }.values.toList()
-    return DeletePlan(targets.distinctBy { it.canonicalPath }, updates, rollback)
+    return DeletePlan(
+      targets = normalizedTargets,
+      updates = current.filter { (key, value) -> value != original[key] }.values.toList(),
+      rollbackUpdates = original.filter { (key, value) -> value != current[key] }.values.toList(),
+    )
   }
 
   suspend fun commitDelete(plan: DeletePlan) {
@@ -347,20 +402,28 @@ constructor(
           }
           staged += target to temporary
         }
-
         writer.persist(plan.updates)
-        staged.forEach { (_, temporary) ->
-          if (!temporary.deleteRecursively()) {
-            throw IOException("Could not remove staged deleted entry: $temporary")
-          }
-        }
       } catch (error: Throwable) {
-        val metadataCommitted = staged.any { (_, temporary) -> !temporary.exists() }
-        if (metadataCommitted) runCatching { writer.persist(plan.rollbackUpdates) }
         staged.asReversed().forEach { (original, temporary) ->
           if (temporary.exists()) temporary.renameTo(original)
         }
         throw error
+      }
+
+      // At this point the original paths are gone and encrypted metadata has committed. Cleanup is
+      // best effort: a failed unlink leaves only a hidden, unreferenced ciphertext tombstone rather
+      // than making the logical deletion inconsistent.
+      staged.forEach { (_, temporary) -> temporary.deleteRecursively() }
+    }
+  }
+
+  private fun normalizeDeleteTargets(targets: List<File>): List<File> {
+    val unique = targets.distinctBy { it.canonicalPath }
+    return unique.filter { candidate ->
+      unique.none { other ->
+        other != candidate &&
+          other.isDirectory &&
+          candidate.canonicalPath.startsWith(other.canonicalPath.trimEnd(File.separatorChar) + File.separator)
       }
     }
   }
