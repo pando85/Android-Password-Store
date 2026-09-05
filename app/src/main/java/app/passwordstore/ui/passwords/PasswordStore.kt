@@ -152,13 +152,13 @@ class PasswordStore : BaseGitActivity() {
         val (source, destination) = conflict
         val sourceLongName =
           PasswordRepository.getLongName(
-            requireNotNull(source.parent),
+            requireNotNull(source.parent) { "Move source has no parent" },
             repositoryPath,
             source.nameWithoutExtension,
           )
         val destinationLongName =
           PasswordRepository.getLongName(
-            requireNotNull(destination.parent),
+            requireNotNull(destination.parent) { "Move destination has no parent" },
             repositoryPath,
             destination.nameWithoutExtension,
           )
@@ -484,13 +484,13 @@ class PasswordStore : BaseGitActivity() {
               val (source, destination) = moves.single()
               val sourceLongName =
                 PasswordRepository.getLongName(
-                  requireNotNull(source.parent),
+                  requireNotNull(source.parent) { "Move source has no parent" },
                   repositoryPath,
                   source.nameWithoutExtension,
                 )
               val destinationLongName =
                 PasswordRepository.getLongName(
-                  requireNotNull(destination.parent),
+                  requireNotNull(destination.parent) { "Move destination has no parent" },
                   repositoryPath,
                   destination.nameWithoutExtension,
                 )
