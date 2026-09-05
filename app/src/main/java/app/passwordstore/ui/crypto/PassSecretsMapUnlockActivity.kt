@@ -22,11 +22,11 @@ import kotlinx.coroutines.withContext
 import logcat.asLog
 import logcat.logcat
 
-/** Authenticates and decrypts a Pass-Secrets map into the process-local mapping cache. */
+/** Authenticates once and loads all Pass-Secrets metadata for an identity into process memory. */
 @AndroidEntryPoint
 class PassSecretsMapUnlockActivity : BasePGPActivity() {
 
-  private var mapLoaded = false
+  private var metadataLoaded = false
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
@@ -41,27 +41,44 @@ class PassSecretsMapUnlockActivity : BasePGPActivity() {
     identifiers: List<PGPIdentifier>,
     onSuccess: suspend (String) -> Unit,
   ) {
-    val message = withContext(dispatcherProvider.io()) { File(fullPath).readBytes().inputStream() }
-    val outputStream = ByteArrayOutputStream()
-    val results = repository.decrypt(passphrases, identifiers, message, outputStream)
-    val lastResult = results.lastOrNull()
+    val primaryFile = File(fullPath)
+    val primaryResults = decryptFile(primaryFile, passphrases, identifiers)
+    val lastResult = primaryResults.lastOrNull()
 
     if (lastResult != null && lastResult.second.isOk) {
-      val decryptedOutput = lastResult.second.getOrThrow()
-      val decryptedBytes = decryptedOutput.toByteArray()
-      decryptedOutput.wipe()
-      val mappings = PassSecretsMapStore.parse(decryptedBytes.decodeToString())
-      decryptedBytes.wipe()
+      loadMetadata(primaryFile, lastResult.second.getOrThrow())
+      metadataLoaded = true
 
-      PassSecretsMapStore.put(File(fullPath), mappings)
-      mapLoaded = true
+      // `.secrets.gpg` and `.mask.gpg` belong to the same exact identity. Reuse the successful
+      // authentication to load the sibling too, avoiding a second passphrase/biometric prompt.
+      val identity = primaryFile.parentFile
+      if (identity != null) {
+        listOf(PassSecretsMapStore.MAP_FILE_NAME, PassSecretsMapStore.MASK_FILE_NAME)
+          .map { File(identity, it) }
+          .filter { it.isFile && it != primaryFile }
+          .forEach { sibling ->
+            val siblingResults = decryptFile(sibling, passphrases, identifiers)
+            val siblingResult = siblingResults.lastOrNull()
+            if (siblingResult != null && siblingResult.second.isOk) {
+              loadMetadata(sibling, siblingResult.second.getOrThrow())
+            } else {
+              siblingResults.forEach { result ->
+                result.second.getError()?.let { error -> logcat { error.asLog() } }
+              }
+              // Keep the good primary metadata but do not repeatedly prompt just because an
+              // optional sibling is corrupt or was encrypted inconsistently.
+              PassSecretsMapStore.skip(primaryFile)
+            }
+          }
+      }
+
       onSuccess(lastResult.first)
       setResult(RESULT_OK)
       finish()
     } else {
       passphrases.values.forEach { it?.wipe() }
       val incorrectPassphrase =
-        results
+        primaryResults
           .filter { result ->
             if (result.second.getError() is IncorrectPassphraseException) {
               persistentPassphrases.edit { remove(result.first) }
@@ -84,16 +101,45 @@ class PassSecretsMapUnlockActivity : BasePGPActivity() {
     }
   }
 
+  private suspend fun decryptFile(
+    file: File,
+    passphrases: Map<String, CharArray?>,
+    identifiers: List<PGPIdentifier>,
+  ) =
+    withContext(dispatcherProvider.io()) {
+      val message = file.readBytes().inputStream()
+      repository.decrypt(passphrases, identifiers, message, ByteArrayOutputStream())
+    }
+
+  private fun loadMetadata(file: File, decryptedOutput: ByteArrayOutputStream) {
+    val decryptedBytes = decryptedOutput.toByteArray()
+    decryptedOutput.wipe()
+    try {
+      when (file.name) {
+        PassSecretsMapStore.MAP_FILE_NAME ->
+          PassSecretsMapStore.putMap(file, PassSecretsMapStore.parse(decryptedBytes.decodeToString()))
+        PassSecretsMapStore.MASK_FILE_NAME ->
+          PassSecretsMapStore.putMask(
+            file,
+            PassSecretsMapStore.parseMask(decryptedBytes.decodeToString()),
+          )
+        else -> error("Unsupported Pass-Secrets metadata file: $file")
+      }
+    } finally {
+      decryptedBytes.wipe()
+    }
+  }
+
   override fun onDestroy() {
-    if (!mapLoaded) PassSecretsMapStore.skip(File(fullPath))
+    if (!metadataLoaded) PassSecretsMapStore.skip(File(fullPath))
     super.onDestroy()
   }
 
   companion object {
 
-    fun newIntent(context: Context, mapFile: File, repositoryRoot: File): Intent {
+    fun newIntent(context: Context, metadataFile: File, repositoryRoot: File): Intent {
       return Intent(context, PassSecretsMapUnlockActivity::class.java).apply {
-        putExtra(EXTRA_FILE_PATH, mapFile.absolutePath)
+        putExtra(EXTRA_FILE_PATH, metadataFile.absolutePath)
         putExtra(EXTRA_REPO_PATH, repositoryRoot.absolutePath)
       }
     }
