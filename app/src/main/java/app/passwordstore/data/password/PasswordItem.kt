@@ -18,6 +18,7 @@ data class PasswordItem(
   val file: File,
   val rootDir: File,
   val mappedName: String? = null,
+  val aliases: List<String> = emptyList(),
 ) : Comparable<PasswordItem> {
 
   val physicalName = name.replace("\\.gpg$".toRegex(), "")
@@ -29,7 +30,13 @@ data class PasswordItem(
 
   val longName = PasswordRepository.getLongName(fullPathToParent, rootDir.absolutePath, toString())
 
-  val searchableName = if (mappedName != null) "$longName $physicalLongName" else physicalLongName
+  val searchableName =
+    buildList {
+        add(physicalLongName)
+        if (mappedName != null) add(longName)
+        addAll(aliases)
+      }
+      .joinToString(" ")
 
   fun matchesSearch(filter: String): Boolean = searchableName.contains(filter, ignoreCase = true)
 
@@ -42,10 +49,15 @@ data class PasswordItem(
       }
     if (regex.containsMatchIn(physicalPath)) return true
 
-    return mappedName
-      ?.split(Regex("[\\s/]+"))
-      ?.filter { it.isNotBlank() }
-      ?.any { token -> regex.containsMatchIn("$token.gpg") } == true
+    val logicalTokens =
+      buildList {
+        mappedName?.split(Regex("[\\s/]+"))?.filterTo(this) { it.isNotBlank() }
+        aliases.forEach { alias ->
+          add(alias)
+          if ('@' in alias) add(alias.substringAfterLast('@'))
+        }
+      }
+    return logicalTokens.any { token -> regex.containsMatchIn("$token.gpg") }
   }
 
   override fun equals(other: Any?): Boolean {
@@ -103,8 +115,9 @@ data class PasswordItem(
       parent: PasswordItem,
       rootDir: File,
       mappedName: String? = null,
+      aliases: List<String> = emptyList(),
     ): PasswordItem {
-      return PasswordItem(name, parent, TYPE_PASSWORD, file, rootDir, mappedName)
+      return PasswordItem(name, parent, TYPE_PASSWORD, file, rootDir, mappedName, aliases)
     }
 
     @JvmStatic
@@ -113,8 +126,9 @@ data class PasswordItem(
       file: File,
       rootDir: File,
       mappedName: String? = null,
+      aliases: List<String> = emptyList(),
     ): PasswordItem {
-      return PasswordItem(name, null, TYPE_PASSWORD, file, rootDir, mappedName)
+      return PasswordItem(name, null, TYPE_PASSWORD, file, rootDir, mappedName, aliases)
     }
 
     @JvmStatic
