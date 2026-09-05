@@ -91,7 +91,10 @@ object PassSecretsMapStore {
   }
 
   fun serializeMask(associations: List<MaskAssociation>): String {
-    val values = associations.distinct().sortedWith(compareBy<MaskAssociation> { it.alias }.thenBy { it.directory })
+    val values =
+      associations
+        .distinct()
+        .sortedWith(compareBy<MaskAssociation> { it.alias }.thenBy { it.directory })
     return values.joinToString(separator = "\n", postfix = if (values.isEmpty()) "" else "\n") {
       association ->
       "${association.alias} = ${association.directory}"
@@ -109,7 +112,7 @@ object PassSecretsMapStore {
     synchronized(lock) {
       val identityKey = identity.key()
       val loaded = loadedMaps[identityKey] ?: return null
-      if (loaded.version != mapFile.version()) {
+      if (loaded.version != mapFile.fileVersion()) {
         loadedMaps.remove(identityKey)
         gatedVersions.remove(identityKey)
         return null
@@ -121,8 +124,8 @@ object PassSecretsMapStore {
   /** Resolve any `.mask.gpg` aliases applying to this password's physical directory. */
   fun aliases(file: File, repositoryRoot: File): List<String> {
     if (!isPasswordFile(file)) return emptyList()
-    val identity = findNearestIdentity(file.parentFile ?: return emptyList(), repositoryRoot)
-      ?: return emptyList()
+    val identity =
+      findNearestIdentity(file.parentFile ?: return emptyList(), repositoryRoot) ?: return emptyList()
     val maskFile = File(identity, MASK_FILE_NAME)
     if (!maskFile.isFile) return emptyList()
     val relativeDirectory =
@@ -139,7 +142,7 @@ object PassSecretsMapStore {
     synchronized(lock) {
       val identityKey = identity.key()
       val loaded = loadedMasks[identityKey] ?: return emptyList()
-      if (loaded.version != maskFile.version()) {
+      if (loaded.version != maskFile.fileVersion()) {
         loadedMasks.remove(identityKey)
         gatedVersions.remove(identityKey)
         return emptyList()
@@ -167,7 +170,7 @@ object PassSecretsMapStore {
 
     synchronized(lock) {
       val identityKey = identity.key()
-      val version = identity.version()
+      val version = identity.metadataVersion()
       if (isCurrent(identityKey, metadata)) return null
 
       val gatedVersion = gatedVersions[identityKey]
@@ -198,8 +201,8 @@ object PassSecretsMapStore {
     val identity = metadataFile.parentFile ?: return false
     synchronized(lock) {
       return when (metadataFile.name) {
-        MAP_FILE_NAME -> loadedMaps[identity.key()]?.version == metadataFile.version()
-        MASK_FILE_NAME -> loadedMasks[identity.key()]?.version == metadataFile.version()
+        MAP_FILE_NAME -> loadedMaps[identity.key()]?.version == metadataFile.fileVersion()
+        MASK_FILE_NAME -> loadedMasks[identity.key()]?.version == metadataFile.fileVersion()
         else -> false
       }
     }
@@ -209,7 +212,7 @@ object PassSecretsMapStore {
   fun putMap(mapFile: File, values: Map<String, String>) {
     val identity = mapFile.parentFile ?: return
     synchronized(lock) {
-      loadedMaps[identity.key()] = LoadedMap(mapFile.version(), values.toMap())
+      loadedMaps[identity.key()] = LoadedMap(mapFile.fileVersion(), values.toMap())
       gatedVersions.remove(identity.key())
     }
   }
@@ -218,7 +221,7 @@ object PassSecretsMapStore {
   fun putMask(maskFile: File, associations: List<MaskAssociation>) {
     val identity = maskFile.parentFile ?: return
     synchronized(lock) {
-      loadedMasks[identity.key()] = LoadedMask(maskFile.version(), associations.toList())
+      loadedMasks[identity.key()] = LoadedMask(maskFile.fileVersion(), associations.toList())
       gatedVersions.remove(identity.key())
     }
   }
@@ -231,7 +234,7 @@ object PassSecretsMapStore {
     val identity = mapFile.parentFile ?: return null
     synchronized(lock) {
       val loaded = loadedMaps[identity.key()] ?: return null
-      if (loaded.version != mapFile.version()) return null
+      if (loaded.version != mapFile.fileVersion()) return null
       return loaded.values.toMap()
     }
   }
@@ -241,7 +244,7 @@ object PassSecretsMapStore {
     val identity = maskFile.parentFile ?: return null
     synchronized(lock) {
       val loaded = loadedMasks[identity.key()] ?: return null
-      if (loaded.version != maskFile.version()) return null
+      if (loaded.version != maskFile.fileVersion()) return null
       return loaded.associations.toList()
     }
   }
@@ -249,7 +252,7 @@ object PassSecretsMapStore {
   /** Suppress repeated automatic prompts after cancellation/failure for this metadata version. */
   fun skip(metadataFile: File) {
     val identity = metadataFile.parentFile ?: return
-    synchronized(lock) { gatedVersions[identity.key()] = identity.version() }
+    synchronized(lock) { gatedVersions[identity.key()] = identity.metadataVersion() }
   }
 
   /** Forget all decrypted labels, aliases and prompt gates, e.g. when the screen locks. */
@@ -371,15 +374,13 @@ object PassSecretsMapStore {
     if (source.isFile) {
       if (!isPasswordFile(source)) return false
       val sourceIdentity = findNearestIdentity(source.parentFile ?: return false, repositoryRoot)
-      val targetIdentity =
-        findNearestIdentity(destination.parentFile ?: return false, repositoryRoot)
+      val targetIdentity = findNearestIdentity(destination.parentFile ?: return false, repositoryRoot)
       return !sameIdentity(sourceIdentity, targetIdentity)
     }
 
     if (!source.isDirectory || File(source, GPG_ID_FILE_NAME).isFile) return false
     val sourceIdentity = findNearestIdentity(source, repositoryRoot)
-    val targetIdentity =
-      findNearestIdentity(destination.parentFile ?: return false, repositoryRoot)
+    val targetIdentity = findNearestIdentity(destination.parentFile ?: return false, repositoryRoot)
     if (sameIdentity(sourceIdentity, targetIdentity)) return false
 
     return source
@@ -392,9 +393,9 @@ object PassSecretsMapStore {
 
   private fun isCurrent(identityKey: String, metadata: MetadataFiles): Boolean {
     val mapCurrent =
-      metadata.mapFile == null || loadedMaps[identityKey]?.version == metadata.mapFile.version()
+      metadata.mapFile == null || loadedMaps[identityKey]?.version == metadata.mapFile.fileVersion()
     val maskCurrent =
-      metadata.maskFile == null || loadedMasks[identityKey]?.version == metadata.maskFile.version()
+      metadata.maskFile == null || loadedMasks[identityKey]?.version == metadata.maskFile.fileVersion()
     return mapCurrent && maskCurrent
   }
 
@@ -448,12 +449,12 @@ object PassSecretsMapStore {
     return MetadataFiles(map, mask)
   }
 
-  private fun File.version() = FileVersion(lastModified = lastModified(), length = length())
+  private fun File.fileVersion() = FileVersion(lastModified = lastModified(), length = length())
 
-  private fun File.version(): IdentityVersion =
+  private fun File.metadataVersion(): IdentityVersion =
     IdentityVersion(
-      map = File(this, MAP_FILE_NAME).takeIf { it.isFile }?.version(),
-      mask = File(this, MASK_FILE_NAME).takeIf { it.isFile }?.version(),
+      map = File(this, MAP_FILE_NAME).takeIf { it.isFile }?.fileVersion(),
+      mask = File(this, MASK_FILE_NAME).takeIf { it.isFile }?.fileVersion(),
     )
 
   private fun File.key(): String =
