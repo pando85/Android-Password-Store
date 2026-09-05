@@ -27,8 +27,10 @@ import app.passwordstore.R
 import app.passwordstore.data.password.PasswordItem
 import app.passwordstore.data.repo.PasswordRepository
 import app.passwordstore.databinding.ActivityPwdstoreBinding
+import app.passwordstore.passsecrets.PassSecretsMutationService
 import app.passwordstore.ui.crypto.BasePGPActivity
 import app.passwordstore.ui.crypto.DecryptActivity
+import app.passwordstore.ui.crypto.PassSecretsMapUnlockActivity
 import app.passwordstore.ui.crypto.PasswordCreationActivity
 import app.passwordstore.ui.dialogs.FolderCreationDialogFragment
 import app.passwordstore.ui.folderselect.SelectFolderActivity
@@ -39,7 +41,6 @@ import app.passwordstore.ui.settings.SettingsActivity
 import app.passwordstore.util.autofill.AutofillMatcher
 import app.passwordstore.util.extensions.base64
 import app.passwordstore.util.extensions.commitChange
-import app.passwordstore.util.extensions.contains
 import app.passwordstore.util.extensions.enableEdgeToEdgeView
 import app.passwordstore.util.extensions.getString
 import app.passwordstore.util.extensions.isInsideRepository
@@ -75,11 +76,20 @@ const val PASSWORD_FRAGMENT_TAG = "PasswordsList"
 class PasswordStore : BaseGitActivity() {
 
   @Inject lateinit var shortcutHandler: ShortcutHandler
+  @Inject lateinit var passSecretsMutationService: PassSecretsMutationService
   private lateinit var searchItem: MenuItem
   private val settings by lazy { sharedPrefs }
 
   private val binding by viewBinding(ActivityPwdstoreBinding::inflate)
   private val model: SearchableRepositoryViewModel by viewModels()
+  private var pendingPassSecretsOperation: (() -> Unit)? = null
+
+  private val passSecretsUnlockAction =
+    registerForActivityResult(StartActivityForResult()) { result ->
+      val operation = pendingPassSecretsOperation
+      pendingPassSecretsOperation = null
+      if (result.resultCode == RESULT_OK) operation?.invoke()
+    }
 
   private val gpgKeySelectAction =
     registerForActivityResult(StartActivityForResult()) { result ->
@@ -99,9 +109,7 @@ class PasswordStore : BaseGitActivity() {
 
   private val listRefreshAction =
     registerForActivityResult(StartActivityForResult()) { result ->
-      if (result.resultCode == RESULT_OK) {
-        refreshPasswordList()
-      }
+      if (result.resultCode == RESULT_OK) refreshPasswordList()
     }
 
   private val passwordMoveAction =
@@ -117,97 +125,62 @@ class PasswordStore : BaseGitActivity() {
             "'SELECTED_FOLDER_PATH' intent extra must be set"
           }
         )
-      val repositoryPath = PasswordRepository.getRepositoryDirectory().absolutePath
       if (!target.isDirectory) {
         logcat(ERROR) { "Tried moving passwords to a non-existing folder." }
         return@registerForActivityResult
       }
 
-      logcat { "Moving passwords to ${intentData.getStringExtra("SELECTED_FOLDER_PATH")}" }
-      logcat { filesToMove.joinToString(", ") }
-
-      lifecycleScope.launch(dispatcherProvider.io()) {
-        for (file in filesToMove) {
-          val source = File(file)
-          if (!source.exists()) {
-            logcat(ERROR) { "Tried moving something that appears non-existent." }
-            continue
-          }
-          val destinationFile = File(target.absolutePath + "/" + source.name)
-          val basename = source.nameWithoutExtension
-          val sourceLongName =
-            PasswordRepository.getLongName(
-              requireNotNull(source.parent) { "$file has no parent" },
-              repositoryPath,
-              basename,
-            )
-          val destinationLongName =
-            PasswordRepository.getLongName(target.absolutePath, repositoryPath, basename)
-          if (destinationFile.exists()) {
-            logcat(ERROR) { "Trying to move a file that already exists." }
-            withContext(dispatcherProvider.main()) {
-              MaterialAlertDialogBuilder(this@PasswordStore)
-                .setTitle(resources.getString(R.string.password_exists_title))
-                .setMessage(
-                  resources.getString(
-                    R.string.password_exists_message,
-                    destinationLongName,
-                    sourceLongName,
-                  )
-                )
-                .setPositiveButton(R.string.dialog_ok) { _, _ ->
-                  launch(dispatcherProvider.io()) { moveFile(source, destinationFile) }
-                }
-                .setNegativeButton(R.string.dialog_cancel, null)
-                .show()
-            }
-          } else {
-            launch(dispatcherProvider.io()) { moveFile(source, destinationFile) }
-          }
-        }
-        when (filesToMove.size) {
-          1 -> {
-            val source = File(filesToMove[0])
-            val basename = source.nameWithoutExtension
-            val sourceLongName =
-              PasswordRepository.getLongName(
-                requireNotNull(source.parent) { "$basename has no parent" },
-                repositoryPath,
-                basename,
-              )
-            val destinationLongName =
-              PasswordRepository.getLongName(target.absolutePath, repositoryPath, basename)
-            withContext(dispatcherProvider.main()) {
-              commitChange(
-                resources.getString(
-                  R.string.git_commit_move_text,
-                  sourceLongName,
-                  destinationLongName,
-                )
-              )
-              updateFabSync()
-            }
-          }
-          else -> {
-            val repoPath = PasswordRepository.getRepositoryDirectory().absolutePath
-            val relativePath =
-              PasswordRepository.getRelativePath("${target.absolutePath}/", repoPath)
-            withContext(dispatcherProvider.main()) {
-              commitChange(
-                resources.getString(R.string.git_commit_move_multiple_text, relativePath)
-              )
-              updateFabSync()
-            }
-          }
-        }
+      val moves =
+        filesToMove
+          .map { File(it) }
+          .filter { source -> source.exists() }
+          .map { source -> source to File(target, source.name) }
+          .filter { (source, destination) -> source.canonicalPath != destination.canonicalPath }
+      if (moves.isEmpty()) {
+        getPasswordFragment()?.dismissActionMode()
+        return@registerForActivityResult
       }
-      getPasswordFragment()?.dismissActionMode()
-      getPasswordFragment()?.scrollToOnNextRefresh(File(target, File(filesToMove[0]).name))
-      refreshPasswordList(target)
+
+      logcat { "Moving passwords to ${target.absolutePath}" }
+      logcat { moves.joinToString(", ") { (source, _) -> source.absolutePath } }
+
+      val conflict =
+        moves.firstOrNull { (source, destination) ->
+          destination.exists() && source.canonicalPath != destination.canonicalPath
+        }
+      if (conflict != null) {
+        val repositoryPath = PasswordRepository.getRepositoryDirectory().absolutePath
+        val (source, destination) = conflict
+        val sourceLongName =
+          PasswordRepository.getLongName(
+            requireNotNull(source.parent),
+            repositoryPath,
+            source.nameWithoutExtension,
+          )
+        val destinationLongName =
+          PasswordRepository.getLongName(
+            requireNotNull(destination.parent),
+            repositoryPath,
+            destination.nameWithoutExtension,
+          )
+        MaterialAlertDialogBuilder(this)
+          .setTitle(resources.getString(R.string.password_exists_title))
+          .setMessage(
+            resources.getString(
+              R.string.password_exists_message,
+              destinationLongName,
+              sourceLongName,
+            )
+          )
+          .setPositiveButton(R.string.dialog_ok) { _, _ -> performPasswordMoves(moves, target) }
+          .setNegativeButton(R.string.dialog_cancel, null)
+          .show()
+      } else {
+        performPasswordMoves(moves, target)
+      }
     }
 
   override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
-    // open search view on search key, or Ctr+F
     if (
       (keyCode == KeyEvent.KEYCODE_SEARCH ||
         keyCode == KeyEvent.KEYCODE_F && event.isCtrlPressed) && !searchItem.isActionViewExpanded
@@ -216,7 +189,6 @@ class PasswordStore : BaseGitActivity() {
       return true
     }
 
-    // open search view on any printable character and query for it
     val c = event.unicodeChar.toChar()
     val printable = isPrintable(c)
     if (printable && !searchItem.isActionViewExpanded) {
@@ -237,9 +209,7 @@ class PasswordStore : BaseGitActivity() {
       this,
       object : OnBackPressedCallback(true) {
         override fun handleOnBackPressed() {
-          if (getPasswordFragment()?.onBackPressedInActivity() != true) {
-            finishAndRemoveTask()
-          }
+          if (getPasswordFragment()?.onBackPressedInActivity() != true) finishAndRemoveTask()
         }
       },
     )
@@ -264,9 +234,7 @@ class PasswordStore : BaseGitActivity() {
     checkLocalRepository()
     refreshPasswordList()
     if (settings.getBoolean(PreferenceKeys.SEARCH_ON_START, false) && ::searchItem.isInitialized) {
-      if (!searchItem.isActionViewExpanded) {
-        searchItem.expandActionView()
-      }
+      if (!searchItem.isActionViewExpanded) searchItem.expandActionView()
     }
   }
 
@@ -282,8 +250,6 @@ class PasswordStore : BaseGitActivity() {
   }
 
   override fun onPrepareOptionsMenu(menu: Menu): Boolean {
-    // Invalidation forces onCreateOptionsMenu to be called again. This is cheap and quick so
-    // we can get by without any noticeable difference in performance.
     invalidateOptionsMenu()
     searchItem = menu.findItem(R.id.action_search)
     val searchView = searchItem.actionView as SearchView
@@ -300,8 +266,6 @@ class PasswordStore : BaseGitActivity() {
             if (settings.getString(PreferenceKeys.SEARCH_FILTER_MODE, "exact") == "fuzzy")
               FilterMode.Fuzzy
             else FilterMode.Exact
-          // List the contents of the current directory if the user enters a blank
-          // search term.
           if (filter.isEmpty())
             model.navigateTo(newDirectory = model.currentDir.value, pushPreviousLocation = false)
           else model.search(filter, filterMode = filterMode)
@@ -310,8 +274,6 @@ class PasswordStore : BaseGitActivity() {
       }
     )
 
-    // When using the support library, the setOnActionExpandListener() method is
-    // static and accepts the MenuItem object as an argument
     searchItem.setOnActionExpandListener(
       object : OnActionExpandListener {
         override fun onMenuItemActionCollapse(item: MenuItem): Boolean {
@@ -319,9 +281,7 @@ class PasswordStore : BaseGitActivity() {
           return true
         }
 
-        override fun onMenuItemActionExpand(item: MenuItem): Boolean {
-          return true
-        }
+        override fun onMenuItemActionExpand(item: MenuItem): Boolean = true
       }
     )
     if (
@@ -345,30 +305,16 @@ class PasswordStore : BaseGitActivity() {
           .onErr { e -> e.printStackTrace() }
       }
       R.id.git_push -> {
-        if (!PasswordRepository.isInitialized) {
-          initBefore.show()
-        } else {
-          runGitOperation(GitOp.PUSH)
-        }
+        if (!PasswordRepository.isInitialized) initBefore.show() else runGitOperation(GitOp.PUSH)
       }
       R.id.git_pull -> {
-        if (!PasswordRepository.isInitialized) {
-          initBefore.show()
-        } else {
-          runGitOperation(GitOp.PULL)
-        }
+        if (!PasswordRepository.isInitialized) initBefore.show() else runGitOperation(GitOp.PULL)
       }
       R.id.git_sync -> {
-        if (!PasswordRepository.isInitialized) {
-          initBefore.show()
-        } else {
-          runGitOperation(GitOp.SYNC)
-        }
+        if (!PasswordRepository.isInitialized) initBefore.show() else runGitOperation(GitOp.SYNC)
       }
       R.id.refresh -> refreshPasswordList()
-      android.R.id.home -> {
-        onBackPressedDispatcher.onBackPressed()
-      }
+      android.R.id.home -> onBackPressedDispatcher.onBackPressed()
       else -> return super.onOptionsItemSelected(item)
     }
     return true
@@ -394,7 +340,6 @@ class PasswordStore : BaseGitActivity() {
 
   private fun checkLocalRepository(localDir: File?) {
     if (localDir != null && settings.getBoolean(PreferenceKeys.REPOSITORY_INITIALIZED, false)) {
-      // do not push the fragment if we already have it
       if (
         getPasswordFragment() == null || settings.getBoolean(PreferenceKeys.REPO_CHANGED, false)
       ) {
@@ -402,11 +347,7 @@ class PasswordStore : BaseGitActivity() {
         val args = Bundle()
         args.putString(REQUEST_ARG_PATH, PasswordRepository.getRepositoryDirectory().absolutePath)
 
-        // if the activity was started from the autofill settings, the
-        // intent is to match a clicked pwd with app. pass this to fragment
-        if (intent.getBooleanExtra("matchWith", false)) {
-          args.putBoolean("matchWith", true)
-        }
+        if (intent.getBooleanExtra("matchWith", false)) args.putBoolean("matchWith", true)
         supportActionBar?.apply {
           show()
           setDisplayHomeAsUpEnabled(false)
@@ -427,8 +368,6 @@ class PasswordStore : BaseGitActivity() {
       Intent(authDecryptIntent).setComponent(ComponentName(this, DecryptActivity::class.java))
 
     startActivity(decryptIntent)
-
-    // Adds shortcut
     shortcutHandler.addDynamicShortcut(item, authDecryptIntent)
   }
 
@@ -464,43 +403,59 @@ class PasswordStore : BaseGitActivity() {
 
   fun deletePasswords(selectedItems: List<PasswordItem>) {
     var size = 0
-    selectedItems.forEach {
-      if (it.file.isFile) size++ else size += it.file.listFilesRecursively().size
+    selectedItems.forEach { item ->
+      if (item.file.isFile) size++ else size += item.file.listFilesRecursively().size
     }
-    if (size == 0) { // delete empty directory trees without confirmation
-      selectedItems.map { item -> item.file.deleteRecursively() }
-      refreshPasswordList()
+    if (size == 0) {
+      performDelete(selectedItems)
       return
     }
     MaterialAlertDialogBuilder(this)
       .setMessage(resources.getQuantityString(R.plurals.delete_dialog_text, size, size))
       .setPositiveButton(resources.getString(R.string.dialog_yes)) { _, _ ->
-        val filesToDelete = arrayListOf<File>()
-        selectedItems.forEach { item ->
-          if (item.file.isDirectory) filesToDelete.addAll(item.file.listFilesRecursively())
-          else filesToDelete.add(item.file)
-        }
-        // remove to-be-deleted files from history
-        val preference = getSharedPreferences("recent_password_history", 0)
-        preference.edit {
-          filesToDelete.forEach { file ->
-            remove(file.absolutePath.base64())
-          }
-        }
-        selectedItems.map { item -> item.file.deleteRecursively() }
-        refreshPasswordList()
-        AutofillMatcher.updateMatches(applicationContext, delete = filesToDelete)
-        val fmt =
-          selectedItems.joinToString(separator = ", ") { item ->
-            item.file.toRelativeString(PasswordRepository.getRepositoryDirectory())
-          }
-        lifecycleScope.launch {
-          commitChange(resources.getString(R.string.git_commit_remove_text, fmt))
-          updateFabSync()
-        }
+        performDelete(selectedItems)
       }
       .setNegativeButton(resources.getString(R.string.dialog_no), null)
       .show()
+  }
+
+  private fun performDelete(selectedItems: List<PasswordItem>) {
+    val targets = selectedItems.map { it.file }
+    val repositoryRoot = PasswordRepository.getRepositoryDirectory()
+    withUnlockedPassSecretsMetadata(
+      required = {
+        passSecretsMutationService.requiredMetadataForDelete(targets, repositoryRoot)
+      },
+      action = {
+        lifecycleScope.launch {
+          try {
+            val filesToDelete =
+              targets.flatMap { target ->
+                if (target.isDirectory) target.listFilesRecursively() else listOf(target)
+              }
+            val plan = passSecretsMutationService.planDelete(targets, repositoryRoot)
+            withContext(dispatcherProvider.io()) { passSecretsMutationService.commitDelete(plan) }
+
+            val preference = getSharedPreferences("recent_password_history", 0)
+            preference.edit {
+              filesToDelete.forEach { file -> remove(file.absolutePath.base64()) }
+            }
+            AutofillMatcher.updateMatches(applicationContext, delete = filesToDelete)
+
+            val fmt =
+              targets.joinToString(separator = ", ") { target ->
+                target.toRelativeString(repositoryRoot)
+              }
+            commitChange(resources.getString(R.string.git_commit_remove_text, fmt))
+            updateFabSync()
+            getPasswordFragment()?.dismissActionMode()
+            refreshPasswordList()
+          } catch (error: Throwable) {
+            showPassSecretsMutationError(error)
+          }
+        }
+      },
+    )
   }
 
   fun movePasswords(values: List<PasswordItem>) {
@@ -509,8 +464,59 @@ class PasswordStore : BaseGitActivity() {
     intent.putExtra("Files", fileLocations)
     val repoPath = PasswordRepository.getRepositoryDirectory().absolutePath
     val relPath = PasswordRepository.getRelativePath(currentDir.absolutePath, repoPath)
-    if (!relPath.isEmpty()) intent.putExtra(PasswordStore.REQUEST_ARG_PATH, relPath)
+    if (!relPath.isEmpty()) intent.putExtra(REQUEST_ARG_PATH, relPath)
     passwordMoveAction.launch(intent)
+  }
+
+  private fun performPasswordMoves(moves: List<Pair<File, File>>, target: File) {
+    val repositoryRoot = PasswordRepository.getRepositoryDirectory()
+    withUnlockedPassSecretsMetadata(
+      required = { passSecretsMutationService.requiredMetadataForMoves(moves, repositoryRoot) },
+      action = {
+        lifecycleScope.launch {
+          try {
+            val sourceDestinationMap = buildSourceDestinationMap(moves)
+            val plan = passSecretsMutationService.planMoves(moves, repositoryRoot)
+            withContext(dispatcherProvider.io()) { passSecretsMutationService.commitMoves(plan) }
+            updateHistoryAfterMove(sourceDestinationMap)
+            AutofillMatcher.updateMatches(applicationContext, sourceDestinationMap)
+
+            val repositoryPath = repositoryRoot.absolutePath
+            if (moves.size == 1) {
+              val (source, destination) = moves.single()
+              val sourceLongName =
+                PasswordRepository.getLongName(
+                  requireNotNull(source.parent),
+                  repositoryPath,
+                  source.nameWithoutExtension,
+                )
+              val destinationLongName =
+                PasswordRepository.getLongName(
+                  requireNotNull(destination.parent),
+                  repositoryPath,
+                  destination.nameWithoutExtension,
+                )
+              commitChange(
+                resources.getString(
+                  R.string.git_commit_move_text,
+                  sourceLongName,
+                  destinationLongName,
+                )
+              )
+            } else {
+              val relativePath = PasswordRepository.getRelativePath("${target.absolutePath}/", repositoryPath)
+              commitChange(resources.getString(R.string.git_commit_move_multiple_text, relativePath))
+            }
+            updateFabSync()
+            getPasswordFragment()?.dismissActionMode()
+            getPasswordFragment()?.scrollToOnNextRefresh(moves.first().second)
+            refreshPasswordList(target)
+          } catch (error: Throwable) {
+            showPassSecretsMutationError(error)
+          }
+        }
+      },
+    )
   }
 
   enum class CategoryRenameError(val resource: Int) {
@@ -520,18 +526,6 @@ class PasswordStore : BaseGitActivity() {
     DestinationOutsideRepo(R.string.message_error_destination_outside_repo),
   }
 
-  /**
-   * Prompt the user with a new category name to assign, if the new category forms/leads a path
-   * (i.e. contains "/"), intermediate directories will be created and new category will be placed
-   * inside.
-   *
-   * @param oldCategory The category to change its name
-   * @param error Determines whether to show an error to the user in the alert dialog, this error
-   *   may be due to the new category the user entered already exists or the field was empty or the
-   *   destination path is outside the repository
-   * @see [CategoryRenameError]
-   * @see [isInsideRepository]
-   */
   private fun renameCategory(
     oldCategory: PasswordItem,
     error: CategoryRenameError = CategoryRenameError.None,
@@ -540,9 +534,7 @@ class PasswordStore : BaseGitActivity() {
     val newCategoryEditText = view.findViewById<TextInputEditText>(R.id.folder_name_text)
     val folderNameViewContainer = view.findViewById<TextInputLayout>(R.id.folder_name_container)
 
-    if (error != CategoryRenameError.None) {
-      folderNameViewContainer.error = getString(error.resource)
-    }
+    if (error != CategoryRenameError.None) folderNameViewContainer.error = getString(error.resource)
 
     val dialog =
       MaterialAlertDialogBuilder(this)
@@ -557,34 +549,7 @@ class PasswordStore : BaseGitActivity() {
             newCategoryEditText.text.isNullOrBlank() ->
               renameCategory(oldCategory, CategoryRenameError.EmptyField)
             newCategory.exists() -> renameCategory(oldCategory, CategoryRenameError.CategoryExists)
-            else ->
-              lifecycleScope.launch(dispatcherProvider.io()) {
-                moveFile(oldCategory.file, newCategory)
-
-                // associate the new category with the last category's timestamp in
-                // history
-                val preference = getSharedPreferences("recent_password_history", 0)
-                val timestamp = preference.getString(oldCategory.file.absolutePath.base64())
-                if (timestamp != null) {
-                  preference.edit {
-                    remove(oldCategory.file.absolutePath.base64())
-                    putString(newCategory.absolutePath.base64(), timestamp)
-                  }
-                }
-
-                withContext(dispatcherProvider.main()) {
-                  commitChange(
-                    resources.getString(
-                      R.string.git_commit_move_text,
-                      oldCategory.name,
-                      newCategory.name,
-                    )
-                  )
-                  updateFabSync()
-                }
-
-                refreshPasswordList()
-              }
+            else -> performCategoryRename(oldCategory, newCategory)
           }
         }
         .setNegativeButton(R.string.dialog_cancel, null)
@@ -594,9 +559,117 @@ class PasswordStore : BaseGitActivity() {
     dialog.show()
   }
 
+  private fun performCategoryRename(oldCategory: PasswordItem, newCategory: File) {
+    val repositoryRoot = PasswordRepository.getRepositoryDirectory()
+    withUnlockedPassSecretsMetadata(
+      required = {
+        passSecretsMutationService.requiredMetadataForMove(
+          oldCategory.file,
+          newCategory,
+          repositoryRoot,
+        )
+      },
+      action = {
+        lifecycleScope.launch {
+          try {
+            val sourceDestinationMap =
+              buildSourceDestinationMap(listOf(oldCategory.file to newCategory))
+            val categoryPreference = getSharedPreferences("recent_password_history", 0)
+            val categoryTimestamp = categoryPreference.getString(oldCategory.file.absolutePath.base64())
+            val plan =
+              passSecretsMutationService.planMove(oldCategory.file, newCategory, repositoryRoot)
+            withContext(dispatcherProvider.io()) { passSecretsMutationService.commitMove(plan) }
+            updateHistoryAfterMove(sourceDestinationMap)
+            if (categoryTimestamp != null) {
+              categoryPreference.edit {
+                remove(oldCategory.file.absolutePath.base64())
+                putString(newCategory.absolutePath.base64(), categoryTimestamp)
+              }
+            }
+            AutofillMatcher.updateMatches(applicationContext, sourceDestinationMap)
+
+            commitChange(
+              resources.getString(
+                R.string.git_commit_move_text,
+                oldCategory.name,
+                newCategory.name,
+              )
+            )
+            updateFabSync()
+            refreshPasswordList(newCategory)
+          } catch (error: Throwable) {
+            showPassSecretsMutationError(error)
+          }
+        }
+      },
+    )
+  }
+
   fun renameCategory(categories: List<PasswordItem>) {
-    for (oldCategory in categories) {
-      renameCategory(oldCategory)
+    for (oldCategory in categories) renameCategory(oldCategory)
+  }
+
+  private fun withUnlockedPassSecretsMetadata(required: () -> List<File>, action: () -> Unit) {
+    try {
+      val nextMetadata = required().firstOrNull()
+      if (nextMetadata == null) {
+        pendingPassSecretsOperation = null
+        action()
+        return
+      }
+      pendingPassSecretsOperation = { withUnlockedPassSecretsMetadata(required, action) }
+      passSecretsUnlockAction.launch(
+        PassSecretsMapUnlockActivity.newIntent(
+          this,
+          nextMetadata,
+          PasswordRepository.getRepositoryDirectory(),
+        )
+      )
+    } catch (error: Throwable) {
+      pendingPassSecretsOperation = null
+      showPassSecretsMutationError(error)
+    }
+  }
+
+  private fun showPassSecretsMutationError(error: Throwable) {
+    val message =
+      when (error) {
+        is PassSecretsMutationService.ReencryptionRequiredException ->
+          getString(R.string.pass_secrets_reencryption_required)
+        is PassSecretsMutationService.ProtectedIdentityMarkerException ->
+          getString(R.string.pass_secrets_identity_marker_protected)
+        else -> getString(R.string.pass_secrets_mutation_error, error.message ?: error.toString())
+      }
+    MaterialAlertDialogBuilder(this)
+      .setTitle(R.string.error)
+      .setMessage(message)
+      .setPositiveButton(android.R.string.ok, null)
+      .show()
+  }
+
+  private fun buildSourceDestinationMap(moves: List<Pair<File, File>>): Map<File, File> {
+    return buildMap {
+      moves.forEach { (source, destination) ->
+        if (source.isDirectory) {
+          source.listFilesRecursively().forEach { child ->
+            put(child, destination.resolve(child.relativeTo(source)))
+          }
+        } else {
+          put(source, destination)
+        }
+      }
+    }
+  }
+
+  private fun updateHistoryAfterMove(sourceDestinationMap: Map<File, File>) {
+    val preference = getSharedPreferences("recent_password_history", 0)
+    preference.edit {
+      sourceDestinationMap.forEach { (source, destination) ->
+        val sourceHash = source.absolutePath.base64()
+        val timestamp = preference.getString(sourceHash)
+        remove(sourceHash)
+        if (timestamp != null) putString(destination.absolutePath.base64(), timestamp)
+      }
     }
   }
 
@@ -604,12 +677,6 @@ class PasswordStore : BaseGitActivity() {
     runOnUiThread { getPasswordFragment()?.updateFabSync() }
   }
 
-  /**
-   * Refreshes the password list by re-executing the last navigation or search action, preserving
-   * the navigation stack and scroll position. If the current directory no longer exists, navigation
-   * is reset to the repository root. If the optional [target] argument is provided, it will be
-   * entered if it is a directory or scrolled into view if it is a file.
-   */
   fun refreshPasswordList(target: File? = null) {
     val relativeTargetPath = target?.let {
       require(it.isInsideRepository()) { "Trying to access target outside the repository" }
@@ -622,7 +689,7 @@ class PasswordStore : BaseGitActivity() {
       relativeTargetPath.trim('/').split('/').forEach { item ->
         val file = File(model.currentDir.value, item)
         if (file.isDirectory) {
-          if (file.equals(model.currentDir.value)) model.forceRefresh()
+          if (file == model.currentDir.value) model.forceRefresh()
           else model.navigateTo(file, pushPreviousLocation = true)
         } else getPasswordFragment()?.scrollToOnNextRefresh(file)
       }
@@ -638,48 +705,10 @@ class PasswordStore : BaseGitActivity() {
   private val currentDir: File
     get() = getPasswordFragment()?.currentDir ?: PasswordRepository.getRepositoryDirectory()
 
-  private suspend fun moveFile(source: File, destinationFile: File) {
-    val sourceDestinationMap =
-      if (source.isDirectory) {
-        destinationFile.mkdirs()
-        // Recursively list all files (not directories) below `source`, then
-        // obtain the corresponding target file by resolving the relative path
-        // starting at the destination folder.
-        source.listFilesRecursively().associateWith {
-          destinationFile.resolve(it.relativeTo(source))
-        }
-      } else {
-        mapOf(source to destinationFile)
-      }
-    if (!source.renameTo(destinationFile)) {
-      logcat(ERROR) { "Something went wrong while moving $source to $destinationFile." }
-      withContext(dispatcherProvider.main()) {
-        MaterialAlertDialogBuilder(this@PasswordStore)
-          .setTitle(R.string.password_move_error_title)
-          .setMessage(getString(R.string.password_move_error_message, source, destinationFile))
-          .setCancelable(true)
-          .setPositiveButton(android.R.string.ok, null)
-          .show()
-      }
-    } else {
-      // update timestamp cache with the new file locations
-      val preference = getSharedPreferences("recent_password_history", 0)
-      preference.edit {
-        sourceDestinationMap.forEach { (src, dest) ->
-          val srcPathHash = src.absolutePath.base64()
-          val timestamp = preference.getString(srcPathHash)
-          remove(srcPathHash)
-          putString(dest.absolutePath.base64(), timestamp)
-        }
-      }
-      AutofillMatcher.updateMatches(this, sourceDestinationMap)
-    }
-  }
-
   fun matchPasswordWithApp(item: PasswordItem) {
     val repoPath = PasswordRepository.getRepositoryDirectory().absolutePath
     val path =
-      PasswordRepository.getRelativePath(item.file.absolutePath, repoPath + "/").replace(".gpg", "")
+      PasswordRepository.getRelativePath(item.file.absolutePath, "$repoPath/").replace(".gpg", "")
     val data = Intent()
     data.putExtra("path", path)
     setResult(RESULT_OK, data)
