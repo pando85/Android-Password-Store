@@ -34,8 +34,6 @@
   <string name="delete">Sil</string>
   <string name="password_exists_title">Şifre zaten mevcut!</string>
   <string name="password_exists_message">Bu işlem, %1$s üzerine %2$s yazacaktır.</string>
-  <string name="password_move_error_title">Şifreleri taşırken hata oluştu</string>
-  <string name="password_move_error_message">%1$s, %2$s konumuna taşınamadı</string>
 
   <!-- git commits -->
   <string name="git_commit_add_text">%1$s için oluşturulan şifre Android Password Store kullanılarak eklendi.</string>

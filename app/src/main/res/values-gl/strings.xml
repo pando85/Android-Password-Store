@@ -28,8 +28,6 @@
   <string name="delete">Eliminar</string>
   <string name="password_exists_title">O contrasinal xa existe!</string>
   <string name="password_exists_message">Vas sobrescribir %1$s con %2$s.</string>
-  <string name="password_move_error_title">Erro ao mover os contrasinais</string>
-  <string name="password_move_error_message">Non se mudou %1$s por %2$s</string>
   <!-- git commits -->
   <string name="git_commit_add_text">Engadir o contrasinal creado para %1$s usando Android Password Store.</string>
   <string name="git_commit_edit_text">Editar contrasinal para %1$s usando Android Password Store.</string>

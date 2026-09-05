@@ -32,8 +32,6 @@
   <string name="delete">Удалить</string>
   <string name="password_exists_title">Пароль уже существует!</string>
   <string name="password_exists_message">Это перезапишет %1$s на %2$s</string>
-  <string name="password_move_error_title">Ошибка при перемещении паролей</string>
-  <string name="password_move_error_message">Не удалось переместить %1$s в %2$s</string>
   <!-- git commits -->
   <string name="git_commit_add_text">Добавлен пароль %1$s из хранилища.</string>
   <string name="git_commit_edit_text">Отредактирован %1$s из хранилища.</string>

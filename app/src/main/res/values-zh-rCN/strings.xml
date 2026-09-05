@@ -27,8 +27,6 @@
   <string name="delete">删除</string>
   <string name="password_exists_title">密码已经存在！</string>
   <string name="password_exists_message">这将用%2$s覆盖%1$s</string>
-  <string name="password_move_error_title">移动密码时出错</string>
-  <string name="password_move_error_message">未能将%1$s移动到%2$s</string>
   <!-- git commits -->
   <string name="git_commit_add_text">使用Android密码仓库为%1$s生成密码</string>
   <string name="git_commit_edit_text">使用Android密码仓库编辑%1$s的密码。</string>

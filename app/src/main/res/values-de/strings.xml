@@ -34,8 +34,6 @@
   <string name="error">Fehler</string>
   <string name="password_exists_title">Passwort existiert bereits!</string>
   <string name="password_exists_message">Dies wird %1$s mit %2$s überschreiben.</string>
-  <string name="password_move_error_title">Fehler beim Verschieben von Passwörtern</string>
-  <string name="password_move_error_message">Verschieben von %1$s nach %2$s fehlgeschlagen.</string>
 
   <!-- git commits -->
   <string name="git_commit_add_text">Füge erstelltes Passwort für %1$s mittels Android Password Store hinzu.</string>

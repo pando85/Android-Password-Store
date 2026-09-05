@@ -29,8 +29,6 @@
     <string name="delete">Elimina</string>
     <string name="password_exists_title">La contrasenya ja existeix.</string>
     <string name="password_exists_message">Aquesta acció sobreescriurà %1$s amb %2$s.</string>
-    <string name="password_move_error_title">Error al moure contrasenyes</string>
-    <string name="password_move_error_message">No s\'ha pogut moure %1$s a %2$s</string>
     <string name="git_commit_add_text">Afegeix contrasenya generada per %1$s usant Android Password Store</string>
     <string name="git_commit_edit_text">Edita contrasenya per %1$s usant Android Password Store.</string>
     <string name="git_commit_remove_text">Suprimeix %1$s del magatzem.</string>

@@ -35,8 +35,6 @@
   <string name="delete">Eliminar</string>
   <string name="password_exists_title">¡La contraseña ya existe!</string>
   <string name="password_exists_message">Esto sobrescribirá %1$s con %2$s.</string>
-  <string name="password_move_error_title">Error al mover contraseñas</string>
-  <string name="password_move_error_message">No se pudo mover %1$s a %2$s</string>
 
   <!-- git commits -->
   <string name="git_commit_add_text">Agregue la contraseña generada para %1$s usando Android Password Store.</string>

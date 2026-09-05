@@ -28,8 +28,6 @@
   <string name="delete">Supprimer</string>
   <string name="password_exists_title">Le mot de passe existe!</string>
   <string name="password_exists_message">Cela écrasera %1$s avec %2$s.</string>
-  <string name="password_move_error_title">Erreur lors du déplacement des mots de passe</string>
-  <string name="password_move_error_message">Impossible de déplacer %1$s vers %2$s</string>
   <!-- git commits -->
   <string name="git_commit_add_text">Ajout par Android Password Store d\'un mot de passe pour %1$s.</string>
   <string name="git_commit_edit_text">Modification par Android Password Store du mot de passe pour %1$s.</string>

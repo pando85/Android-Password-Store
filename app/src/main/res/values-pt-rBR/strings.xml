@@ -28,8 +28,6 @@
   <string name="delete">Excluir</string>
   <string name="password_exists_title">Senha já existe!</string>
   <string name="password_exists_message">Isso irá sobrescrever %1$s com %2$s.</string>
-  <string name="password_move_error_title">Erro ao mover senhas</string>
-  <string name="password_move_error_message">Falha ao mover %1$s para %2$s</string>
   <!-- git commits -->
   <string name="git_commit_add_text">Adicionar senha gerada para %1$s usando o Android Password Store.</string>
   <string name="git_commit_edit_text">Editar a senha para %1$s usando o Android Password Store.</string>
