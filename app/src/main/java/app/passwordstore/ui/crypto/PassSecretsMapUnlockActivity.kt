@@ -117,7 +117,10 @@ class PassSecretsMapUnlockActivity : BasePGPActivity() {
     try {
       when (file.name) {
         PassSecretsMapStore.MAP_FILE_NAME ->
-          PassSecretsMapStore.putMap(file, PassSecretsMapStore.parse(decryptedBytes.decodeToString()))
+          PassSecretsMapStore.putMap(
+            file,
+            PassSecretsMapStore.parse(decryptedBytes.decodeToString()),
+          )
         PassSecretsMapStore.MASK_FILE_NAME ->
           PassSecretsMapStore.putMask(
             file,

@@ -144,10 +144,9 @@ class PasswordStore : BaseGitActivity() {
       logcat { "Moving passwords to ${target.absolutePath}" }
       logcat { moves.joinToString(", ") { (source, _) -> source.absolutePath } }
 
-      val conflict =
-        moves.firstOrNull { (source, destination) ->
-          destination.exists() && source.canonicalPath != destination.canonicalPath
-        }
+      val conflict = moves.firstOrNull { (source, destination) ->
+        destination.exists() && source.canonicalPath != destination.canonicalPath
+      }
       if (conflict != null) {
         val repositoryPath = PasswordRepository.getRepositoryDirectory().absolutePath
         val (source, destination) = conflict
@@ -429,10 +428,9 @@ class PasswordStore : BaseGitActivity() {
       action = {
         lifecycleScope.launch {
           try {
-            val filesToDelete =
-              targets.flatMap { target ->
-                if (target.isDirectory) target.listFilesRecursively() else listOf(target)
-              }
+            val filesToDelete = targets.flatMap { target ->
+              if (target.isDirectory) target.listFilesRecursively() else listOf(target)
+            }
             val plan = passSecretsMutationService.planDelete(targets, repositoryRoot)
             withContext(dispatcherProvider.io()) { passSecretsMutationService.commitDelete(plan) }
 
@@ -504,8 +502,11 @@ class PasswordStore : BaseGitActivity() {
                 )
               )
             } else {
-              val relativePath = PasswordRepository.getRelativePath("${target.absolutePath}/", repositoryPath)
-              commitChange(resources.getString(R.string.git_commit_move_multiple_text, relativePath))
+              val relativePath =
+                PasswordRepository.getRelativePath("${target.absolutePath}/", repositoryPath)
+              commitChange(
+                resources.getString(R.string.git_commit_move_multiple_text, relativePath)
+              )
             }
             updateFabSync()
             getPasswordFragment()?.dismissActionMode()
@@ -575,7 +576,8 @@ class PasswordStore : BaseGitActivity() {
             val sourceDestinationMap =
               buildSourceDestinationMap(listOf(oldCategory.file to newCategory))
             val categoryPreference = getSharedPreferences("recent_password_history", 0)
-            val categoryTimestamp = categoryPreference.getString(oldCategory.file.absolutePath.base64())
+            val categoryTimestamp =
+              categoryPreference.getString(oldCategory.file.absolutePath.base64())
             val plan =
               passSecretsMutationService.planMove(oldCategory.file, newCategory, repositoryRoot)
             withContext(dispatcherProvider.io()) { passSecretsMutationService.commitMove(plan) }

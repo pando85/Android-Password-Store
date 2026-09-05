@@ -81,13 +81,12 @@ object PassSecretsMapStore {
   }
 
   fun serializeMap(values: Map<String, String>): String {
-    return values
-      .toSortedMap()
-      .entries
-      .joinToString(separator = "\n", postfix = if (values.isEmpty()) "" else "\n") {
-        (key, value) ->
-        "$key = $value"
-      }
+    return values.toSortedMap().entries.joinToString(
+      separator = "\n",
+      postfix = if (values.isEmpty()) "" else "\n",
+    ) { (key, value) ->
+      "$key = $value"
+    }
   }
 
   fun serializeMask(associations: List<MaskAssociation>): String {
@@ -104,7 +103,8 @@ object PassSecretsMapStore {
   /** Resolve the mapped display name for a physical password file, if its map is unlocked. */
   fun mappedName(file: File, repositoryRoot: File): String? {
     if (!isPasswordFile(file)) return null
-    val identity = findNearestIdentity(file.parentFile ?: return null, repositoryRoot) ?: return null
+    val identity =
+      findNearestIdentity(file.parentFile ?: return null, repositoryRoot) ?: return null
     val mapFile = File(identity, MAP_FILE_NAME)
     if (!mapFile.isFile) return null
     val relativePath = passwordRelativePath(file, identity) ?: return null
@@ -125,15 +125,13 @@ object PassSecretsMapStore {
   fun aliases(file: File, repositoryRoot: File): List<String> {
     if (!isPasswordFile(file)) return emptyList()
     val identity =
-      findNearestIdentity(file.parentFile ?: return emptyList(), repositoryRoot) ?: return emptyList()
+      findNearestIdentity(file.parentFile ?: return emptyList(), repositoryRoot)
+        ?: return emptyList()
     val maskFile = File(identity, MASK_FILE_NAME)
     if (!maskFile.isFile) return emptyList()
     val relativeDirectory =
       try {
-        file.parentFile
-          ?.relativeTo(identity)
-          ?.invariantSeparatorsPath
-          ?.ifBlank { "." }
+        file.parentFile?.relativeTo(identity)?.invariantSeparatorsPath?.ifBlank { "." }
           ?: return emptyList()
       } catch (_: IllegalArgumentException) {
         return emptyList()
@@ -159,9 +157,9 @@ object PassSecretsMapStore {
   /**
    * Claim this directory's nearest identity metadata for lazy unlock.
    *
-   * A nested `.gpg-id` is always a hard boundary. Both `.secrets.gpg` and `.mask.gpg` are loaded
-   * in one authentication session when present. The returned path is merely the primary file used
-   * to launch the unlock activity.
+   * A nested `.gpg-id` is always a hard boundary. Both `.secrets.gpg` and `.mask.gpg` are loaded in
+   * one authentication session when present. The returned path is merely the primary file used to
+   * launch the unlock activity.
    */
   fun claimForDirectory(directory: File, repositoryRoot: File): File? {
     val identity = findNearestIdentity(directory, repositoryRoot) ?: return null
@@ -181,7 +179,8 @@ object PassSecretsMapStore {
   }
 
   fun metadataFilesForDirectory(directory: File, repositoryRoot: File): MetadataFiles {
-    val identity = findNearestIdentity(directory, repositoryRoot) ?: return MetadataFiles(null, null)
+    val identity =
+      findNearestIdentity(directory, repositoryRoot) ?: return MetadataFiles(null, null)
     return identity.metadataFiles()
   }
 
@@ -374,7 +373,8 @@ object PassSecretsMapStore {
     if (source.isFile) {
       if (!isPasswordFile(source)) return false
       val sourceIdentity = findNearestIdentity(source.parentFile ?: return false, repositoryRoot)
-      val targetIdentity = findNearestIdentity(destination.parentFile ?: return false, repositoryRoot)
+      val targetIdentity =
+        findNearestIdentity(destination.parentFile ?: return false, repositoryRoot)
       return !sameIdentity(sourceIdentity, targetIdentity)
     }
 
@@ -395,7 +395,8 @@ object PassSecretsMapStore {
     val mapCurrent =
       metadata.mapFile == null || loadedMaps[identityKey]?.version == metadata.mapFile.fileVersion()
     val maskCurrent =
-      metadata.maskFile == null || loadedMasks[identityKey]?.version == metadata.maskFile.fileVersion()
+      metadata.maskFile == null ||
+        loadedMasks[identityKey]?.version == metadata.maskFile.fileVersion()
     return mapCurrent && maskCurrent
   }
 

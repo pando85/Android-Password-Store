@@ -30,13 +30,12 @@ data class PasswordItem(
 
   val longName = PasswordRepository.getLongName(fullPathToParent, rootDir.absolutePath, toString())
 
-  val searchableName =
-    buildList {
-        add(physicalLongName)
-        if (mappedName != null) add(longName)
-        addAll(aliases)
-      }
-      .joinToString(" ")
+  val searchableName = buildList {
+    add(physicalLongName)
+    if (mappedName != null) add(longName)
+    addAll(aliases)
+  }
+    .joinToString(" ")
 
   fun matchesSearch(filter: String): Boolean = searchableName.contains(filter, ignoreCase = true)
 
@@ -49,14 +48,13 @@ data class PasswordItem(
       }
     if (regex.containsMatchIn(physicalPath)) return true
 
-    val logicalTokens =
-      buildList {
-        mappedName?.split(Regex("[\\s/]+"))?.filterTo(this) { it.isNotBlank() }
-        aliases.forEach { alias ->
-          add(alias)
-          if ('@' in alias) add(alias.substringAfterLast('@'))
-        }
+    val logicalTokens = buildList {
+      mappedName?.split(Regex("[\\s/]+"))?.filterTo(this) { it.isNotBlank() }
+      aliases.forEach { alias ->
+        add(alias)
+        if ('@' in alias) add(alias.substringAfterLast('@'))
       }
+    }
     return logicalTokens.any { token -> regex.containsMatchIn("$token.gpg") }
   }
 

@@ -124,17 +124,21 @@ constructor(
 
     val identifiers = mutableListOf<PGPIdentifier>()
     gpgId.readLines().forEach { rawLine ->
-      val line = rawLine.substringBefore(Regex("\\s*#|!")).trim()
+      val line = rawLine.substringBefore('#').substringBefore('!').trim()
       if (line.isBlank() || line == "gpg-id") return@forEach
       require(!line.removePrefix("0x").matches("[a-fA-F0-9]{8}".toRegex())) {
         "Short OpenPGP key IDs are not accepted in $gpgId"
       }
       val identifier =
-        requireNotNull(PGPIdentifier.fromString(line)) { "Invalid OpenPGP identifier '$line' in $gpgId" }
+        requireNotNull(PGPIdentifier.fromString(line)) {
+          "Invalid OpenPGP identifier '$line' in $gpgId"
+        }
       require(repository.hasKey(identifier)) { "OpenPGP key '$identifier' is not imported" }
       identifiers += identifier
     }
-    require(identifiers.isNotEmpty()) { "Pass-Secrets identity has no usable recipients: $identity" }
+    require(identifiers.isNotEmpty()) {
+      "Pass-Secrets identity has no usable recipients: $identity"
+    }
     return identifiers
   }
 

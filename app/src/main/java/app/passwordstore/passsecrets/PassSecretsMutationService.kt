@@ -119,7 +119,8 @@ constructor(
 
     if (sourceFile != null && sourceMapFile != null) {
       val sourceIdentity = requireNotNull(sourceMapFile.parentFile)
-      val sourceKey = requireNotNull(PassSecretsMapStore.passwordRelativePath(sourceFile, sourceIdentity))
+      val sourceKey =
+        requireNotNull(PassSecretsMapStore.passwordRelativePath(sourceFile, sourceIdentity))
       newMaps[sourceMapFile.canonicalPath] =
         PassSecretsMapStore.mapAfterDelete(
           newMaps.getValue(sourceMapFile.canonicalPath),
@@ -161,7 +162,8 @@ constructor(
       val source = plan.sourceFile
       val destination = plan.destinationFile
       val sameFile = source?.canonicalPath == destination.canonicalPath
-      val originalDestination = if (sameFile && destination.isFile) destination.readBytes() else null
+      val originalDestination =
+        if (sameFile && destination.isFile) destination.readBytes() else null
 
       try {
         destination.parentFile?.mkdirs()
@@ -202,10 +204,13 @@ constructor(
         throw ReencryptionRequiredException(source, destination)
       }
       val sourceParent = source.parentFile ?: return@forEach
-      val sourceIdentity = PassSecretsMapStore.identityForDirectory(sourceParent, repositoryRoot)
-        ?: return@forEach
+      val sourceIdentity =
+        PassSecretsMapStore.identityForDirectory(sourceParent, repositoryRoot) ?: return@forEach
       val destinationIdentity =
-        PassSecretsMapStore.identityForDirectory(destination.parentFile ?: return@forEach, repositoryRoot)
+        PassSecretsMapStore.identityForDirectory(
+          destination.parentFile ?: return@forEach,
+          repositoryRoot,
+        )
       if (sourceIdentity.canonicalPath != destinationIdentity?.canonicalPath) {
         // Moving an entire nested identity is safe cryptographically because its .gpg-id moves
         // with it, but parent Pass-Secrets metadata could reference that directory. Refuse when
@@ -235,10 +240,13 @@ constructor(
 
     normalizedMoves.forEach { (source, destination) ->
       val sourceParent = source.parentFile ?: return@forEach
-      val sourceIdentity = PassSecretsMapStore.identityForDirectory(sourceParent, repositoryRoot)
-        ?: return@forEach
+      val sourceIdentity =
+        PassSecretsMapStore.identityForDirectory(sourceParent, repositoryRoot) ?: return@forEach
       val destinationIdentity =
-        PassSecretsMapStore.identityForDirectory(destination.parentFile ?: sourceParent, repositoryRoot)
+        PassSecretsMapStore.identityForDirectory(
+          destination.parentFile ?: sourceParent,
+          repositoryRoot,
+        )
       if (sourceIdentity.canonicalPath != destinationIdentity?.canonicalPath) return@forEach
 
       val sourceRelative = relativeEntryPath(source, sourceIdentity)
@@ -248,9 +256,10 @@ constructor(
       metadata.mapFile?.let { mapFile ->
         val key = mapFile.canonicalPath
         val old =
-          (original[key] as? Update.Secrets)?.values ?: mapFile.requireMapSnapshot().also {
-            original[key] = Update.Secrets(mapFile, it)
-          }
+          (original[key] as? Update.Secrets)?.values
+            ?: mapFile.requireMapSnapshot().also {
+              original[key] = Update.Secrets(mapFile, it)
+            }
         val values = (current[key] as? Update.Secrets)?.values ?: old
         current[key] =
           Update.Secrets(
@@ -266,9 +275,10 @@ constructor(
       metadata.maskFile?.let { maskFile ->
         val key = maskFile.canonicalPath
         val old =
-          (original[key] as? Update.Mask)?.associations ?: maskFile.requireMaskSnapshot().also {
-            original[key] = Update.Mask(maskFile, it)
-          }
+          (original[key] as? Update.Mask)?.associations
+            ?: maskFile.requireMaskSnapshot().also {
+              original[key] = Update.Mask(maskFile, it)
+            }
         val values = (current[key] as? Update.Mask)?.associations ?: old
         current[key] =
           Update.Mask(
@@ -298,7 +308,10 @@ constructor(
           destination.parentFile?.mkdirs()
           val backup =
             if (destination.exists()) {
-              File(destination.parentFile, ".aps-move-backup-${UUID.randomUUID()}-${destination.name}")
+              File(
+                  destination.parentFile,
+                  ".aps-move-backup-${UUID.randomUUID()}-${destination.name}",
+                )
                 .also { backupFile ->
                   if (!destination.renameTo(backupFile)) {
                     throw IOException("Could not stage existing destination $destination")
@@ -333,9 +346,10 @@ constructor(
         throw ProtectedIdentityMarkerException(target)
       }
       val parent = target.parentFile ?: return@forEach
-      PassSecretsMapStore.metadataFilesForDirectory(parent, repositoryRoot)
-        .existingFiles
-        .forEach { file -> metadata[file.canonicalPath] = file }
+      PassSecretsMapStore.metadataFilesForDirectory(parent, repositoryRoot).existingFiles.forEach {
+        file ->
+        metadata[file.canonicalPath] = file
+      }
     }
     return metadata.values.filterNot(PassSecretsMapStore::isLoaded)
   }
@@ -350,16 +364,18 @@ constructor(
 
     normalizedTargets.forEach { target ->
       val parent = target.parentFile ?: return@forEach
-      val identity = PassSecretsMapStore.identityForDirectory(parent, repositoryRoot) ?: return@forEach
+      val identity =
+        PassSecretsMapStore.identityForDirectory(parent, repositoryRoot) ?: return@forEach
       val relativePath = relativeEntryPath(target, identity)
       val metadata = PassSecretsMapStore.metadataFilesForDirectory(parent, repositoryRoot)
 
       metadata.mapFile?.let { mapFile ->
         val key = mapFile.canonicalPath
         val old =
-          (original[key] as? Update.Secrets)?.values ?: mapFile.requireMapSnapshot().also {
-            original[key] = Update.Secrets(mapFile, it)
-          }
+          (original[key] as? Update.Secrets)?.values
+            ?: mapFile.requireMapSnapshot().also {
+              original[key] = Update.Secrets(mapFile, it)
+            }
         val values = (current[key] as? Update.Secrets)?.values ?: old
         current[key] =
           Update.Secrets(
@@ -370,9 +386,10 @@ constructor(
       metadata.maskFile?.let { maskFile ->
         val key = maskFile.canonicalPath
         val old =
-          (original[key] as? Update.Mask)?.associations ?: maskFile.requireMaskSnapshot().also {
-            original[key] = Update.Mask(maskFile, it)
-          }
+          (original[key] as? Update.Mask)?.associations
+            ?: maskFile.requireMaskSnapshot().also {
+              original[key] = Update.Mask(maskFile, it)
+            }
         val values = (current[key] as? Update.Mask)?.associations ?: old
         current[key] =
           Update.Mask(
@@ -423,7 +440,9 @@ constructor(
       unique.none { other ->
         other != candidate &&
           other.isDirectory &&
-          candidate.canonicalPath.startsWith(other.canonicalPath.trimEnd(File.separatorChar) + File.separator)
+          candidate.canonicalPath.startsWith(
+            other.canonicalPath.trimEnd(File.separatorChar) + File.separator
+          )
       }
     }
   }
@@ -442,7 +461,8 @@ constructor(
 
   private fun relativeEntryPath(file: File, identity: File): String {
     val relative = file.relativeTo(identity).invariantSeparatorsPath
-    return if (file.isFile || file.name.endsWith(".gpg")) relative.removeSuffix(".gpg") else relative
+    return if (file.isFile || file.name.endsWith(".gpg")) relative.removeSuffix(".gpg")
+    else relative
   }
 
   private fun passwordRelativePath(file: File, identity: File): String {
