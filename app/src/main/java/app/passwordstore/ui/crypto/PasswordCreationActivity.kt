@@ -32,6 +32,8 @@ import app.passwordstore.data.passfile.splitToCharArrayListAt
 import app.passwordstore.data.passfile.trimEnd
 import app.passwordstore.data.repo.PasswordRepository
 import app.passwordstore.databinding.PasswordCreationActivityBinding
+import app.passwordstore.passsecrets.PassSecretsMapStore
+import app.passwordstore.passsecrets.PassSecretsMutationService
 import app.passwordstore.ui.dialogs.DicewarePasswordGeneratorDialogFragment
 import app.passwordstore.ui.dialogs.OtpImportDialogFragment
 import app.passwordstore.ui.dialogs.PasswordGeneratorDialogFragment
@@ -68,15 +70,12 @@ import com.google.zxing.qrcode.QRCodeReader
 import dagger.hilt.android.AndroidEntryPoint
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
+import java.io.File
 import java.io.IOException
 import java.nio.CharBuffer
-import java.nio.file.Paths
 import javax.inject.Inject
-import kotlin.io.path.absolutePathString
 import kotlin.io.path.createDirectories
 import kotlin.io.path.exists
-import kotlin.io.path.pathString
-import kotlin.io.path.writeBytes
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import logcat.LogPriority.ERROR
@@ -88,14 +87,30 @@ class PasswordCreationActivity : BasePGPActivity() {
 
   private val binding by viewBinding(PasswordCreationActivityBinding::inflate)
   @Inject lateinit var passwordEntryFactory: PasswordEntry.Factory
+  @Inject lateinit var passSecretsMutationService: PassSecretsMutationService
 
   private val suggestedName by unsafeLazy { intent.getStringExtra(EXTRA_FILE_NAME) }
+  private val suggestedPhysicalName by unsafeLazy {
+    intent.getStringExtra(EXTRA_PHYSICAL_FILE_NAME) ?: suggestedName
+  }
   private val suggestedEntryChars by unsafeLazy { intent.getCharArrayExtra(EXTRA_ENTRY) }
   private val shouldGeneratePassword by unsafeLazy {
     intent.getBooleanExtra(EXTRA_GENERATE_PASSWORD, false)
   }
   private val editing by unsafeLazy { intent.getBooleanExtra(EXTRA_EDITING, false) }
   private var copy: Boolean = false
+  private var pendingSave = false
+
+  private val passSecretsUnlockAction =
+    registerForActivityResult(StartActivityForResult()) { result ->
+      if (!pendingSave) return@registerForActivityResult
+      if (result.resultCode == RESULT_OK) {
+        updateMappedSuggestedNameAfterUnlock()
+        continueSave()
+      } else {
+        pendingSave = false
+      }
+    }
 
   private val otpImportAction =
     registerForActivityResult(StartActivityForResult()) { result ->
@@ -128,7 +143,6 @@ class PasswordCreationActivity : BasePGPActivity() {
           @Suppress("DEPRECATION") MediaStore.Images.Media.getBitmap(contentResolver, imageUri)
         }
       val intArray = IntArray(bitmap.width * bitmap.height)
-      // copy pixel data from the Bitmap into the 'intArray' array
       bitmap.getPixels(intArray, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
       val source: LuminanceSource = RGBLuminanceSource(bitmap.width, bitmap.height, intArray)
       val binaryBitmap = BinaryBitmap(HybridBinarizer(source))
@@ -260,9 +274,6 @@ class PasswordCreationActivity : BasePGPActivity() {
         } else if (suggestedName != null) username.requestFocus()
       }
 
-      // Allow the user to quickly switch between storing the username as the filename or
-      // in the encrypted extras. This only makes sense if the directory structure is
-      // FileBased.
       if (
         suggestedName == null &&
           AutofillPreferences.directoryStructure(this@PasswordCreationActivity) ==
@@ -272,15 +283,11 @@ class PasswordCreationActivity : BasePGPActivity() {
           visibility = View.VISIBLE
           setOnClickListener {
             if (isChecked) {
-              // User wants to enable username encryption, so we use the filename
-              // as username and insert it into the username input field.
               val login = filename.text.toString()
               filename.text?.clear()
               username.setText(login)
               usernameInputLayout.apply { visibility = View.VISIBLE }
             } else {
-              // User wants to disable username encryption, so we take the username
-              // from the username text field and insert it into the filename input field.
               val login = username.text.toString()
               username.text?.clear()
               filename.setText(login)
@@ -325,21 +332,60 @@ class PasswordCreationActivity : BasePGPActivity() {
         setResult(RESULT_CANCELED)
         onBackPressedDispatcher.onBackPressed()
       }
-      R.id.save_password -> {
-        copy = false
-        requireKeysExist {
-          requireEncryptionKeysExist(binding.directory.text.toString()) { ids -> encrypt(ids) }
-        }
-      }
-      R.id.save_and_copy_password -> {
-        copy = true
-        requireKeysExist {
-          requireEncryptionKeysExist(binding.directory.text.toString()) { ids -> encrypt(ids) }
-        }
-      }
+      R.id.save_password -> beginSave(copyPassword = false)
+      R.id.save_and_copy_password -> beginSave(copyPassword = true)
       else -> return super.onOptionsItemSelected(item)
     }
     return true
+  }
+
+  private fun beginSave(copyPassword: Boolean) {
+    copy = copyPassword
+    pendingSave = true
+    continueSave()
+  }
+
+  private fun continueSave() {
+    if (!pendingSave) return
+    val repositoryRoot = File(repoPath)
+    val destinationDirectory = selectedDirectory()
+    val sourceFile = sourcePasswordFile()
+    val requiredMetadata =
+      passSecretsMutationService.requiredMetadataForPasswordWrite(
+        sourceFile,
+        destinationDirectory,
+        repositoryRoot,
+      )
+    val nextMetadata = requiredMetadata.firstOrNull()
+    if (nextMetadata != null) {
+      passSecretsUnlockAction.launch(
+        PassSecretsMapUnlockActivity.newIntent(this, nextMetadata, repositoryRoot)
+      )
+      return
+    }
+
+    pendingSave = false
+    requireKeysExist {
+      requireEncryptionKeysExist(binding.directory.text.toString()) { ids -> encrypt(ids) }
+    }
+  }
+
+  private fun updateMappedSuggestedNameAfterUnlock() {
+    if (!editing) return
+    val source = sourcePasswordFile() ?: return
+    val mappedName = PassSecretsMapStore.mappedName(source, File(repoPath)) ?: return
+    if (binding.filename.text?.toString() == suggestedName) binding.filename.setText(mappedName)
+  }
+
+  private fun sourcePasswordFile(): File? {
+    if (!editing) return null
+    val physicalName = suggestedPhysicalName ?: return null
+    return File(fullPath.trimEnd('/'), "$physicalName.gpg")
+  }
+
+  private fun selectedDirectory(): File {
+    val relative = binding.directory.text.toString().trim().trim('/')
+    return File(repoPath, relative)
   }
 
   private fun generatePassword() {
@@ -367,14 +413,13 @@ class PasswordCreationActivity : BasePGPActivity() {
         isEnabled = hasUsernameInFileName xor usernameIsEncrypted
         isChecked = usernameIsEncrypted
       }
-      // Use PasswordEntry to parse extras for OTP
       val entry = passwordEntryFactory.create("PLACEHOLDER\n${extraContent.text}".toCharArray())
       val hasTotp = entry.hasTotp()
       entry.clear()
       otpImportButton.isVisible = !hasTotp
     }
 
-  /** Encrypts the password and the extra content */
+  /** Encrypts the password and extra content, then atomically updates Pass-Secrets metadata. */
   private fun encrypt(identifiers: List<PGPIdentifier>) {
     with(binding) {
       val editName = filename.text.toString().trim()
@@ -382,11 +427,14 @@ class PasswordCreationActivity : BasePGPActivity() {
       val editPass = password.text?.let { CharArray(it.length) { i -> it[i] } } ?: charArrayOf()
       var editExtra =
         extraContent.text?.let { CharArray(it.length) { i -> it[i] } } ?: charArrayOf()
+      val destinationDirectory = selectedDirectory()
+      val mappedDestination =
+        PassSecretsMapStore.mapFileForDirectory(destinationDirectory, File(repoPath)) != null
 
       if (editName.isEmpty()) {
         snackbar(message = resources.getString(R.string.file_toast_text))
         return@with
-      } else if (editName.contains('/')) {
+      } else if (!mappedDestination && (editName.contains('/') || editName.contains('\\'))) {
         snackbar(message = resources.getString(R.string.invalid_filename_text))
         return@with
       }
@@ -404,15 +452,14 @@ class PasswordCreationActivity : BasePGPActivity() {
         return@with
       }
 
-      // fix extra content formatting
       if (!editExtra.isEmpty()) {
         editExtra = editExtra.let {
-          val extraLines = it.splitToCharArrayListAt('\n').map { it.trimEnd() }
-          it?.wipe()
-          val editExtra = extraLines.joinToCharArray('\n')?.trimEnd()
-          val editExtraPlusLineFeed = editExtra?.let { it + '\n' }
-          editExtra?.wipe()
-          editExtraPlusLineFeed ?: charArrayOf()
+          val extraLines = it.splitToCharArrayListAt('\n').map { line -> line.trimEnd() }
+          it.wipe()
+          val trimmed = extraLines.joinToCharArray('\n')?.trimEnd()
+          val withLineFeed = trimmed?.let { value -> value + '\n' }
+          trimmed?.wipe()
+          withLineFeed ?: charArrayOf()
         }
       }
 
@@ -421,25 +468,27 @@ class PasswordCreationActivity : BasePGPActivity() {
         clearTimer = copyPasswordToClipboard(editPass.copyOf(editPass.size))
       }
 
-      // pass enters the key ID into `.gpg-id`.
-      val gpgIdentifiers = getPGPIdentifiers(directory.text.toString())
-      if (gpgIdentifiers.isNullOrEmpty()) return@with
-
-      val path = run { // password item's full file path string
-        val editRelativePath = directory.text.toString().trim()
-        val passwordDirectory = Paths.get(repoPath, editRelativePath.trim('/'))
-        passwordDirectory.createDirectories() // ensure destination dir exists
-        if (!passwordDirectory.exists()) { // should not happen
-          snackbar(message = "Failed to create directory ${editRelativePath.trimEnd('/')}")
-          return
-        }
-
-        "${passwordDirectory.pathString}/$editName.gpg"
+      destinationDirectory.toPath().createDirectories()
+      if (!destinationDirectory.toPath().exists()) {
+        snackbar(message = "Failed to create directory ${destinationDirectory.path}")
+        return@with
       }
 
       lifecycleScope.launch(dispatcherProvider.main()) {
         runCatching {
-          val contentChars = (editPass + editUsername + '\n' + editExtra)
+          val plan =
+            passSecretsMutationService.planPasswordWrite(
+              sourcePasswordFile(),
+              destinationDirectory,
+              editName,
+              File(repoPath),
+            )
+          if (!plan.destinationFile.isInsideRepository()) {
+            snackbar(message = getString(R.string.message_error_destination_outside_repo))
+            return@runCatching
+          }
+
+          val contentChars = editPass + editUsername + '\n' + editExtra
           val contentBytes = contentChars.toByteArray()
           contentChars.wipe()
 
@@ -456,7 +505,6 @@ class PasswordCreationActivity : BasePGPActivity() {
           if (result.isErr) throw result.unwrapError()
           if (succeededUserEmails.isNullOrEmpty()) throw UnusableKeyException
 
-          var unknownKeyCount = 0
           val failedUserEmails =
             identifiers
               .map { id ->
@@ -469,51 +517,32 @@ class PasswordCreationActivity : BasePGPActivity() {
                   }
               }
               .distinct()
-              .filter { it !in succeededUserEmails ?: emptyList() }
+              .filter { it !in succeededUserEmails }
 
-          val passwordFile = Paths.get(path)
-          // If we're not editing, this file should not already exist!
-          // Additionally, if we were editing and the incoming and outgoing
-          // file paths differ, it means we renamed. Ensure that the target
-          // doesn't already exist to prevent an accidental overwrite.
-          if (
-            (!editing ||
-              (editing &&
-                "${fullPath.trimEnd('/')}/$suggestedName.gpg" !=
-                  passwordFile.absolutePathString())) && passwordFile.exists()
-          ) {
-            snackbar(message = getString(R.string.password_creation_duplicate_error))
-            return@runCatching
+          val encryptedOutput = result.getOrThrow()
+          val encryptedBytes = encryptedOutput.toByteArray()
+          encryptedOutput.wipe()
+          try {
+            passSecretsMutationService.commitPasswordWrite(plan, encryptedBytes)
+          } finally {
+            encryptedBytes.wipe()
           }
 
-          if (!passwordFile.toFile().isInsideRepository()) {
-            snackbar(message = getString(R.string.message_error_destination_outside_repo))
-            return@runCatching
-          }
-
-          withContext(dispatcherProvider.io()) {
-            passwordFile.writeBytes(result.getOrThrow().toByteArray())
-          }
-
-          // create/update timestamp on the current password file
           val preference = getSharedPreferences("recent_password_history", 0)
           preference.edit {
-            suggestedName?.let { oldFile ->
-              val oldFilePathHash = "${fullPath.trimEnd('/')}/$oldFile.gpg".base64()
-              remove(oldFilePathHash)
-            }
+            sourcePasswordFile()?.let { oldFile -> remove(oldFile.absolutePath.base64()) }
             putString(
-              passwordFile.absolutePathString().base64(),
+              plan.destinationFile.absolutePath.base64(),
               System.currentTimeMillis().toString(),
             )
           }
 
           val returnIntent = Intent()
-          returnIntent.putExtra(RETURN_EXTRA_CREATED_FILE, path)
+          returnIntent.putExtra(RETURN_EXTRA_CREATED_FILE, plan.destinationFile.absolutePath)
           returnIntent.putExtra(RETURN_EXTRA_NAME, editName)
           returnIntent.putExtra(
             RETURN_EXTRA_LONG_NAME,
-            PasswordRepository.getLongName(fullPath, repoPath, editName),
+            PasswordRepository.getLongName(destinationDirectory.absolutePath, repoPath, editName),
           )
 
           if (shouldGeneratePassword) {
@@ -527,57 +556,60 @@ class PasswordCreationActivity : BasePGPActivity() {
 
             val username =
               entry.username?.let { it.copyOf(it.size) }
-                ?: directoryStructure.getUsernameFor(passwordFile.toFile())
+                ?: directoryStructure.getUsernameFor(plan.destinationFile)
             returnIntent.putExtra(RETURN_EXTRA_USERNAME, username)
 
             entry.clear()
           }
 
-          editPass?.wipe()
-          editUsername?.wipe()
-          editExtra?.wipe()
+          editPass.wipe()
+          editUsername.wipe()
+          editExtra.wipe()
 
           val commitMessageRes =
             if (editing) R.string.git_commit_edit_text else R.string.git_commit_add_text
+          val physicalLongName =
+            PasswordRepository.getLongName(
+              destinationDirectory.absolutePath,
+              repoPath,
+              plan.destinationFile.nameWithoutExtension,
+            )
           lifecycleScope.launch {
-            commitChange(
-                resources.getString(
-                  commitMessageRes,
-                  PasswordRepository.getLongName(fullPath, repoPath, editName),
+            commitChange(resources.getString(commitMessageRes, physicalLongName)).onOk {
+              setResult(RESULT_OK, returnIntent)
+              val dialog =
+                MaterialAlertDialogBuilder(this@PasswordCreationActivity)
+                  .setCancelable(false)
+                  .setPositiveButton(android.R.string.ok) { _, _ -> finish() }
+              var messageText =
+                getString(
+                  R.string.password_creation_file_encryption_succeeded_ids_message,
+                  succeededUserEmails.joinToString(),
                 )
-              )
-              .onOk {
-                setResult(RESULT_OK, returnIntent)
-                val dialog =
-                  MaterialAlertDialogBuilder(this@PasswordCreationActivity)
-                    .setCancelable(false)
-                    .setPositiveButton(android.R.string.ok) { _, _ -> finish() }
-                var messageText =
+              if (failedUserEmails.isNotEmpty()) {
+                dialog.setTitle(R.string.password_creation_file_encryption_partial_success_title)
+                messageText +=
                   getString(
-                    R.string.password_creation_file_encryption_succeeded_ids_message,
-                    succeededUserEmails.joinToString(),
+                    R.string.password_creation_file_encryption_failed_ids_message,
+                    failedUserEmails.joinToString(),
                   )
-                if (!failedUserEmails.isEmpty()) {
-                  dialog.setTitle(R.string.password_creation_file_encryption_partial_success_title)
-                  messageText +=
-                    getString(
-                      R.string.password_creation_file_encryption_failed_ids_message,
-                      failedUserEmails.joinToString(),
-                    )
-                } else {
-                  val title =
-                    if (editing)
-                      getString(R.string.password_creation_edit_file_encryption_success_title)
-                    else getString(R.string.password_creation_new_file_encryption_success_title)
-                  dialog.setTitle(title)
-                }
-                dialog.setMessage(messageText)
-                dialog.show()
+              } else {
+                val title =
+                  if (editing)
+                    getString(R.string.password_creation_edit_file_encryption_success_title)
+                  else getString(R.string.password_creation_new_file_encryption_success_title)
+                dialog.setTitle(title)
               }
+              dialog.setMessage(messageText)
+              dialog.show()
+            }
           }
         }
           .onErr { e ->
             logcat(ERROR) { e.asLog() }
+            editPass.wipe()
+            editUsername.wipe()
+            editExtra.wipe()
             setResult(RESULT_CANCELED)
             val errMessage =
               when (e) {
@@ -593,7 +625,7 @@ class PasswordCreationActivity : BasePGPActivity() {
               .setTitle(getString(R.string.error))
               .setMessage(errMessage)
               .setCancelable(false)
-              .setPositiveButton(android.R.string.ok) { _, _ -> finish() }
+              .setPositiveButton(android.R.string.ok, null)
               .show()
           }
       }
@@ -613,6 +645,7 @@ class PasswordCreationActivity : BasePGPActivity() {
     const val RETURN_EXTRA_USERNAME = "USERNAME"
     const val RETURN_EXTRA_PASSWORD = "PASSWORD"
     const val EXTRA_FILE_NAME = "EXTRA_FILENAME"
+    const val EXTRA_PHYSICAL_FILE_NAME = "EXTRA_PHYSICAL_FILENAME"
     const val EXTRA_ENTRY = "EXTRA_ENTRY"
     const val EXTRA_GENERATE_PASSWORD = "EXTRA_GENERATE_PASSWORD"
     const val EXTRA_EDITING = "EXTRA_EDITING"

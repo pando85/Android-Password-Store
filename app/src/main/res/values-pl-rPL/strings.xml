@@ -27,8 +27,6 @@
   <string name="delete">Usuń</string>
   <string name="password_exists_title">Hasło już istnieje!</string>
   <string name="password_exists_message">%1$s zostanie nadpisane przez %2$s.</string>
-  <string name="password_move_error_title">Błąd podczas przenoszenia haseł</string>
-  <string name="password_move_error_message">Nie udało się przenieść %1$s do %2$s</string>
   <!-- git commits -->
   <string name="git_commit_add_text">Dodaj wygenerowane hasło dla %1$s przy użyciu Android Password Store.</string>
   <string name="git_commit_edit_text">Edytuj hasło dla %1$s za pomocą Android Password Store.</string>
@@ -248,7 +246,6 @@
   <string name="preference_custom_public_suffixes_summary">Autouzupełnianie rozróżni subdomeny tych domen</string>
   <!-- Password creation failure -->
   <string name="password_creation_file_write_fail_message">Nie udało się zapisać pliku z hasłem do repozytorium, spróbuj ponownie.</string>
-  <string name="password_creation_duplicate_error">Plik o tej nazwie już istnieje, użyj innej nazwy</string>
   <string name="add_otp">Dodaj OTP</string>
   <string name="otp_import_success">Pomyślnie zaimportowano konfigurację TOTP</string>
   <string name="invalid_gpg_id">Znaleziono plik .gpg-id, ale zawiera on nieprawidłowy lub nieznany identyfikator klucza.</string>
