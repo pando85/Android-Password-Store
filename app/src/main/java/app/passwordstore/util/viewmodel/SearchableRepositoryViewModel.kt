@@ -61,7 +61,13 @@ private fun File.toPasswordItem(): PasswordItem {
   return if (isFile) {
     if (name == ".gpg-id") PasswordItem.newGpgIdItem(name, this, root)
     else if (extension == "gpg")
-      PasswordItem.newPassword(name, this, root, PassSecretsMapStore.mappedName(this, root))
+      PasswordItem.newPassword(
+        name,
+        this,
+        root,
+        PassSecretsMapStore.mappedName(this, root),
+        PassSecretsMapStore.aliases(this, root),
+      )
     else PasswordItem.newOtherItem(name, this, root)
   } else PasswordItem.newCategory(name, this, root)
 }
@@ -411,7 +417,9 @@ private object PasswordItemDiffCallback : DiffUtil.ItemCallback<PasswordItem>() 
     oldItem.file.absolutePath == newItem.file.absolutePath
 
   override fun areContentsTheSame(oldItem: PasswordItem, newItem: PasswordItem) =
-    oldItem.file == newItem.file && oldItem.mappedName == newItem.mappedName
+    oldItem.file == newItem.file &&
+      oldItem.mappedName == newItem.mappedName &&
+      oldItem.aliases == newItem.aliases
 }
 
 open class SearchableRepositoryAdapter<T : RecyclerView.ViewHolder>(
