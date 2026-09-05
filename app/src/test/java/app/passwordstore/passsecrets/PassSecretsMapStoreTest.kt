@@ -58,6 +58,7 @@ class PassSecretsMapStoreTest {
         /absolute/path = nope
         foo/../bar = nope
         foo\\bar = nope
+        foo bar/baz = nope
         valid/path =
         pending/path = (pendente)
         good/path = Good value
@@ -74,6 +75,38 @@ class PassSecretsMapStoreTest {
   }
 
   @Test
+  fun `plain store without identity or map never activates`() {
+    val directory = File(root, "Plain").apply { mkdirs() }
+    val password = password(directory, "example.com")
+
+    assertNull(PassSecretsMapStore.claimForDirectory(directory, root))
+    assertNull(PassSecretsMapStore.mappedName(password, root))
+  }
+
+  @Test
+  fun `root identity is detected automatically`() {
+    File(root, ".gpg-id").writeText("0123456789ABCDEF\n")
+    val mapFile = File(root, PassSecretsMapStore.MAP_FILE_NAME).apply { writeText("ciphertext") }
+    val password = password(root, "Abcde")
+
+    assertEquals(
+      mapFile.absolutePath,
+      PassSecretsMapStore.claimForDirectory(root, root)?.absolutePath,
+    )
+    PassSecretsMapStore.put(mapFile, mapOf("Abcde" to "GitHub personal"))
+    assertEquals("GitHub personal", PassSecretsMapStore.mappedName(password, root))
+  }
+
+  @Test
+  fun `identity without secrets map behaves like a normal store`() {
+    val identity = identity(root, "Work", withMap = false)
+    val password = password(identity, "Abcde")
+
+    assertNull(PassSecretsMapStore.claimForDirectory(identity, root))
+    assertNull(PassSecretsMapStore.mappedName(password, root))
+  }
+
+  @Test
   fun `mapped name resolves relative to nearest identity`() {
     val identity = identity(root, "Work")
     val password = password(identity, "Abcde/FgXyz")
@@ -81,6 +114,29 @@ class PassSecretsMapStoreTest {
     PassSecretsMapStore.put(mapFile, mapOf("Abcde/FgXyz" to "GitHub work"))
 
     assertEquals("GitHub work", PassSecretsMapStore.mappedName(password, root))
+  }
+
+  @Test
+  fun `unmapped physical entry falls back cleanly`() {
+    val identity = identity(root, "Work")
+    val password = password(identity, "Abcde")
+    val mapFile = File(identity, PassSecretsMapStore.MAP_FILE_NAME)
+    PassSecretsMapStore.put(mapFile, mapOf("Different" to "Orphan mapping"))
+
+    assertNull(PassSecretsMapStore.mappedName(password, root))
+    val item = PasswordItem.newPassword(password.name, password, root)
+    assertEquals("Abcde", item.toString())
+    assertTrue(item.matchesSearch("Abcde"))
+  }
+
+  @Test
+  fun `orphan map entry cannot resolve an unrelated physical file`() {
+    val identity = identity(root, "Work")
+    val password = password(identity, "Existing")
+    val mapFile = File(identity, PassSecretsMapStore.MAP_FILE_NAME)
+    PassSecretsMapStore.put(mapFile, mapOf("Missing" to "Bank"))
+
+    assertNull(PassSecretsMapStore.mappedName(password, root))
   }
 
   @Test
