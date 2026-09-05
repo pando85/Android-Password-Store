@@ -4,6 +4,7 @@
  */
 package app.passwordstore.util.viewmodel
 
+import android.annotation.SuppressLint
 import android.app.Application
 import android.content.SharedPreferences
 import android.os.Parcelable
@@ -416,6 +417,7 @@ private object PasswordItemDiffCallback : DiffUtil.ItemCallback<PasswordItem>() 
   override fun areItemsTheSame(oldItem: PasswordItem, newItem: PasswordItem) =
     oldItem.file.absolutePath == newItem.file.absolutePath
 
+  @SuppressLint("DiffUtilEquals")
   override fun areContentsTheSame(oldItem: PasswordItem, newItem: PasswordItem) =
     oldItem.file == newItem.file &&
       oldItem.mappedName == newItem.mappedName &&
