@@ -43,7 +43,8 @@ object PassSecretsMapStore {
   /** Resolve the mapped display name for a physical password file, if its map is unlocked. */
   fun mappedName(file: File, repositoryRoot: File): String? {
     if (!file.isFile || file.extension != "gpg" || isMetadataFile(file)) return null
-    val identity = findNearestIdentity(file.parentFile ?: return null, repositoryRoot) ?: return null
+    val identity =
+      findNearestIdentity(file.parentFile ?: return null, repositoryRoot) ?: return null
     val mapFile = File(identity, MAP_FILE_NAME)
     if (!mapFile.isFile) return null
 
