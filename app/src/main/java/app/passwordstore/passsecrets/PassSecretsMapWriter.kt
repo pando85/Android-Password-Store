@@ -14,6 +14,7 @@ import com.github.michaelbull.result.unwrapError
 import dagger.Reusable
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.IOException
 import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
@@ -156,7 +157,7 @@ constructor(
   }
 
   private fun restoreBestEffort(stagedUpdate: StagedUpdate) {
-    runCatching {
+    try {
       val target = stagedUpdate.update.file
       val previous = stagedUpdate.originalCiphertext
       if (previous == null) {
@@ -170,6 +171,6 @@ constructor(
           restore.delete()
         }
       }
-    }
+    } catch (_: IOException) {}
   }
 }
