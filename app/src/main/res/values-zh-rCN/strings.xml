@@ -254,7 +254,6 @@
 personal.com</string>
   <!-- Password creation failure -->
   <string name="password_creation_file_write_fail_message">将密码文件写入存储失败,请重试</string>
-  <string name="password_creation_duplicate_error">文件已存在,请使用其他名称</string>
   <string name="add_otp">添加 OTP</string>
   <string name="otp_import_success">导入TOTP配置成功</string>
   <string name="otp_import_failure_generic">导入TOTP配置失败</string>

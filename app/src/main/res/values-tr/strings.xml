@@ -288,7 +288,6 @@
 
   <!-- Password creation failure -->
   <string name="password_creation_file_write_fail_message">Şifre dosyası depoya yazılamadı, lütfen tekrar deneyin.</string>
-  <string name="password_creation_duplicate_error">Dosya zaten mevcut, lütfen farklı bir ad kullanın</string>
   <string name="add_otp">OTP ekle</string>
   <string name="otp_import_success">TOTP yapılandırması başarıyla içe aktarıldı</string>
   <string name="otp_import_failure_generic">TOTP yapılandırması içe aktarılamadı</string>

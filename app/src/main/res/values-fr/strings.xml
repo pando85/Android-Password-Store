@@ -244,7 +244,6 @@
   <string name="preference_custom_public_suffixes_hint">societe.com\npersonnel.com</string>
   <!-- Password creation failure -->
   <string name="password_creation_file_write_fail_message">Impossible d\'écrire le fichier de mot de passe dans le magasin, veuillez réessayer.</string>
-  <string name="password_creation_duplicate_error">Le fichier existe déjà, veuillez utiliser un autre nom</string>
   <string name="add_otp">Ajouter OTP</string>
   <string name="otp_import_success">Configuration TOTP importée avec succès</string>
   <string name="otp_import_failure_generic">Impossible d\'importer la configuration TOTP</string>

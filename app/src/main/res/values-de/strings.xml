@@ -331,7 +331,6 @@
   <string name="password_creation_file_write_fail_message">Fehler beim Speichern der Passwortdatei im Password Store, bitte versuchen Sie es erneut.</string>
   <string name="password_creation_unusable_encryption_key_error_message">Verschlüsseln fehlgeschlagen. Überprüfen Sie Ablaufdatum und Widerrufstatus der PGP-Schlüssel mithilfe eines externen Programms.</string>
   <string name="password_creation_no_keys_provided_message">Keine passenden PGP-Schlüssel gefunden.</string>
-  <string name="password_creation_duplicate_error">Datei existiert bereits, bitte verwenden Sie einen anderen Dateinamen.</string>
   <string name="add_otp">OTP hinzufügen</string>
   <string name="otp_import_success">TOTP-Konfiguration erfolgreich importiert</string>
   <string name="otp_import_failure_generic">Import der TOTP-Konfiguration fehlgeschlagen</string>
