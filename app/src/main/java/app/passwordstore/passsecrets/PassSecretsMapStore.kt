@@ -5,6 +5,7 @@
 package app.passwordstore.passsecrets
 
 import java.io.File
+import java.io.IOException
 
 /** In-memory resolver for Pass-Secrets' per-identity `.secrets.gpg` mapping files. */
 object PassSecretsMapStore {
@@ -12,21 +13,15 @@ object PassSecretsMapStore {
   const val MAP_FILE_NAME = ".secrets.gpg"
   const val MASK_FILE_NAME = ".mask.gpg"
   private const val PENDING_VALUE = "(pendente)"
+  private val validMapKey = Regex("[A-Za-z0-9_./-]+")
 
   private data class FileVersion(val lastModified: Long, val length: Long)
 
   private data class LoadedMap(val version: FileVersion, val values: Map<String, String>)
 
-  private enum class GateState {
-    Pending,
-    Skipped,
-  }
-
-  private data class Gate(val version: FileVersion, val state: GateState)
-
   private val lock = Any()
   private val loadedMaps = mutableMapOf<String, LoadedMap>()
-  private val gates = mutableMapOf<String, Gate>()
+  private val gatedVersions = mutableMapOf<String, FileVersion>()
 
   /** Parse the plaintext map format `<relative codename path> = <real description>`. */
   fun parse(plaintext: String): Map<String, String> {
@@ -64,7 +59,7 @@ object PassSecretsMapStore {
       val loaded = loadedMaps[identityKey] ?: return null
       if (loaded.version != mapFile.version()) {
         loadedMaps.remove(identityKey)
-        gates.remove(identityKey)
+        gatedVersions.remove(identityKey)
         return null
       }
       return loaded.values[relativePath]
@@ -92,13 +87,13 @@ object PassSecretsMapStore {
         loadedMaps.remove(identityKey)
       }
 
-      val gate = gates[identityKey]
-      if (gate != null) {
-        if (gate.version == version) return null
-        gates.remove(identityKey)
+      val gatedVersion = gatedVersions[identityKey]
+      if (gatedVersion != null) {
+        if (gatedVersion == version) return null
+        gatedVersions.remove(identityKey)
       }
 
-      gates[identityKey] = Gate(version, GateState.Pending)
+      gatedVersions[identityKey] = version
       return mapFile
     }
   }
@@ -109,7 +104,7 @@ object PassSecretsMapStore {
     synchronized(lock) {
       val identityKey = identity.absolutePath
       loadedMaps[identityKey] = LoadedMap(mapFile.version(), values.toMap())
-      gates.remove(identityKey)
+      gatedVersions.remove(identityKey)
     }
   }
 
@@ -119,7 +114,7 @@ object PassSecretsMapStore {
     synchronized(lock) {
       val identityKey = identity.absolutePath
       if (!loadedMaps.containsKey(identityKey)) {
-        gates[identityKey] = Gate(mapFile.version(), GateState.Skipped)
+        gatedVersions[identityKey] = mapFile.version()
       }
     }
   }
@@ -128,7 +123,7 @@ object PassSecretsMapStore {
   fun clear() {
     synchronized(lock) {
       loadedMaps.clear()
-      gates.clear()
+      gatedVersions.clear()
     }
   }
 
@@ -137,8 +132,14 @@ object PassSecretsMapStore {
   }
 
   private fun findNearestIdentity(start: File, repositoryRoot: File): File? {
-    val root = repositoryRoot.absoluteFile
-    var current = start.absoluteFile
+    val root: File
+    var current: File
+    try {
+      root = repositoryRoot.canonicalFile
+      current = start.canonicalFile
+    } catch (_: IOException) {
+      return null
+    }
     if (!isInsideRoot(current, root)) return null
 
     while (true) {
@@ -156,10 +157,8 @@ object PassSecretsMapStore {
   }
 
   private fun isValidMapKey(key: String): Boolean {
-    if (key.isBlank() || key.startsWith('/') || key.startsWith('\\') || '\\' in key) return false
-    return key.split('/').none { component ->
-      component.isBlank() || component == "." || component == ".."
-    }
+    if (!validMapKey.matches(key) || key.startsWith('/') || ".." in key) return false
+    return key.split('/').none { component -> component.isBlank() || component == "." }
   }
 
   private fun File.version() = FileVersion(lastModified = lastModified(), length = length())
