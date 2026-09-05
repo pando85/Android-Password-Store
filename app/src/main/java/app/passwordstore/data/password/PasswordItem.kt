@@ -17,22 +17,48 @@ data class PasswordItem(
   val type: Char,
   val file: File,
   val rootDir: File,
+  val mappedName: String? = null,
 ) : Comparable<PasswordItem> {
+
+  private val physicalName = name.replace("\\.gpg$".toRegex(), "")
 
   val fullPathToParent = PasswordRepository.getParentPath(file.absolutePath, rootDir.absolutePath)
 
+  val physicalLongName =
+    PasswordRepository.getLongName(fullPathToParent, rootDir.absolutePath, physicalName)
+
   val longName = PasswordRepository.getLongName(fullPathToParent, rootDir.absolutePath, toString())
+
+  val searchableName =
+    if (mappedName != null) "$longName $physicalLongName" else physicalLongName
+
+  fun matchesSearch(filter: String): Boolean = searchableName.contains(filter, ignoreCase = true)
+
+  fun matchesStrictDomain(regex: Regex): Boolean {
+    val physicalPath =
+      try {
+        file.relativeTo(rootDir).path
+      } catch (_: IllegalArgumentException) {
+        return false
+      }
+    if (regex.containsMatchIn(physicalPath)) return true
+
+    return mappedName
+      ?.split(Regex("[\\s/]+"))
+      ?.filter { it.isNotBlank() }
+      ?.any { token -> regex.containsMatchIn("$token.gpg") } == true
+  }
 
   override fun equals(other: Any?): Boolean {
     return (other is PasswordItem) && (other.file == file)
   }
 
   override fun compareTo(other: PasswordItem): Int {
-    return (type + name).compareTo(other.type + other.name, ignoreCase = true)
+    return (type + toString()).compareTo(other.type + other.toString(), ignoreCase = true)
   }
 
   override fun toString(): String {
-    return name.replace("\\.gpg$".toRegex(), "")
+    return mappedName ?: physicalName
   }
 
   override fun hashCode(): Int {
@@ -42,7 +68,7 @@ data class PasswordItem(
   /** Creates an [Intent] to launch this [PasswordItem] through the authentication process. */
   fun createAuthEnabledIntent(context: Context): Intent {
     val intent = Intent(context, LaunchActivity::class.java)
-    intent.putExtra("NAME", toString()) // this.toString
+    intent.putExtra("NAME", toString())
     intent.putExtra(BasePGPActivity.EXTRA_FILE_PATH, file.absolutePath)
     intent.putExtra(
       BasePGPActivity.EXTRA_REPO_PATH,
@@ -70,13 +96,24 @@ data class PasswordItem(
     }
 
     @JvmStatic
-    fun newPassword(name: String, file: File, parent: PasswordItem, rootDir: File): PasswordItem {
-      return PasswordItem(name, parent, TYPE_PASSWORD, file, rootDir)
+    fun newPassword(
+      name: String,
+      file: File,
+      parent: PasswordItem,
+      rootDir: File,
+      mappedName: String? = null,
+    ): PasswordItem {
+      return PasswordItem(name, parent, TYPE_PASSWORD, file, rootDir, mappedName)
     }
 
     @JvmStatic
-    fun newPassword(name: String, file: File, rootDir: File): PasswordItem {
-      return PasswordItem(name, null, TYPE_PASSWORD, file, rootDir)
+    fun newPassword(
+      name: String,
+      file: File,
+      rootDir: File,
+      mappedName: String? = null,
+    ): PasswordItem {
+      return PasswordItem(name, null, TYPE_PASSWORD, file, rootDir, mappedName)
     }
 
     @JvmStatic
