@@ -42,7 +42,8 @@ class PassSecretsMapStoreTest {
         """
         Abcde/FgXyz = GitHub personal
         Qwert/Asdfg=service = production
-        """.trimIndent()
+        """
+          .trimIndent()
       )
 
     assertEquals("GitHub personal", parsed["Abcde/FgXyz"])
@@ -62,7 +63,8 @@ class PassSecretsMapStoreTest {
         valid/path =
         pending/path = (pendente)
         good/path = Good value
-        """.trimIndent()
+        """
+          .trimIndent()
       )
 
     assertEquals(mapOf("good/path" to "Good value"), parsed)
