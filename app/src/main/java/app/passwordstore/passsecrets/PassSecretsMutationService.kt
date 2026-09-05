@@ -118,9 +118,11 @@ constructor(
     val newMaps = oldMaps.mapValuesTo(linkedMapOf()) { (_, pair) -> pair.second }
 
     if (sourceFile != null && sourceMapFile != null) {
-      val sourceIdentity = requireNotNull(sourceMapFile.parentFile)
+      val sourceIdentity = requireNotNull(sourceMapFile.parentFile) { "Source map has no parent" }
       val sourceKey =
-        requireNotNull(PassSecretsMapStore.passwordRelativePath(sourceFile, sourceIdentity))
+        requireNotNull(PassSecretsMapStore.passwordRelativePath(sourceFile, sourceIdentity)) {
+          "Cannot resolve relative path for $sourceFile"
+        }
       newMaps[sourceMapFile.canonicalPath] =
         PassSecretsMapStore.mapAfterDelete(
           newMaps.getValue(sourceMapFile.canonicalPath),
@@ -130,7 +132,8 @@ constructor(
     }
 
     if (destinationMapFile != null) {
-      val destinationIdentity = requireNotNull(destinationMapFile.parentFile)
+      val destinationIdentity =
+        requireNotNull(destinationMapFile.parentFile) { "Destination map has no parent" }
       val destinationKey = passwordRelativePath(destinationFile, destinationIdentity)
       newMaps[destinationMapFile.canonicalPath] =
         newMaps.getValue(destinationMapFile.canonicalPath) + (destinationKey to requestedName)
@@ -412,7 +415,7 @@ constructor(
       try {
         plan.targets.forEach { target ->
           if (!target.exists()) return@forEach
-          val parent = requireNotNull(target.parentFile)
+          val parent = requireNotNull(target.parentFile) { "Delete target has no parent" }
           val temporary = File(parent, ".aps-delete-${UUID.randomUUID()}-${target.name}")
           if (!target.renameTo(temporary)) {
             throw IOException("Could not stage $target for deletion")
