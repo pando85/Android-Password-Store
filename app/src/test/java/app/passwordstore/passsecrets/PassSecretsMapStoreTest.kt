@@ -13,7 +13,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
-import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import org.junit.Rule
 import org.junit.rules.TemporaryFolder
@@ -120,7 +119,10 @@ class PassSecretsMapStoreTest {
     val identity = identity(root, "Work")
     val mapFile = File(identity, PassSecretsMapStore.MAP_FILE_NAME)
 
-    assertEquals(mapFile.absolutePath, PassSecretsMapStore.claimForDirectory(identity, root)?.absolutePath)
+    assertEquals(
+      mapFile.absolutePath,
+      PassSecretsMapStore.claimForDirectory(identity, root)?.absolutePath,
+    )
     assertNull(PassSecretsMapStore.claimForDirectory(identity, root))
 
     PassSecretsMapStore.put(mapFile, emptyMap())
@@ -132,7 +134,10 @@ class PassSecretsMapStoreTest {
     val identity = identity(root, "Work")
     val mapFile = File(identity, PassSecretsMapStore.MAP_FILE_NAME)
 
-    assertEquals(mapFile.absolutePath, PassSecretsMapStore.claimForDirectory(identity, root)?.absolutePath)
+    assertEquals(
+      mapFile.absolutePath,
+      PassSecretsMapStore.claimForDirectory(identity, root)?.absolutePath,
+    )
     PassSecretsMapStore.skip(mapFile)
     assertNull(PassSecretsMapStore.claimForDirectory(identity, root))
   }
@@ -148,7 +153,10 @@ class PassSecretsMapStoreTest {
     mapFile.appendText("changed")
 
     assertNull(PassSecretsMapStore.mappedName(password, root))
-    assertEquals(mapFile.absolutePath, PassSecretsMapStore.claimForDirectory(identity, root)?.absolutePath)
+    assertEquals(
+      mapFile.absolutePath,
+      PassSecretsMapStore.claimForDirectory(identity, root)?.absolutePath,
+    )
   }
 
   @Test
@@ -161,7 +169,10 @@ class PassSecretsMapStoreTest {
 
     mapFile.appendText("changed")
 
-    assertEquals(mapFile.absolutePath, PassSecretsMapStore.claimForDirectory(identity, root)?.absolutePath)
+    assertEquals(
+      mapFile.absolutePath,
+      PassSecretsMapStore.claimForDirectory(identity, root)?.absolutePath,
+    )
   }
 
   @Test
@@ -175,7 +186,10 @@ class PassSecretsMapStoreTest {
     PassSecretsMapStore.clear()
 
     assertNull(PassSecretsMapStore.mappedName(password, root))
-    assertEquals(mapFile.absolutePath, PassSecretsMapStore.claimForDirectory(identity, root)?.absolutePath)
+    assertEquals(
+      mapFile.absolutePath,
+      PassSecretsMapStore.claimForDirectory(identity, root)?.absolutePath,
+    )
   }
 
   @Test
