@@ -59,21 +59,21 @@ class Api26AutofillResponseBuilder private constructor(form: FillableForm) :
 
   private fun makeMatchDataset(context: Context, file: File): Dataset? {
     if (!scenario.hasFieldsToFillOn(AutofillAction.Match)) return null
-    val metadata = makeFillMatchMetadata(context, file)
+    val metadata = makeFillMatchMetadata(context, file, 0, 0)
     val intentSender = AutofillDecryptActivity.makeDecryptFileIntentSender(file, context)
     return makeIntentDataset(context, AutofillAction.Match, intentSender, metadata)
   }
 
   private fun makeSearchDataset(context: Context): Dataset? {
     if (!scenario.hasFieldsToFillOn(AutofillAction.Search)) return null
-    val metadata = makeSearchAndFillMetadata(context)
+    val metadata = makeSearchAndFillMetadata(context, 0, 0)
     val intentSender = AutofillFilterView.makeMatchAndDecryptFileIntentSender(context, formOrigin)
     return makeIntentDataset(context, AutofillAction.Search, intentSender, metadata)
   }
 
   private fun makeGenerateDataset(context: Context): Dataset? {
     if (!scenario.hasFieldsToFillOn(AutofillAction.Generate)) return null
-    val metadata = makeGenerateAndFillMetadata(context)
+    val metadata = makeGenerateAndFillMetadata(context, 0, 0)
     val intentSender =
       AutofillSaveActivity.makeSaveIntentSender(context, null, formOrigin, clientState)
     return makeIntentDataset(context, AutofillAction.Generate, intentSender, metadata)

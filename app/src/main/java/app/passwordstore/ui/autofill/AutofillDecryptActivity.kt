@@ -20,6 +20,7 @@ import app.passwordstore.data.crypto.OpenPgpApiBackend
 import app.passwordstore.data.passfile.PasswordEntry
 import app.passwordstore.data.repo.PasswordRepository
 import app.passwordstore.ui.crypto.BasePGPActivity
+import app.passwordstore.util.autofill.AutofillMatcher
 import app.passwordstore.util.autofill.AutofillPreferences
 import app.passwordstore.util.autofill.AutofillResponseBuilder
 import app.passwordstore.util.extensions.snackbar
@@ -142,8 +143,9 @@ class AutofillDecryptActivity : BasePGPActivity() {
                 )
               }
               entry.clear()
-              finish()
             }
+            updateAutofillMatches()
+            withContext(dispatcherProvider.main()) { finish() }
           } finally {
             plaintextBytes.wipe()
           }
@@ -222,6 +224,9 @@ class AutofillDecryptActivity : BasePGPActivity() {
         }
       }
       onSuccess(lastResult.first) // pass ID
+
+      updateAutofillMatches()
+
       withContext(dispatcherProvider.main()) { finish() }
     } else {
       passphrases.values.forEach { it?.wipe() }
@@ -256,6 +261,11 @@ class AutofillDecryptActivity : BasePGPActivity() {
       cachedPassphrases.values.forEach { it.wipe() }
       cachedPassphrases.clear()
     }
+  }
+
+  /** Update the autofill suggestion order (most recently used first). */
+  private fun updateAutofillMatches() {
+    formOrigin?.let { AutofillMatcher.addMatchFor(this@AutofillDecryptActivity, it, File(filePath)) }
   }
 
   companion object {
