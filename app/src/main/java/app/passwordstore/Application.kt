@@ -21,6 +21,7 @@ import androidx.appcompat.app.AppCompatDelegate
 import app.passwordstore.injection.context.FilesDirPath
 import app.passwordstore.injection.prefs.PGPPassphrases
 import app.passwordstore.injection.prefs.SettingsPreferences
+import app.passwordstore.passsecrets.PassSecretsMapStore
 import app.passwordstore.ui.crypto.BasePGPActivity.Companion.cachedPassphrases
 import app.passwordstore.util.coroutines.DispatcherProvider
 import app.passwordstore.util.crypto.AESEncryption
@@ -154,6 +155,7 @@ class Application : android.app.Application(), SharedPreferences.OnSharedPrefere
           if (intent.action == Intent.ACTION_SCREEN_OFF) {
             cachedPassphrases.values.forEach { it.wipe() }
             cachedPassphrases.clear()
+            PassSecretsMapStore.clear()
           }
         }
       }

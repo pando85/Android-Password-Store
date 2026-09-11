@@ -4,6 +4,7 @@
  */
 package app.passwordstore.ui.passwords
 
+import android.app.Activity
 import android.content.Context
 import android.content.SharedPreferences
 import android.os.Bundle
@@ -30,7 +31,9 @@ import app.passwordstore.data.password.PasswordItem
 import app.passwordstore.data.repo.PasswordRepository
 import app.passwordstore.databinding.PasswordRecyclerViewBinding
 import app.passwordstore.injection.prefs.SettingsPreferences
+import app.passwordstore.passsecrets.PassSecretsMapStore
 import app.passwordstore.ui.adapters.PasswordItemRecyclerAdapter
+import app.passwordstore.ui.crypto.PassSecretsMapUnlockActivity
 import app.passwordstore.ui.dialogs.BasicBottomSheet
 import app.passwordstore.ui.dialogs.ItemCreationBottomSheet
 import app.passwordstore.ui.git.base.BaseGitActivity
@@ -80,6 +83,10 @@ class PasswordFragment : Fragment(R.layout.password_recycler_view) {
     registerForActivityResult(StartActivityForResult()) {
       binding.swipeRefresher.isRefreshing = false
       requireStore().refreshPasswordList()
+    }
+  private val passSecretsUnlockResult =
+    registerForActivityResult(StartActivityForResult()) { result ->
+      if (result.resultCode == Activity.RESULT_OK) requireStore().refreshPasswordList()
     }
 
   val currentDir: File
@@ -203,6 +210,7 @@ class PasswordFragment : Fragment(R.layout.password_recycler_view) {
     model.navigateTo(File(path), pushPreviousLocation = false)
     lifecycleScope.launch {
       model.searchResult.flowWithLifecycle(lifecycle).collect { result ->
+        maybeUnlockPassSecretsMap()
         // Only run animations when the new list is filtered, i.e., the user submitted a search,
         // and not on folder navigation since the latter leads to too many removal animations.
         (recyclerView.itemAnimator as OnOffItemAnimator).isEnabled = result.isFiltered
@@ -233,6 +241,14 @@ class PasswordFragment : Fragment(R.layout.password_recycler_view) {
       }
     }
     updateFabSync()
+  }
+
+  private fun maybeUnlockPassSecretsMap() {
+    val repositoryRoot = PasswordRepository.getRepositoryDirectory()
+    val mapFile = PassSecretsMapStore.claimForDirectory(currentDir, repositoryRoot) ?: return
+    passSecretsUnlockResult.launch(
+      PassSecretsMapUnlockActivity.newIntent(requireContext(), mapFile, repositoryRoot)
+    )
   }
 
   private var fabVisible = true

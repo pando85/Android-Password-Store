@@ -4,6 +4,7 @@
  */
 package app.passwordstore.util.viewmodel
 
+import android.annotation.SuppressLint
 import android.app.Application
 import android.content.SharedPreferences
 import android.os.Parcelable
@@ -24,6 +25,7 @@ import androidx.recyclerview.widget.RecyclerView
 import app.passwordstore.data.password.PasswordItem
 import app.passwordstore.data.repo.PasswordRepository
 import app.passwordstore.injection.prefs.SettingsPreferences
+import app.passwordstore.passsecrets.PassSecretsMapStore
 import app.passwordstore.util.autofill.AutofillPreferences
 import app.passwordstore.util.checkMainThread
 import app.passwordstore.util.coroutines.DispatcherProvider
@@ -55,17 +57,24 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.yield
 import me.zhanghai.android.fastscroll.PopupTextProvider
 
-private fun File.toPasswordItem() =
-  if (isFile) {
-    if (name == ".gpg-id")
-      PasswordItem.newGpgIdItem(name, this, PasswordRepository.getRepositoryDirectory())
+private fun File.toPasswordItem(): PasswordItem {
+  val root = PasswordRepository.getRepositoryDirectory()
+  return if (isFile) {
+    if (name == ".gpg-id") PasswordItem.newGpgIdItem(name, this, root)
     else if (extension == "gpg")
-      PasswordItem.newPassword(name, this, PasswordRepository.getRepositoryDirectory())
-    else PasswordItem.newOtherItem(name, this, PasswordRepository.getRepositoryDirectory())
-  } else PasswordItem.newCategory(name, this, PasswordRepository.getRepositoryDirectory())
+      PasswordItem.newPassword(
+        name,
+        this,
+        root,
+        PassSecretsMapStore.mappedName(this, root),
+        PassSecretsMapStore.aliases(this, root),
+      )
+    else PasswordItem.newOtherItem(name, this, root)
+  } else PasswordItem.newCategory(name, this, root)
+}
 
 private fun PasswordItem.fuzzyMatch(filter: String): Int {
-  val (_, score) = Fuzzy.fuzzyMatch(filter, longName)
+  val (_, score) = Fuzzy.fuzzyMatch(filter, searchableName)
   return score
 }
 
@@ -243,13 +252,8 @@ constructor(
             }
             FilterMode.Exact -> {
               prefilteredResultFlow
-                .filter { absoluteFile ->
-                  absoluteFile
-                    .relativeTo(root)
-                    .path
-                    .contains(searchAction.filter, ignoreCase = true)
-                }
                 .map { it.toPasswordItem() }
+                .filter { item -> item.matchesSearch(searchAction.filter) }
                 .flowOn(dispatcherProvider.io())
                 .toList()
                 .sortedWith(itemComparator)
@@ -261,10 +265,8 @@ constructor(
               val regex = generateStrictDomainRegex(searchAction.filter)
               if (regex != null) {
                 prefilteredResultFlow
-                  .filter { absoluteFile ->
-                    regex.containsMatchIn(absoluteFile.relativeTo(root).path)
-                  }
                   .map { it.toPasswordItem() }
+                  .filter { item -> item.matchesStrictDomain(regex) }
                   .flowOn(dispatcherProvider.io())
                   .toList()
                   .sortedWith(itemComparator)
@@ -277,10 +279,11 @@ constructor(
       }
       .flowOn(dispatcherProvider.io())
 
-  private fun shouldTake(file: File) =
-    with(file) {
+  private fun shouldTake(file: File): Boolean {
+    if (PassSecretsMapStore.isMetadataFile(file)) return false
+    return with(file) {
       if (showHiddenContents) {
-        return !file.name.startsWith(".git")
+        return@with !file.name.startsWith(".git")
       }
       if (isDirectory) {
         !isHidden
@@ -288,6 +291,7 @@ constructor(
         !isHidden && file.extension == "gpg"
       }
     }
+  }
 
   private fun listFiles(dir: File): Flow<File> {
     return dir.listFiles(::shouldTake)?.asFlow() ?: emptyFlow()
@@ -413,7 +417,11 @@ private object PasswordItemDiffCallback : DiffUtil.ItemCallback<PasswordItem>() 
   override fun areItemsTheSame(oldItem: PasswordItem, newItem: PasswordItem) =
     oldItem.file.absolutePath == newItem.file.absolutePath
 
-  override fun areContentsTheSame(oldItem: PasswordItem, newItem: PasswordItem) = oldItem == newItem
+  @SuppressLint("DiffUtilEquals")
+  override fun areContentsTheSame(oldItem: PasswordItem, newItem: PasswordItem) =
+    oldItem.file == newItem.file &&
+      oldItem.mappedName == newItem.mappedName &&
+      oldItem.aliases == newItem.aliases
 }
 
 open class SearchableRepositoryAdapter<T : RecyclerView.ViewHolder>(
@@ -515,6 +523,7 @@ open class SearchableRepositoryAdapter<T : RecyclerView.ViewHolder>(
   }
 
   final override fun getPopupText(view: View, position: Int): String {
-    return getItem(position).name[0].toString().uppercase(Locale.getDefault())
+    return getItem(position).toString().firstOrNull()?.toString()?.uppercase(Locale.getDefault())
+      ?: ""
   }
 }

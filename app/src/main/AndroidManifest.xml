@@ -55,6 +55,12 @@
       android:exported="true" />
 
     <activity
+      android:name=".ui.crypto.PassSecretsMapUnlockActivity"
+      android:excludeFromRecents="true"
+      android:exported="false"
+      android:theme="@style/NoBackgroundThemeM3" />
+
+    <activity
       android:name=".ui.main.LaunchActivity"
       android:configChanges="orientation|screenSize"
       android:exported="true">
