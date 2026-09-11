@@ -6,7 +6,6 @@
 <resources>
 
   <style name="AppThemeM3" parent="APSThemeM3">
-    <item name="fontFamily">@font/manrope</item>
     <item name="android:windowLightStatusBar">@bool/light_status_bar</item>
     <item name="android:statusBarColor">?android:colorBackground</item>
     <item name="android:navigationBarColor">?android:colorBackground</item>
