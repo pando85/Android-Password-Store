@@ -1,0 +1,159 @@
+name: Android 12-13 per-commit releases
+
+on:
+  push:
+    branches:
+      - android-12-passkey-compat
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: Commits to publish
+        required: true
+        default: head
+        type: choice
+        options:
+          - head
+          - branch
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-12-13-releases-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  discover-commits:
+    runs-on: ubuntu-latest
+    outputs:
+      commits: ${{ steps.commits.outputs.commits }}
+    steps:
+      - name: Checkout compatibility branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Select commits to publish
+        id: commits
+        shell: bash
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.sha }}
+          EVENT_NAME: ${{ github.event_name }}
+          MANUAL_SCOPE: ${{ inputs.scope }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$EVENT_NAME" == "workflow_dispatch" && "$MANUAL_SCOPE" == "branch" ]]; then
+            git fetch --no-tags origin main:refs/remotes/origin/main
+            base=$(git merge-base origin/main "$AFTER_SHA")
+            mapfile -t shas < <(git rev-list --reverse "$base..$AFTER_SHA")
+          elif [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            shas=("$AFTER_SHA")
+          elif [[ "$BEFORE_SHA" == "0000000000000000000000000000000000000000" ]]; then
+            git fetch --no-tags origin main:refs/remotes/origin/main
+            base=$(git merge-base origin/main "$AFTER_SHA")
+            mapfile -t shas < <(git rev-list --reverse "$base..$AFTER_SHA")
+          else
+            mapfile -t shas < <(git rev-list --reverse "$BEFORE_SHA..$AFTER_SHA")
+          fi
+
+          if (( ${#shas[@]} == 0 )); then
+            shas=("$AFTER_SHA")
+          fi
+
+          commits=$(printf '%s\n' "${shas[@]}" | jq -R -s -c 'split("\n")[:-1]')
+          echo "commits=$commits" >> "$GITHUB_OUTPUT"
+          echo "Publishing ${#shas[@]} commit(s): $commits"
+
+  release:
+    needs: discover-commits
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        sha: ${{ fromJSON(needs.discover-commits.outputs.commits) }}
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ matrix.sha }}
+          fetch-depth: 0
+
+      - name: Prepare release metadata
+        id: metadata
+        shell: bash
+        env:
+          COMMIT_SHA: ${{ matrix.sha }}
+        run: |
+          set -euo pipefail
+
+          short_sha=${COMMIT_SHA:0:12}
+          base_version=$(grep '^versioning-plugin.versionName=' app/version.properties | cut -d= -f2 | tr -d '[:space:]')
+          stable_version=${base_version%%-*}
+          snapshot_version="${stable_version}-android12.${short_sha}"
+          tag="android12-13-${COMMIT_SHA}"
+          subject=$(git log -1 --format=%s "$COMMIT_SHA")
+
+          sed -i \
+            "s/^versioning-plugin.versionName=.*/versioning-plugin.versionName=${snapshot_version}/" \
+            app/version.properties
+
+          {
+            echo "short_sha=$short_sha"
+            echo "version=$snapshot_version"
+            echo "tag=$tag"
+            echo "subject=$subject"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6
+
+      - name: Decode signing keystore
+        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > keystore.jks
+
+      - name: Write keystore.properties
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: |
+          {
+            echo "storeFile=keystore.jks"
+            echo "storePassword=${KEYSTORE_PASSWORD}"
+            echo "keyAlias=${KEY_ALIAS}"
+            echo "keyPassword=${KEYSTORE_PASSWORD}"
+          } > keystore.properties
+
+      - name: Build signed compatibility APK
+        run: ./gradlew :app:assembleRelease :app:collectReleaseApks --no-daemon
+
+      - name: Create per-commit compatibility release
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3
+        with:
+          tag_name: ${{ steps.metadata.outputs.tag }}
+          target_commitish: ${{ matrix.sha }}
+          name: Android 12-13 · ${{ steps.metadata.outputs.short_sha }}
+          prerelease: true
+          make_latest: false
+          body: |
+            Signed build from the permanent `android-12-passkey-compat` maintenance branch.
+
+            - Android target: Android 12, 12L and 13 (API 31-33)
+            - Commit: `${{ matrix.sha }}`
+            - Version: `${{ steps.metadata.outputs.version }}`
+            - Change: ${{ steps.metadata.outputs.subject }}
+
+            This compatibility line remains separate from normal `v*` releases. Android's third-party
+            Credential Manager passkey-provider API starts at API 34, so the system passkey provider
+            integration remains disabled on Android 12-13.
+          files: app/outputs/APS-release-*.apk
+          fail_on_unmatched_files: true

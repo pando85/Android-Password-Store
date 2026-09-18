@@ -141,11 +141,13 @@
 
     <activity
       android:name=".passkeys.AppPasskeyProviderActivity"
+      android:enabled="@bool/isAtLeastU"
       android:excludeFromRecents="true"
       android:exported="false"
       android:finishOnTaskLaunch="true"
       android:noHistory="true"
-      android:theme="@style/NoBackgroundThemeM3" />
+      android:theme="@style/NoBackgroundThemeM3"
+      tools:targetApi="34" />
 
     <activity
       android:name=".ui.folderselect.SelectFolderActivity"
