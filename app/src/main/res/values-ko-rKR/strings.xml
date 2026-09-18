@@ -26,8 +26,6 @@
   <string name="delete">삭제</string>
   <string name="password_exists_title">이미 추가된 비밀번호입니다!</string>
   <string name="password_exists_message">%1$s 내용이 %2$s 로 덮어씌워집니다.</string>
-  <string name="password_move_error_title">비밀번호를 옮기는 중 문제가 발생하였습니다.</string>
-  <string name="password_move_error_message">%1$s 를 %2$s 로 옮기는데 실패하였습니다.</string>
   <!-- git commits -->
   <string name="git_commit_add_text">Android Password Store 를 이용해 %1$s 의 비밀번호를 생성하였습니다.</string>
   <string name="git_commit_edit_text">Android Password Store 를 이용해 %1$s 의 비밀번호를 변경하였습니다.</string>
@@ -253,7 +251,6 @@ username@example.com:…</string>
   <string name="preference_custom_public_suffixes_hint">company.com\npersonal.com</string>
   <!-- Password creation failure -->
   <string name="password_creation_file_write_fail_message">스토어에 비밀번호 파일을 작성하지 못했습니다. 다시 시도해 주세요.</string>
-  <string name="password_creation_duplicate_error">파일이 이미 존재합니다. 다른 이름을 사용하세요</string>
   <string name="add_otp">OTP 추가</string>
   <string name="otp_import_success">TOTP 구성을 성공적으로 가져왔습니다</string>
   <string name="otp_import_failure_generic">TOTP 구성을 가져오지 못했습니다.</string>

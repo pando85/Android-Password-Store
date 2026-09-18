@@ -19,12 +19,14 @@ import app.passwordstore.crypto.errors.NoDecryptionKeyAvailableException
 import app.passwordstore.data.passfile.PasswordEntry
 import app.passwordstore.data.password.FieldItem
 import app.passwordstore.databinding.DecryptLayoutBinding
+import app.passwordstore.passsecrets.PassSecretsMapStore
 import app.passwordstore.ui.adapters.FieldItemAdapter
 import app.passwordstore.util.crypto.AESEncryption
 import app.passwordstore.util.extensions.enableEdgeToEdgeView
 import app.passwordstore.util.extensions.getString
 import app.passwordstore.util.extensions.snackbar
 import app.passwordstore.util.extensions.toCharArray
+import app.passwordstore.util.extensions.unsafeLazy
 import app.passwordstore.util.extensions.viewBinding
 import app.passwordstore.util.extensions.wipe
 import app.passwordstore.util.settings.PreferenceKeys
@@ -47,6 +49,9 @@ class DecryptActivity : BasePGPActivity() {
 
   private var itemsAdapter: FieldItemAdapter? = null
   private val binding by viewBinding(DecryptLayoutBinding::inflate)
+  private val passSecretsName by unsafeLazy {
+    PassSecretsMapStore.mappedName(File(fullPath), File(repoPath))
+  }
 
   // temporarily AES-encrypted password entry
   private var encryptedEntryChars: CharArray? = null // AES encrypted password entry
@@ -56,14 +61,15 @@ class DecryptActivity : BasePGPActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     supportActionBar?.setDisplayHomeAsUpEnabled(true)
-    title = name
+    val displayName = passSecretsName ?: name
+    title = displayName
     with(binding) {
       enableEdgeToEdgeView(root)
       setContentView(root)
       passwordCategory.text = relativeParentPath
-      passwordFile.text = name
+      passwordFile.text = displayName
       passwordFile.setOnLongClickListener {
-        copyTextToClipboard(name.toCharArray(), isSensitive = false)
+        copyTextToClipboard(displayName.toCharArray(), isSensitive = false)
         true
       }
       fab.setOnClickListener { copyPassword() }
@@ -188,7 +194,8 @@ class DecryptActivity : BasePGPActivity() {
       intent.action = Intent.ACTION_VIEW
       intent.putExtra(EXTRA_FILE_PATH, Paths.get(fullPath).parent.pathString)
       intent.putExtra(EXTRA_REPO_PATH, repoPath)
-      intent.putExtra(PasswordCreationActivity.EXTRA_FILE_NAME, name)
+      intent.putExtra(PasswordCreationActivity.EXTRA_FILE_NAME, passSecretsName ?: name)
+      intent.putExtra(PasswordCreationActivity.EXTRA_PHYSICAL_FILE_NAME, name)
       intent.putExtra(PasswordCreationActivity.EXTRA_ENTRY, encrypted)
       intent.putExtra(PasswordCreationActivity.EXTRA_EDITING, true)
       startActivity(intent)
