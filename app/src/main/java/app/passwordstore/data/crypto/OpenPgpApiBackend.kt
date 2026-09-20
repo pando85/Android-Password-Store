@@ -9,9 +9,6 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ResolveInfo
-import com.github.michaelbull.result.Result
-import com.github.michaelbull.result.Err
-import com.github.michaelbull.result.Ok
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import kotlinx.coroutines.CompletableDeferred
@@ -63,7 +60,9 @@ class OpenPgpApiBackend(private val context: Context) {
       providerPackage,
       Intent(OpenPgpApi.ACTION_DECRYPT_VERIFY),
       ciphertext,
-    ) { output -> output }
+    ) { output ->
+      output
+    }
 
   suspend fun getPublicKey(
     providerPackage: String,
@@ -77,7 +76,9 @@ class OpenPgpApiBackend(private val context: Context) {
         putExtra(OpenPgpApi.EXTRA_REQUEST_ASCII_ARMOR, asciiArmor)
       },
       null,
-    ) { output -> output }
+    ) { output ->
+      output
+    }
 
   suspend fun resolveKeyIds(
     providerPackage: String,
@@ -88,7 +89,9 @@ class OpenPgpApiBackend(private val context: Context) {
       Intent(OpenPgpApi.ACTION_GET_KEY_IDS).apply {
         putExtra(OpenPgpApi.EXTRA_USER_IDS, userIds)
       },
-    ) { result -> result.getLongArrayExtra(OpenPgpApi.RESULT_KEY_IDS) ?: longArrayOf() }
+    ) { result ->
+      result.getLongArrayExtra(OpenPgpApi.RESULT_KEY_IDS) ?: longArrayOf()
+    }
 
   private suspend fun <T> execute(
     providerPackage: String,
@@ -99,8 +102,7 @@ class OpenPgpApiBackend(private val context: Context) {
     withService(providerPackage) { service ->
       val output = ByteArrayOutputStream()
       val result =
-        OpenPgpApi(context, service)
-          .executeApi(request, input?.let(::ByteArrayInputStream), output)
+        OpenPgpApi(context, service).executeApi(request, input?.let(::ByteArrayInputStream), output)
       mapResult(result) { success(output.toByteArray()) }
     }
 
@@ -152,7 +154,10 @@ class OpenPgpApiBackend(private val context: Context) {
         @Suppress("DEPRECATION")
         val pendingIntent = result.getParcelableExtra<PendingIntent>(OpenPgpApi.RESULT_INTENT)
         if (pendingIntent != null) OperationResult.UserInteractionRequired(pendingIntent)
-        else OperationResult.Failure(IllegalStateException("OpenPGP provider requested interaction without a PendingIntent"))
+        else
+          OperationResult.Failure(
+            IllegalStateException("OpenPGP provider requested interaction without a PendingIntent")
+          )
       }
       else -> {
         @Suppress("DEPRECATION")
@@ -166,7 +171,8 @@ class OpenPgpApiBackend(private val context: Context) {
   private fun providerFromResolveInfo(info: ResolveInfo): Provider? {
     val serviceInfo = info.serviceInfo ?: return null
     val packageName = serviceInfo.packageName ?: return null
-    val label = info.loadLabel(context.packageManager)?.toString()?.ifBlank { packageName } ?: packageName
+    val label =
+      info.loadLabel(context.packageManager)?.toString()?.ifBlank { packageName } ?: packageName
     return Provider(packageName, label)
   }
 }

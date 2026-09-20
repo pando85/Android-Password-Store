@@ -10,12 +10,16 @@ import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.contract.ActivityResultContracts.StartIntentSenderForResult
 import androidx.core.content.edit
 import androidx.lifecycle.lifecycleScope
 import app.passwordstore.R
 import app.passwordstore.crypto.PGPIdentifier
 import app.passwordstore.crypto.errors.IncorrectPassphraseException
 import app.passwordstore.crypto.errors.NoDecryptionKeyAvailableException
+import app.passwordstore.data.crypto.OpenPgpApiBackend
+import app.passwordstore.data.crypto.OpenPgpApiBackend.OperationResult
 import app.passwordstore.data.passfile.PasswordEntry
 import app.passwordstore.data.password.FieldItem
 import app.passwordstore.databinding.DecryptLayoutBinding
@@ -47,6 +51,16 @@ class DecryptActivity : BasePGPActivity() {
 
   private var itemsAdapter: FieldItemAdapter? = null
   private val binding by viewBinding(DecryptLayoutBinding::inflate)
+  private val externalOpenPgpBackend by lazy { OpenPgpApiBackend(applicationContext) }
+  private var externalProviderPackage: String? = null
+  private val externalOpenPgpInteraction =
+    registerForActivityResult(StartIntentSenderForResult()) { result ->
+      if (result.resultCode == RESULT_OK) {
+        externalProviderPackage?.let(::decryptWithExternalProvider)
+      } else {
+        finish()
+      }
+    }
 
   // temporarily AES-encrypted password entry
   private var encryptedEntryChars: CharArray? = null // AES encrypted password entry
@@ -68,8 +82,36 @@ class DecryptActivity : BasePGPActivity() {
       }
       fab.setOnClickListener { copyPassword() }
     }
-    requireKeysExist {
-      requireDecryptionKeysExist(relativeParentPath) { ids -> getPersistentAndDecrypt(ids) }
+    externalProviderPackage = settings.getString(PreferenceKeys.OPENPGP_PROVIDER_PACKAGE, null)
+    externalProviderPackage?.let(::decryptWithExternalProvider)
+      ?: requireKeysExist {
+        requireDecryptionKeysExist(relativeParentPath) { ids -> getPersistentAndDecrypt(ids) }
+      }
+  }
+
+  private fun decryptWithExternalProvider(providerPackage: String) {
+    lifecycleScope.launch {
+      val ciphertext = withContext(dispatcherProvider.io()) { File(fullPath).readBytes() }
+      when (val result = externalOpenPgpBackend.decrypt(providerPackage, ciphertext)) {
+        is OperationResult.Success -> {
+          val plaintextBytes = result.value
+          val plaintextChars = plaintextBytes.toCharArray()
+          plaintextBytes.wipe()
+          val entry = passwordEntryFactory.create(plaintextChars)
+          encryptedEntryChars = AESEncryption.encrypt(plaintextChars)
+          plaintextChars.wipe()
+          entry.clearExtraChars()
+          createPasswordUI(entry)
+        }
+        is OperationResult.UserInteractionRequired -> {
+          externalOpenPgpInteraction.launch(
+            IntentSenderRequest.Builder(result.pendingIntent.intentSender).build()
+          )
+        }
+        is OperationResult.Failure -> {
+          snackbar(message = resources.getString(R.string.openpgp_provider_decryption_failed))
+        }
+      }
     }
   }
 

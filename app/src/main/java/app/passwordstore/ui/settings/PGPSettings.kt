@@ -57,7 +57,8 @@ class PGPSettings(private val activity: FragmentActivity) : SettingsProvider {
     val labels =
       listOf(activity.getString(R.string.pref_openpgp_provider_internal)) +
         providers.map { "${it.label} (${it.packageName})" }
-    val checked = providers.indexOfFirst { it.packageName == current }.let { if (it < 0) 0 else it + 1 }
+    val checked =
+      providers.indexOfFirst { it.packageName == current }.let { if (it < 0) 0 else it + 1 }
 
     MaterialAlertDialogBuilder(activity)
       .setTitle(R.string.pref_openpgp_provider_title)

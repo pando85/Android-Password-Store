@@ -58,6 +58,9 @@ dependencyResolutionManagement {
       }
     }
     mavenCentral { mavenContent { releasesOnly() } }
+    maven("https://jitpack.io") {
+      content { includeGroup("com.github.open-keychain.open-keychain") }
+    }
   }
 }
 

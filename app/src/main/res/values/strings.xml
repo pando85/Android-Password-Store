@@ -513,4 +513,8 @@
   <string name="pin_entry_passkey_description">Enter your PIN to unlock the passkey.</string>
   <string name="pin_entry_autofill_description">Enter your PIN to unlock the credentials.</string>
   <string name="pin_entry_wrong_input">Wrong input</string>
+  <string name="pref_openpgp_provider_title">OpenPGP provider</string>
+  <string name="pref_openpgp_provider_summary">Use an external OpenPGP provider for private-key operations. Encryption continues to use public certificates imported into Password Store.</string>
+  <string name="pref_openpgp_provider_internal">Internal key manager</string>
+  <string name="openpgp_provider_decryption_failed">The external OpenPGP provider could not decrypt this entry.</string>
 </resources>
