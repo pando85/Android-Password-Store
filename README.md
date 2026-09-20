@@ -7,6 +7,14 @@ The passkey implementation is fully compatible with [pando85/passless](https://g
 [![CI](https://github.com/pando85/Android-Password-Store/actions/workflows/pull_request.yml/badge.svg)](https://github.com/pando85/Android-Password-Store/actions)
 [![Release](https://github.com/pando85/Android-Password-Store/actions/workflows/release.yml/badge.svg)](https://github.com/pando85/Android-Password-Store/releases)
 
+## Why this fork?
+
+Passkey support alone is not the reason this fork exists — the [agrahn fork](https://github.com/agrahn/Android-Password-Store) also has passkeys, and they were implemented independently with different design choices.
+
+The goal of this fork is **cross-platform interoperability with [passless](https://github.com/pando85/passless)**: Android and Linux share the same encrypted credential format and the same Git-backed `pass` store, so a credential created on one platform works on the other. The agrahn fork uses a different passkey encoding that is not compatible with passless by default.
+
+For the full history and technical details, see [issue #169](https://github.com/pando85/Android-Password-Store/issues/169).
+
 ## Download
 
 - [GitHub Releases](https://github.com/pando85/Android-Password-Store/releases)
