@@ -16,6 +16,11 @@ jobs:
         with:
           ref: feature/openpgp-api-backend
 
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
       - name: Apply integration and formatting
         run: |
           python .github/apply-openpgp-backend.py
