@@ -60,7 +60,7 @@ kotlinx-collections-immutable = "org.jetbrains.kotlinx:kotlinx-collections-immut
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
-kotlinx-datetime = "org.jetbrains.kotlinx-datetime:0.8.0-0.6.x-compat"
+kotlinx-datetime = "org.jetbrains.kotlinx:kotlinx-datetime:0.8.0-0.6.x-compat"
 kotlinx-serialization-json = "org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0"
 testing-junit = "junit:junit:4.13.2"
 testing-kotlintest-junit = { module = "org.jetbrains.kotlin:kotlin-test-junit", version.ref = "kotlin" }
