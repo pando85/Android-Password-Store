@@ -26,31 +26,40 @@ class OpenPgpPassRecipientResolver(
 ) : PassRecipientResolver<PGPKey> {
 
   override suspend fun resolveFor(target: File): Result<List<PGPKey>, RecipientPolicyError> {
-    return delegate
-      .resolveFor(target)
-      .fold(
-        success = { Ok(it) },
-        failure = { error ->
-          if (
-            error !is RecipientPolicyError.RecipientNotFound ||
-              !providerRepository.hasSelectedProvider()
-          ) {
-            return@fold Err(error)
-          }
+    val attemptedIdentifiers = mutableSetOf<String>()
 
-          val identifier = PGPIdentifier.fromString(error.identifier) ?: return@fold Err(error)
-          when (
-            providerRepository.ensurePublicKeys(
-              listOf(identifier),
-              OpenPgpApiBackend.InteractionHandler { pendingIntent ->
-                interactionCoordinator.interact(pendingIntent)
-              },
-            )
-          ) {
-            is OpenPgpApiBackend.OperationResult.Success -> delegate.resolveFor(target)
-            else -> Err(error)
-          }
-        },
-      )
+    while (true) {
+      var resolvedKeys: List<PGPKey>? = null
+      var resolutionError: RecipientPolicyError? = null
+      delegate
+        .resolveFor(target)
+        .fold(
+          success = { resolvedKeys = it },
+          failure = { resolutionError = it },
+        )
+
+      resolvedKeys?.let { return Ok(it) }
+      val error = resolutionError ?: return Err(RecipientPolicyError.EmptyRecipientSet)
+      if (
+        error !is RecipientPolicyError.RecipientNotFound ||
+          !providerRepository.hasSelectedProvider() ||
+          !attemptedIdentifiers.add(error.identifier)
+      ) {
+        return Err(error)
+      }
+
+      val identifier = PGPIdentifier.fromString(error.identifier) ?: return Err(error)
+      when (
+        providerRepository.ensurePublicKeys(
+          listOf(identifier),
+          OpenPgpApiBackend.InteractionHandler { pendingIntent ->
+            interactionCoordinator.interact(pendingIntent)
+          },
+        )
+      ) {
+        is OpenPgpApiBackend.OperationResult.Success -> Unit
+        else -> return Err(error)
+      }
+    }
   }
 }
