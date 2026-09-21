@@ -17,7 +17,9 @@ import javax.inject.Singleton
 
 /** Coordinates APS-local provider selection with local public-certificate storage. */
 @Singleton
-class OpenPgpProviderRepository @Inject constructor(
+class OpenPgpProviderRepository
+@Inject
+constructor(
   private val backend: OpenPgpApiBackend,
   private val keyManager: PGPKeyManager,
   @SettingsPreferences private val settings: SharedPreferences,
@@ -34,7 +36,7 @@ class OpenPgpProviderRepository @Inject constructor(
     selectedProviderPackage()?.let(backend::isProviderInstalled) == true
 
   suspend fun checkPermission(
-    interactionHandler: OpenPgpApiBackend.InteractionHandler? = null,
+    interactionHandler: OpenPgpApiBackend.InteractionHandler? = null
   ): OpenPgpApiBackend.OperationResult<Unit> {
     val provider =
       selectedProviderPackage()
@@ -59,8 +61,8 @@ class OpenPgpProviderRepository @Inject constructor(
   /**
    * Makes the public certificates required by [identifiers] available to PGPainless.
    *
-   * The provider remains the sole owner of private key material. Retrieved certificates are
-   * checked against the provider-returned key ID before they are accepted by the local key manager.
+   * The provider remains the sole owner of private key material. Retrieved certificates are checked
+   * against the provider-returned key ID before they are accepted by the local key manager.
    */
   suspend fun ensurePublicKeys(
     identifiers: List<PGPIdentifier>,
@@ -129,14 +131,16 @@ class OpenPgpProviderRepository @Inject constructor(
             }
 
             var importFailure: Throwable? = null
-            keyManager.addKey(candidate, replace = false).fold(
-              success = {},
-              failure = { error ->
-                // A concurrent import or an existing public certificate is harmless if the
-                // requested identity can now be resolved locally.
-                if (!hasLocalKey(identifier)) importFailure = error
-              },
-            )
+            keyManager
+              .addKey(candidate, replace = false)
+              .fold(
+                success = {},
+                failure = { error ->
+                  // A concurrent import or an existing public certificate is harmless if the
+                  // requested identity can now be resolved locally.
+                  if (!hasLocalKey(identifier)) importFailure = error
+                },
+              )
             if (importFailure != null) {
               return OpenPgpApiBackend.OperationResult.Failure(importFailure!!)
             }

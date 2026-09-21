@@ -25,7 +25,9 @@ import java.io.InputStream
 import javax.inject.Inject
 
 /** Selects PGPainless or the configured OpenPGP provider for passkey decryption. */
-class OpenPgpPasskeyDecryptor @Inject constructor(
+class OpenPgpPasskeyDecryptor
+@Inject
+constructor(
   private val localDecryptor: PasskeyPgpDecryptor,
   private val providerRepository: OpenPgpProviderRepository,
   private val interactionCoordinator: OpenPgpInteractionCoordinator,
@@ -135,8 +137,7 @@ class OpenPgpPasskeyDecryptor @Inject constructor(
       }
       is OpenPgpApiBackend.OperationResult.UserInteractionRequired ->
         Err(PasskeyDecryptionError.KeyLocked(provider))
-      OpenPgpApiBackend.OperationResult.Cancelled ->
-        Err(PasskeyDecryptionError.KeyLocked(provider))
+      OpenPgpApiBackend.OperationResult.Cancelled -> Err(PasskeyDecryptionError.KeyLocked(provider))
       is OpenPgpApiBackend.OperationResult.Failure ->
         Err(
           PasskeyDecryptionError.UnsupportedFormat(

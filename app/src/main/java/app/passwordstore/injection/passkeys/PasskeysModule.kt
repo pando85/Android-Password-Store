@@ -21,6 +21,7 @@ import app.passwordstore.passkeys.BiometricPasskeyAuthenticator
 import app.passwordstore.passkeys.DefaultRepositoryGenerationProvider
 import app.passwordstore.passkeys.DefaultWebAuthnCallerVerifier
 import app.passwordstore.passkeys.KeystorePgpUnlockContext
+import app.passwordstore.passkeys.OpenPgpPassRecipientResolver
 import app.passwordstore.passkeys.OpenPgpPasskeyDecryptor
 import app.passwordstore.passkeys.PasskeyMetadataIndex
 import app.passwordstore.passkeys.PasskeyPassphraseCache
@@ -98,9 +99,16 @@ object PasskeysModule {
   fun providePassRecipientResolver(
     @ApplicationContext context: Context,
     keyManager: PGPKeyManager,
+    providerRepository: OpenPgpProviderRepository,
+    interactionCoordinator: OpenPgpInteractionCoordinator,
   ): PassRecipientResolver<PGPKey> {
     val repositoryRoot = File(context.filesDir, "store")
-    return DefaultPassRecipientResolver(repositoryRoot, keyManager)
+    val localResolver = DefaultPassRecipientResolver(repositoryRoot, keyManager)
+    return OpenPgpPassRecipientResolver(
+      localResolver,
+      providerRepository,
+      interactionCoordinator,
+    )
   }
 
   @Provides

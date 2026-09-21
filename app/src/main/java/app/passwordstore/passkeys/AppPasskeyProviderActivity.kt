@@ -23,6 +23,8 @@ import androidx.credentials.exceptions.GetCredentialUnknownException
 import androidx.credentials.provider.PendingIntentHandler
 import androidx.lifecycle.lifecycleScope
 import app.passwordstore.R as AppR
+import app.passwordstore.data.crypto.OpenPgpActivityInteractionHandler
+import app.passwordstore.data.crypto.OpenPgpInteractionCoordinator
 import app.passwordstore.data.repo.PasswordRepository
 import app.passwordstore.passkeys.crypto.CallerType
 import app.passwordstore.passkeys.crypto.ClientDataBinding
@@ -68,8 +70,11 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
   @Inject lateinit var generationProvider: RepositoryGenerationProvider
   @Inject lateinit var highWaterMark: SignatureCounterHighWaterMark
   @Inject lateinit var signatureCounterTransaction: SignatureCounterTransaction
+  @Inject lateinit var openPgpInteractionCoordinator: OpenPgpInteractionCoordinator
   @Inject lateinit var passphraseCache: PasskeyPassphraseCache
   @Inject lateinit var metadataIndex: PasskeyMetadataIndex
+  private val openPgpInteractionHandler = OpenPgpActivityInteractionHandler(this)
+
   @Inject
   @app.passwordstore.injection.prefs.PGPPassphrases
   lateinit var persistentPassphrases: android.content.SharedPreferences
@@ -92,12 +97,16 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
   @RequiresApi(34)
   private suspend fun handleProviderRequest() {
     PendingIntentHandler.retrieveProviderGetCredentialRequest(intent)?.let {
-      handleGetCredential(it)
+      openPgpInteractionCoordinator.withHandler(openPgpInteractionHandler) {
+        handleGetCredential(it)
+      }
       return
     }
 
     PendingIntentHandler.retrieveProviderCreateCredentialRequest(intent)?.let {
-      handleCreateCredential(it)
+      openPgpInteractionCoordinator.withHandler(openPgpInteractionHandler) {
+        handleCreateCredential(it)
+      }
       return
     }
 

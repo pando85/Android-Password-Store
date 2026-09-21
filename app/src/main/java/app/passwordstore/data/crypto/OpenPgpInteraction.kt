@@ -7,17 +7,16 @@ package app.passwordstore.data.crypto
 
 import android.app.Activity
 import android.app.PendingIntent
-import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts.StartIntentSenderForResult
 import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.coroutines.resume
 import kotlinx.coroutines.asContextElement
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
-import kotlin.coroutines.resume
 
 /**
  * Makes a foreground OpenPGP interaction handler available only to the coroutine tree that owns it.
@@ -37,8 +36,7 @@ class OpenPgpInteractionCoordinator @Inject constructor() {
   ): T = withContext(currentHandler.asContextElement(handler)) { block() }
 
   suspend fun interact(pendingIntent: PendingIntent): OpenPgpApiBackend.InteractionResult {
-    val handler = currentHandler.get()
-      ?: return OpenPgpApiBackend.InteractionResult.Cancelled
+    val handler = currentHandler.get() ?: return OpenPgpApiBackend.InteractionResult.Cancelled
     return handler.interact(pendingIntent)
   }
 }
@@ -47,7 +45,12 @@ class OpenPgpInteractionCoordinator @Inject constructor() {
 class OpenPgpActivityInteractionHandler(activity: ComponentActivity) :
   OpenPgpApiBackend.InteractionHandler {
 
-  private val waiting = AtomicReference<kotlinx.coroutines.CancellableContinuation<OpenPgpApiBackend.InteractionResult>?>(null)
+  private val waiting =
+    AtomicReference<
+      kotlinx.coroutines.CancellableContinuation<OpenPgpApiBackend.InteractionResult>?
+    >(
+      null
+    )
 
   private val launcher =
     activity.registerForActivityResult(StartIntentSenderForResult()) { result ->
@@ -60,9 +63,7 @@ class OpenPgpActivityInteractionHandler(activity: ComponentActivity) :
       }
     }
 
-  override suspend fun interact(
-    pendingIntent: PendingIntent
-  ): OpenPgpApiBackend.InteractionResult =
+  override suspend fun interact(pendingIntent: PendingIntent): OpenPgpApiBackend.InteractionResult =
     suspendCancellableCoroutine { continuation ->
       check(waiting.compareAndSet(null, continuation)) {
         "Another OpenPGP provider interaction is already active"

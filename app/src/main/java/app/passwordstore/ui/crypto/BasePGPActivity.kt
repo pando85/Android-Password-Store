@@ -22,6 +22,9 @@ import androidx.lifecycle.lifecycleScope
 import app.passwordstore.R
 import app.passwordstore.crypto.PGPIdentifier
 import app.passwordstore.data.crypto.CryptoRepository
+import app.passwordstore.data.crypto.OpenPgpActivityInteractionHandler
+import app.passwordstore.data.crypto.OpenPgpApiBackend
+import app.passwordstore.data.crypto.OpenPgpProviderRepository
 import app.passwordstore.data.repo.PasswordRepository
 import app.passwordstore.injection.prefs.PGPPassphrases
 import app.passwordstore.injection.prefs.SettingsPreferences
@@ -90,6 +93,8 @@ open class BasePGPActivity : AppCompatActivity() {
   /* Counter for the user's decryption (with passphrase) attempts */
   private var retries = 0
 
+  private val openPgpInteractionHandler = OpenPgpActivityInteractionHandler(this)
+
   private var secondsOnPause = 0L // seconds since Epoch upon pause
   private var timeout = 0L
 
@@ -151,6 +156,7 @@ open class BasePGPActivity : AppCompatActivity() {
   @UnlockPins @Inject lateinit var unlockPins: SharedPreferences
 
   @Inject lateinit var repository: CryptoRepository
+  @Inject lateinit var openPgpProviderRepository: OpenPgpProviderRepository
   @Inject lateinit var dispatcherProvider: DispatcherProvider
 
   /**
@@ -198,6 +204,10 @@ open class BasePGPActivity : AppCompatActivity() {
    */
   protected fun requireKeysExist(onKeysExist: () -> Unit) {
     onKeyListCallback = onKeysExist
+    if (openPgpProviderRepository.hasSelectedProvider()) {
+      onKeysExist()
+      return
+    }
     lifecycleScope.launch {
       val hasKeys = repository.hasKeys()
       if (!hasKeys) {
@@ -221,15 +231,11 @@ open class BasePGPActivity : AppCompatActivity() {
   ) {
     val ids = getPGPIdentifiers(subDir)
     if (ids.isNullOrEmpty()) {
-      /* Store not initialised properly; open Key Manager in selection mode and
-       * let user choose one or multiple keys */
       val (title, message) =
         if (ids == null) {
-          // .gpg-id is missing
           resources.getString(R.string.missing_gpg_id_dialog_title) to
             resources.getString(R.string.missing_gpg_id_dialog_message)
         } else {
-          // .gpg-id contains no or malformed PGP IDs
           resources.getString(R.string.invalid_gpg_id_dialog_title) to
             resources.getString(R.string.invalid_gpg_id_dialog_message)
         }
@@ -238,23 +244,47 @@ open class BasePGPActivity : AppCompatActivity() {
         intent.putExtra("SUB_PATH", subDir)
         keySelectAction.launch(intent)
       }
-    } else {
-      val idsWithKey = ids.filter { repository.hasKey(it) }
+      return
+    }
 
-      if (idsWithKey.isEmpty()) { // No keys at all
-        /**
-         * The app does not provide keys with the requested key IDs; open Key Manager in key
-         * creation/import mode and let the user _import_ the needed PGP keys
-         */
-        val title = resources.getString(R.string.no_pgp_keys_dialog_title)
-        val missingKeysForIds = ids.joinToString(", ")
-        val message = resources.getString(R.string.no_pgp_keys_dialog_message) + missingKeysForIds
-        openKeyManagerDialog(title, message) {
-          keyImportAction.launch(PGPKeyListActivity.newIntent(this@BasePGPActivity))
+    if (openPgpProviderRepository.hasSelectedProvider()) {
+      lifecycleScope.launch {
+        val missing = ids.filterNot(repository::hasKey)
+        if (missing.isEmpty()) {
+          onKeysExist(ids)
+          return@launch
         }
-      } else {
-        onKeysExist(ids)
+        when (
+          val result =
+            openPgpProviderRepository.ensurePublicKeys(missing, openPgpInteractionHandler)
+        ) {
+          is OpenPgpApiBackend.OperationResult.Success -> onKeysExist(ids)
+          OpenPgpApiBackend.OperationResult.Cancelled -> Unit
+          is OpenPgpApiBackend.OperationResult.UserInteractionRequired ->
+            snackbar(message = getString(R.string.openpgp_provider_interaction_failed))
+          is OpenPgpApiBackend.OperationResult.Failure ->
+            snackbar(
+              message =
+                getString(
+                  R.string.openpgp_provider_operation_failed,
+                  result.error.message ?: getString(R.string.error),
+                )
+            )
+        }
       }
+      return
+    }
+
+    val idsWithKey = ids.filter { repository.hasKey(it) }
+    if (idsWithKey.isEmpty()) {
+      val title = resources.getString(R.string.no_pgp_keys_dialog_title)
+      val missingKeysForIds = ids.joinToString(", ")
+      val message = resources.getString(R.string.no_pgp_keys_dialog_message) + missingKeysForIds
+      openKeyManagerDialog(title, message) {
+        keyImportAction.launch(PGPKeyListActivity.newIntent(this@BasePGPActivity))
+      }
+    } else {
+      onKeysExist(ids)
     }
   }
 
@@ -264,15 +294,11 @@ open class BasePGPActivity : AppCompatActivity() {
   ) {
     val ids = getPGPIdentifiers(subDir)
     if (ids.isNullOrEmpty()) {
-      /* Store not initialised properly; open Key Manager in selection mode and
-       * let user choose one or multiple keys */
       val (title, message) =
         if (ids == null) {
-          // .gpg-id is missing
           resources.getString(R.string.missing_gpg_id_dialog_title) to
             resources.getString(R.string.missing_gpg_id_dialog_message)
         } else {
-          // .gpg-id contains no or malformed PGP IDs
           resources.getString(R.string.invalid_gpg_id_dialog_title) to
             resources.getString(R.string.invalid_gpg_id_dialog_message)
         }
@@ -281,37 +307,37 @@ open class BasePGPActivity : AppCompatActivity() {
         intent.putExtra("SUB_PATH", subDir)
         keySelectAction.launch(intent)
       }
-    } else {
-      val idsWithKey = ids.filter { repository.hasKey(it) }
-      val idsWithDecryptionKey = idsWithKey.filter { repository.hasDecKey(it) }
+      return
+    }
 
-      if (idsWithDecryptionKey.isEmpty()) {
-        /**
-         * The app does not provide secret decryption keys with the requested key IDs; open Key
-         * Manager in key creation/import mode and let the user _import_ the needed PGP keys
-         */
-        val title = resources.getString(R.string.no_decryption_keys_dialog_title)
-        val missingDecKeysForIds =
-          if (idsWithKey.isNotEmpty()) {
-            // Some keys keys are available, but they are all public
-            ids
-              .map { id ->
-                if (id in idsWithKey) "\n${id}: ${getString(R.string.pgp_public_only)}"
-                else "\n${id}: ${getString(R.string.pgp_unknown)}"
-              }
-              .joinToString()
-          } else {
-            // No keys at all
-            ids.joinToString(", ")
-          }
-        val message =
-          resources.getString(R.string.no_decryption_keys_dialog_message) + missingDecKeysForIds
-        openKeyManagerDialog(title, message) {
-          keyImportAction.launch(PGPKeyListActivity.newIntent(this@BasePGPActivity))
+    if (openPgpProviderRepository.hasSelectedProvider()) {
+      onKeysExist(ids)
+      return
+    }
+
+    val idsWithKey = ids.filter { repository.hasKey(it) }
+    val idsWithDecryptionKey = idsWithKey.filter { repository.hasDecKey(it) }
+
+    if (idsWithDecryptionKey.isEmpty()) {
+      val title = resources.getString(R.string.no_decryption_keys_dialog_title)
+      val missingDecKeysForIds =
+        if (idsWithKey.isNotEmpty()) {
+          ids
+            .map { id ->
+              if (id in idsWithKey) "\n${id}: ${getString(R.string.pgp_public_only)}"
+              else "\n${id}: ${getString(R.string.pgp_unknown)}"
+            }
+            .joinToString()
+        } else {
+          ids.joinToString(", ")
         }
-      } else {
-        onKeysExist(ids)
+      val message =
+        resources.getString(R.string.no_decryption_keys_dialog_message) + missingDecKeysForIds
+      openKeyManagerDialog(title, message) {
+        keyImportAction.launch(PGPKeyListActivity.newIntent(this@BasePGPActivity))
       }
+    } else {
+      onKeysExist(ids)
     }
   }
 
@@ -616,6 +642,11 @@ open class BasePGPActivity : AppCompatActivity() {
   /* Find persistent PGP passphrases with matching key ID, unlock the first one
    * with biometrics or after PIN verification */
   protected fun getPersistentAndDecrypt(identifiers: List<PGPIdentifier>, action: String? = null) {
+    if (openPgpProviderRepository.hasSelectedProvider()) {
+      decrypt(identifiers)
+      return
+    }
+
     // Detect AES key invalidation due to enrollment of a new fingerprint and emit warning
     if (
       BiometricAuthenticator.canAuthenticate(this@BasePGPActivity) &&
@@ -811,6 +842,10 @@ open class BasePGPActivity : AppCompatActivity() {
   }
 
   protected fun decrypt(identifiers: List<PGPIdentifier>, isError: Boolean = false) {
+    if (openPgpProviderRepository.hasSelectedProvider()) {
+      lifecycleScope.launch(dispatcherProvider.main()) { decryptWithOpenPgpProvider() }
+      return
+    }
     val passphrases = cachedPassphrases.filterKeys {
       identifiers.map { it.toString() }.contains(it)
     }
@@ -830,6 +865,13 @@ open class BasePGPActivity : AppCompatActivity() {
       }
     }
   }
+
+  protected suspend fun decryptUsingOpenPgpProvider(
+    ciphertext: ByteArray
+  ): OpenPgpApiBackend.OperationResult<ByteArray> =
+    openPgpProviderRepository.decrypt(ciphertext, openPgpInteractionHandler)
+
+  protected open suspend fun decryptWithOpenPgpProvider() {}
 
   /** Subclass-specific implementations */
   open suspend fun decryptWithPassphrase(

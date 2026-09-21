@@ -16,6 +16,7 @@ import app.passwordstore.R
 import app.passwordstore.crypto.PGPIdentifier
 import app.passwordstore.crypto.errors.IncorrectPassphraseException
 import app.passwordstore.crypto.errors.NoDecryptionKeyAvailableException
+import app.passwordstore.data.crypto.OpenPgpApiBackend
 import app.passwordstore.data.passfile.PasswordEntry
 import app.passwordstore.data.repo.PasswordRepository
 import app.passwordstore.ui.crypto.BasePGPActivity
@@ -76,6 +77,87 @@ class AutofillDecryptActivity : BasePGPActivity() {
         ->
         getPersistentAndDecrypt(ids, action = "autofill")
       }
+    }
+  }
+
+  override suspend fun decryptWithOpenPgpProvider() {
+    val encryptedFile = File(filePath)
+    val ciphertext = withContext(dispatcherProvider.io()) { encryptedFile.readBytes() }
+    try {
+      when (val result = decryptUsingOpenPgpProvider(ciphertext)) {
+        is OpenPgpApiBackend.OperationResult.Success -> {
+          val plaintextBytes = result.value
+          try {
+            val plaintextChars = plaintextBytes.toCharArray()
+            val entry =
+              try {
+                passwordEntryFactory.create(plaintextChars)
+              } finally {
+                plaintextChars.wipe()
+              }
+            entry.clearExtra()
+            val directoryStructure = AutofillPreferences.directoryStructure(this)
+            val credentials =
+              AutofillPreferences.credentialsFromStoreEntry(
+                this,
+                encryptedFile,
+                entry,
+                directoryStructure,
+              )
+            val fillInDataset =
+              AutofillResponseBuilder.makeFillInDataset(
+                this@AutofillDecryptActivity,
+                credentials,
+                clientState,
+                action,
+              )
+            withContext(dispatcherProvider.main()) {
+              setResult(
+                RESULT_OK,
+                Intent().apply {
+                  putExtra(AutofillManager.EXTRA_AUTHENTICATION_RESULT, fillInDataset)
+                },
+              )
+              if (entry.hasTotp()) {
+                val otp = entry.currentOtp
+                val remainingTime = otp.remainingTime.inWholeSeconds
+                copyTextToClipboard(otp.value.toCharArray(), isSensitive = false)
+                otpTimer?.shutdownNow()
+                val otpTimerNew = Executors.newSingleThreadScheduledExecutor()
+                otpTimer = otpTimerNew
+                otpTimerNew.schedule(
+                  {
+                    copyTextToClipboard(entry.currentOtp.value.toCharArray(), isSensitive = false)
+                  },
+                  remainingTime,
+                  TimeUnit.SECONDS,
+                )
+              }
+              entry.clear()
+              finish()
+            }
+          } finally {
+            plaintextBytes.wipe()
+          }
+        }
+        OpenPgpApiBackend.OperationResult.Cancelled -> finish()
+        is OpenPgpApiBackend.OperationResult.UserInteractionRequired -> {
+          snackbar(message = getString(R.string.openpgp_provider_interaction_failed))
+          finish()
+        }
+        is OpenPgpApiBackend.OperationResult.Failure -> {
+          snackbar(
+            message =
+              getString(
+                R.string.openpgp_provider_operation_failed,
+                result.error.message ?: getString(R.string.error),
+              )
+          )
+          finish()
+        }
+      }
+    } finally {
+      ciphertext.wipe()
     }
   }
 

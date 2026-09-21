@@ -16,6 +16,7 @@ import app.passwordstore.R
 import app.passwordstore.crypto.PGPIdentifier
 import app.passwordstore.crypto.errors.IncorrectPassphraseException
 import app.passwordstore.crypto.errors.NoDecryptionKeyAvailableException
+import app.passwordstore.data.crypto.OpenPgpApiBackend
 import app.passwordstore.data.passfile.PasswordEntry
 import app.passwordstore.data.password.FieldItem
 import app.passwordstore.databinding.DecryptLayoutBinding
@@ -83,6 +84,43 @@ class DecryptActivity : BasePGPActivity() {
     encryptedEntryChars?.wipe()
     itemsAdapter?.clearItems()
     super.onDestroy()
+  }
+
+  override suspend fun decryptWithOpenPgpProvider() {
+    val ciphertext = withContext(dispatcherProvider.io()) { File(fullPath).readBytes() }
+    try {
+      when (val result = decryptUsingOpenPgpProvider(ciphertext)) {
+        is OpenPgpApiBackend.OperationResult.Success -> {
+          val plaintextBytes = result.value
+          try {
+            val plaintextChars = plaintextBytes.toCharArray()
+            try {
+              val entry = passwordEntryFactory.create(plaintextChars)
+              encryptedEntryChars = AESEncryption.encrypt(plaintextChars)
+              entry.clearExtraChars()
+              createPasswordUI(entry)
+            } finally {
+              plaintextChars.wipe()
+            }
+          } finally {
+            plaintextBytes.wipe()
+          }
+        }
+        OpenPgpApiBackend.OperationResult.Cancelled -> finish()
+        is OpenPgpApiBackend.OperationResult.UserInteractionRequired ->
+          snackbar(message = getString(R.string.openpgp_provider_interaction_failed))
+        is OpenPgpApiBackend.OperationResult.Failure ->
+          snackbar(
+            message =
+              getString(
+                R.string.openpgp_provider_operation_failed,
+                result.error.message ?: getString(R.string.error),
+              )
+          )
+      }
+    } finally {
+      ciphertext.wipe()
+    }
   }
 
   override suspend fun decryptWithPassphrase(

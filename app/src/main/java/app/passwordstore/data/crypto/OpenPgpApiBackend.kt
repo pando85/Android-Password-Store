@@ -69,7 +69,9 @@ class OpenPgpApiBackend internal constructor(private val executor: OpenPgpApiExe
       initialRequest = Intent(OpenPgpApi.ACTION_CHECK_PERMISSION),
       input = null,
       interactionHandler = interactionHandler,
-    ) { Unit }
+    ) {
+      Unit
+    }
 
   suspend fun decrypt(
     providerPackage: String,
@@ -81,7 +83,9 @@ class OpenPgpApiBackend internal constructor(private val executor: OpenPgpApiExe
       initialRequest = Intent(OpenPgpApi.ACTION_DECRYPT_VERIFY),
       input = ciphertext,
       interactionHandler = interactionHandler,
-    ) { call -> call.output }
+    ) { call ->
+      call.output
+    }
 
   suspend fun getPublicKey(
     providerPackage: String,
@@ -98,7 +102,9 @@ class OpenPgpApiBackend internal constructor(private val executor: OpenPgpApiExe
         },
       input = null,
       interactionHandler = interactionHandler,
-    ) { call -> call.output }
+    ) { call ->
+      call.output
+    }
 
   suspend fun resolveKeyIds(
     providerPackage: String,
@@ -113,7 +119,9 @@ class OpenPgpApiBackend internal constructor(private val executor: OpenPgpApiExe
         },
       input = null,
       interactionHandler = interactionHandler,
-    ) { call -> call.result.getLongArrayExtra(OpenPgpApi.RESULT_KEY_IDS) ?: longArrayOf() }
+    ) { call ->
+      call.result.getLongArrayExtra(OpenPgpApi.RESULT_KEY_IDS) ?: longArrayOf()
+    }
 
   private suspend fun <T> executeWithInteraction(
     providerPackage: String,
@@ -210,8 +218,7 @@ internal class BinderOpenPgpApiExecutor(private val context: Context) : OpenPgpA
     withService(providerPackage) { service ->
       val output = ByteArrayOutputStream()
       val result =
-        OpenPgpApi(context, service)
-          .executeApi(request, input?.let(::ByteArrayInputStream), output)
+        OpenPgpApi(context, service).executeApi(request, input?.let(::ByteArrayInputStream), output)
       OpenPgpApiCall(result, output.toByteArray())
     }
 

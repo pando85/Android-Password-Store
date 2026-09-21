@@ -39,7 +39,7 @@ androidx-security = "androidx.security:security-crypto-ktx:1.1.0"
 androidx-swiperefreshlayout = "androidx.swiperefreshlayout:swiperefreshlayout:1.2.0"
 aps-sublimeFuzzy = "com.github.android-password-store:sublime-fuzzy:2.3.4"
 aps-zxingAndroidEmbedded = "com.github.android-password-store:zxing-android-embedded:4.2.1"
-build-agp = { module = "com.android.tools:gradle", version.ref = "agp" }
+build-agp = { module = "com.android.tools.build:gradle", version.ref = "agp" }
 build-kotlin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
 build-okhttp = "com.squareup.okhttp3:okhttp:5.5.0"
 build-r8 = "com.android.tools:r8:9.4.24"

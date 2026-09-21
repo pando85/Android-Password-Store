@@ -157,6 +157,11 @@
   <string name="pref_disable_sync_on_pull_summary">Prevent swiping down on the password list from triggering a Git sync.</string>
   <string name="pref_import_pgp_key_title">Import PGP key</string>
   <string name="pref_pgp_key_manager_title">Key manager</string>
+  <string name="pref_openpgp_provider_title">OpenPGP backend</string>
+  <string name="pref_openpgp_provider_summary">Use APS keys or delegate private-key operations to a compatible OpenPGP provider.</string>
+  <string name="pref_openpgp_provider_internal">Internal key manager</string>
+  <string name="openpgp_provider_interaction_failed">The OpenPGP provider interaction could not be completed.</string>
+  <string name="openpgp_provider_operation_failed">External OpenPGP provider operation failed: %1$s</string>
   <string name="pref_pgp_ascii_armor_title">Encrypt in ASCII armor mode</string>
   <string name="pref_pgp_key_manager_export">Backup/Export</string>
   <string name="pref_pgp_key_manager_export_public">Export public key</string>
