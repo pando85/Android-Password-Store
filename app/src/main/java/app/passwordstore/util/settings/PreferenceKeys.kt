@@ -58,7 +58,7 @@ object PreferenceKeys {
   const val OREO_AUTOFILL_CUSTOM_PUBLIC_SUFFIXES = "oreo_autofill_custom_public_suffixes"
   const val OREO_AUTOFILL_DEFAULT_USERNAME = "oreo_autofill_default_username"
   const val DIRECTORY_STRUCTURE = "oreo_autofill_directory_structure"
-  const val AUTOFILL_SAVE_DIRECTORY = "oreo_autofill_save_directory"
+  const val AUTOFILL_SAVE_DIRECTORY = "autofill_save_directory"
   const val STRICT_DOMAIN_SEARCH = "oreo_autofill_strict_domain_search"
   const val PREF_KEY_PWGEN_TYPE = "pref_key_pwgen_type"
   const val REPOSITORY_INITIALIZED = "repository_initialized"
@@ -108,6 +108,7 @@ object PreferenceKeys {
   const val DICEWARE_LENGTH = "diceware_length"
   const val DISABLE_SYNC_ACTION = "disable_sync_action"
   const val ASCII_ARMOR = "pgpainless_ascii_armor"
+  const val OPENPGP_PROVIDER_PACKAGE = "openpgp_provider_package"
 
   @Deprecated(
     message = "We refactored persistent caching of the PGP passphrase and this is no longer used"
