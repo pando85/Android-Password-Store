@@ -71,9 +71,11 @@ class ShortcutHandler @Inject constructor(@ApplicationContext val context: Conte
 
   /** Creates a [ShortcutInfo] from [item] and assigns [intent] to it. */
   private fun buildShortcut(item: PasswordItem, intent: Intent): ShortcutInfo {
-    return ShortcutInfo.Builder(context, item.longName)
-      .setShortLabel(item.toString())
-      .setLongLabel("/${item.longName}")
+    // Android persists launcher shortcuts outside this process. Pass-Secrets labels therefore must
+    // not be used here: only the obfuscated physical path is safe to persist.
+    return ShortcutInfo.Builder(context, item.physicalLongName)
+      .setShortLabel(item.physicalName)
+      .setLongLabel("/${item.physicalLongName}")
       .setIcon(Icon.createWithResource(context, R.drawable.ic_lock_open_24px))
       .setIntent(intent)
       .build()

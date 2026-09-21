@@ -4,6 +4,27 @@ All notable changes to this project will be documented in this file
 
 ## [Unreleased]
 
+## [1.22.0] - 2026-09-21
+
+### Added
+
+- Full Pass-Secrets integration: password create, edit, move, delete, and rename operations are now Pass-Secrets aware
+- Pass-Secrets alias search and unlock with mapped names
+- Transactional batch Pass-Secrets moves with safe staging
+- Atomic Pass-Secrets metadata persistence and mutation error reporting
+
+### Fixed
+
+- System font is now used correctly throughout the app
+- Pass-Secrets labels are excluded from launcher shortcuts and persisted intents
+- Pass-Secrets metadata versions are disambiguated
+- Hardened Pass-Secrets map resolution and error handling
+- Removed unused string resources
+
+### Changed
+
+- Updated dependencies: Gradle 9.4.1, AGP 9.4.1, BouncyCastle 1.86, Compose BOM 2026.09.00, Kotlin 2.4.20, JGit 7.8.0, CodeQL 4.38.1
+
 ## [1.21.0] - 2026-08-30
 
 ### Added
