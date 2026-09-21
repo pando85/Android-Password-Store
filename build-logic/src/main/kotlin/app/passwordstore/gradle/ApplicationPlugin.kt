@@ -55,11 +55,4 @@ class ApplicationPlugin : Plugin<Project> {
     }
   }
 
-  private fun Project.isSnapshot(): Boolean {
-    with(providers) {
-      val workflow = environmentVariable("GITHUB_WORKFLOW")
-      val snapshot = environmentVariable("SNAPSHOT")
-      return workflow.isPresent || snapshot.isPresent
-    }
-  }
 }

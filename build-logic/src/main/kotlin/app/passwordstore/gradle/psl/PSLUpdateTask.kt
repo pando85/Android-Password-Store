@@ -75,7 +75,7 @@ abstract class PSLUpdateTask : DefaultTask() {
   @Suppress("TooGenericExceptionThrown", "ThrowsCount")
   private fun assertWildcardRule(rule: String) {
     if (rule.indexOf(WILDCARD_CHAR) != 0) {
-      throw RuntimeException("Wildcard is not not in leftmost position")
+      throw RuntimeException("Wildcard is not in leftmost position")
     }
 
     if (rule.indexOf(WILDCARD_CHAR, 1) != -1) {
