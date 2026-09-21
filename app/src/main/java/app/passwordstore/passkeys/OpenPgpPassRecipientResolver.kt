@@ -38,7 +38,9 @@ class OpenPgpPassRecipientResolver(
           failure = { resolutionError = it },
         )
 
-      resolvedKeys?.let { return Ok(it) }
+      resolvedKeys?.let {
+        return Ok(it)
+      }
       val error = resolutionError ?: return Err(RecipientPolicyError.EmptyRecipientSet)
       if (
         error !is RecipientPolicyError.RecipientNotFound ||
