@@ -40,9 +40,10 @@ class VersioningPlugin : Plugin<Project> {
           "version.properties must contain a '$VERSIONING_PROP_VERSION_NAME' property"
         }
       val versionCode =
-        requireNotNull(versionProps.getProperty(VERSIONING_PROP_VERSION_CODE).toInt()) {
-          "version.properties must contain a '$VERSIONING_PROP_VERSION_CODE' property"
-        }
+        requireNotNull(versionProps.getProperty(VERSIONING_PROP_VERSION_CODE)) {
+            "version.properties must contain a '$VERSIONING_PROP_VERSION_CODE' property"
+          }
+          .toInt()
       project.plugins.withType<AppPlugin> {
         androidAppPluginApplied.set(true)
         extensions.configure<ApplicationAndroidComponentsExtension> {
