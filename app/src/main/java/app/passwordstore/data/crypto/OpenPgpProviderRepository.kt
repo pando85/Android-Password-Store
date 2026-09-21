@@ -147,8 +147,8 @@ constructor(
                   if (!hasLocalKey(identifier)) importFailure = error
                 },
               )
-            if (importFailure != null) {
-              return OpenPgpApiBackend.OperationResult.Failure(importFailure!!)
+            importFailure?.let { error ->
+              return OpenPgpApiBackend.OperationResult.Failure(error)
             }
           }
           is OpenPgpApiBackend.OperationResult.UserInteractionRequired ->
