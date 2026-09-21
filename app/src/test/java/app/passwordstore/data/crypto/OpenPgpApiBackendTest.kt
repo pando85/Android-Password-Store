@@ -21,7 +21,7 @@ import org.robolectric.RuntimeEnvironment
 class OpenPgpApiBackendTest {
 
   @Test
-  fun `decrypt returns provider output on success`() = runBlocking {
+  fun `decrypt returns provider output on success`(): Unit = runBlocking {
     val executor = FakeExecutor { _, _, _ ->
       OpenPgpApiCall(result(OpenPgpApi.RESULT_CODE_SUCCESS), byteArrayOf(1, 2, 3))
     }
@@ -36,7 +36,7 @@ class OpenPgpApiBackendTest {
   }
 
   @Test
-  fun `provider continuation intent is used after user interaction`() = runBlocking {
+  fun `provider continuation intent is used after user interaction`(): Unit = runBlocking {
     val pendingIntent =
       PendingIntent.getActivity(
         RuntimeEnvironment.getApplication(),
@@ -77,7 +77,7 @@ class OpenPgpApiBackendTest {
   }
 
   @Test
-  fun `interaction is surfaced when no foreground handler exists`() = runBlocking {
+  fun `interaction is surfaced when no foreground handler exists`(): Unit = runBlocking {
     val pendingIntent =
       PendingIntent.getActivity(
         RuntimeEnvironment.getApplication(),
