@@ -12,6 +12,7 @@ import app.passwordstore.crypto.PGPKey
 import app.passwordstore.crypto.PGPKeyManager
 import app.passwordstore.injection.prefs.SettingsPreferences
 import app.passwordstore.util.settings.PreferenceKeys
+import com.github.michaelbull.result.fold
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -90,9 +91,14 @@ constructor(
                 )
             ) {
               is OpenPgpApiBackend.OperationResult.Success -> resolved.value
-              is OpenPgpApiBackend.OperationResult.UserInteractionRequired -> return resolved
-              OpenPgpApiBackend.OperationResult.Cancelled -> return resolved
-              is OpenPgpApiBackend.OperationResult.Failure -> return resolved
+              is OpenPgpApiBackend.OperationResult.UserInteractionRequired ->
+                return OpenPgpApiBackend.OperationResult.UserInteractionRequired(
+                  resolved.pendingIntent
+                )
+              OpenPgpApiBackend.OperationResult.Cancelled ->
+                return OpenPgpApiBackend.OperationResult.Cancelled
+              is OpenPgpApiBackend.OperationResult.Failure ->
+                return OpenPgpApiBackend.OperationResult.Failure(resolved.error)
             }
           }
         }
@@ -145,9 +151,12 @@ constructor(
               return OpenPgpApiBackend.OperationResult.Failure(importFailure!!)
             }
           }
-          is OpenPgpApiBackend.OperationResult.UserInteractionRequired -> return fetched
-          OpenPgpApiBackend.OperationResult.Cancelled -> return fetched
-          is OpenPgpApiBackend.OperationResult.Failure -> return fetched
+          is OpenPgpApiBackend.OperationResult.UserInteractionRequired ->
+            return OpenPgpApiBackend.OperationResult.UserInteractionRequired(fetched.pendingIntent)
+          OpenPgpApiBackend.OperationResult.Cancelled ->
+            return OpenPgpApiBackend.OperationResult.Cancelled
+          is OpenPgpApiBackend.OperationResult.Failure ->
+            return OpenPgpApiBackend.OperationResult.Failure(fetched.error)
         }
       }
 
