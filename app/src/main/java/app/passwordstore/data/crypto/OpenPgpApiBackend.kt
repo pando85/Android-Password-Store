@@ -70,9 +70,7 @@ class OpenPgpApiBackend internal constructor(private val executor: OpenPgpApiExe
       initialRequest = Intent(OpenPgpApi.ACTION_CHECK_PERMISSION),
       input = null,
       interactionHandler = interactionHandler,
-    ) {
-      Unit
-    }
+    ) {}
 
   suspend fun decrypt(
     providerPackage: String,
