@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file
 
 ## [Unreleased]
 
+## [1.23.0] - 2026-09-21
+
+### Fixed
+
+- Corrected requireNotNull ordering in VersioningPlugin so null checks work as intended
+
 ## [1.22.0] - 2026-09-21
 
 ### Added
