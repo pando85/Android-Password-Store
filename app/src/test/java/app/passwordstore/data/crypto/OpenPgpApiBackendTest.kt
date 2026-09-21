@@ -70,7 +70,10 @@ class OpenPgpApiBackendTest {
       )
 
     assertIs<OpenPgpApiBackend.OperationResult.Success<ByteArray>>(operation)
-    assertEquals(listOf(OpenPgpApi.ACTION_DECRYPT_VERIFY, "continued"), seenActions)
+    assertEquals(
+      listOf<String?>(OpenPgpApi.ACTION_DECRYPT_VERIFY, "continued"),
+      seenActions,
+    )
   }
 
   @Test
