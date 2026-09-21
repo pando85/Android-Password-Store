@@ -274,7 +274,11 @@ internal class BinderOpenPgpApiExecutor(private val context: Context) : OpenPgpA
             )
         operation(boundService)
       } finally {
-        if (connection.isBound) runCatching { connection.unbindFromService() }
+        if (connection.isBound) {
+          try {
+            connection.unbindFromService()
+          } catch (_: Exception) {}
+        }
       }
     }
 
