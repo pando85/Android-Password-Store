@@ -17,22 +17,57 @@ data class PasswordItem(
   val type: Char,
   val file: File,
   val rootDir: File,
+  val mappedName: String? = null,
+  val aliases: List<String> = emptyList(),
 ) : Comparable<PasswordItem> {
+
+  val physicalName = name.replace("\\.gpg$".toRegex(), "")
 
   val fullPathToParent = PasswordRepository.getParentPath(file.absolutePath, rootDir.absolutePath)
 
+  val physicalLongName =
+    PasswordRepository.getLongName(fullPathToParent, rootDir.absolutePath, physicalName)
+
   val longName = PasswordRepository.getLongName(fullPathToParent, rootDir.absolutePath, toString())
+
+  val searchableName = buildList {
+    add(physicalLongName)
+    if (mappedName != null) add(longName)
+    addAll(aliases)
+  }
+    .joinToString(" ")
+
+  fun matchesSearch(filter: String): Boolean = searchableName.contains(filter, ignoreCase = true)
+
+  fun matchesStrictDomain(regex: Regex): Boolean {
+    val physicalPath =
+      try {
+        file.relativeTo(rootDir).path
+      } catch (_: IllegalArgumentException) {
+        return false
+      }
+    if (regex.containsMatchIn(physicalPath)) return true
+
+    val logicalTokens = buildList {
+      mappedName?.split(Regex("[\\s/]+"))?.filterTo(this) { it.isNotBlank() }
+      aliases.forEach { alias ->
+        add(alias)
+        if ('@' in alias) add(alias.substringAfterLast('@'))
+      }
+    }
+    return logicalTokens.any { token -> regex.containsMatchIn("$token.gpg") }
+  }
 
   override fun equals(other: Any?): Boolean {
     return (other is PasswordItem) && (other.file == file)
   }
 
   override fun compareTo(other: PasswordItem): Int {
-    return (type + name).compareTo(other.type + other.name, ignoreCase = true)
+    return (type + toString()).compareTo(other.type + other.toString(), ignoreCase = true)
   }
 
   override fun toString(): String {
-    return name.replace("\\.gpg$".toRegex(), "")
+    return mappedName ?: physicalName
   }
 
   override fun hashCode(): Int {
@@ -42,7 +77,9 @@ data class PasswordItem(
   /** Creates an [Intent] to launch this [PasswordItem] through the authentication process. */
   fun createAuthEnabledIntent(context: Context): Intent {
     val intent = Intent(context, LaunchActivity::class.java)
-    intent.putExtra("NAME", toString()) // this.toString
+    // Intent extras may outlive the current UI process through Android shortcuts. Keep the
+    // persisted identity physical even when a Pass-Secrets label is currently unlocked.
+    intent.putExtra("NAME", physicalName)
     intent.putExtra(BasePGPActivity.EXTRA_FILE_PATH, file.absolutePath)
     intent.putExtra(
       BasePGPActivity.EXTRA_REPO_PATH,
@@ -70,13 +107,26 @@ data class PasswordItem(
     }
 
     @JvmStatic
-    fun newPassword(name: String, file: File, parent: PasswordItem, rootDir: File): PasswordItem {
-      return PasswordItem(name, parent, TYPE_PASSWORD, file, rootDir)
+    fun newPassword(
+      name: String,
+      file: File,
+      parent: PasswordItem,
+      rootDir: File,
+      mappedName: String? = null,
+      aliases: List<String> = emptyList(),
+    ): PasswordItem {
+      return PasswordItem(name, parent, TYPE_PASSWORD, file, rootDir, mappedName, aliases)
     }
 
     @JvmStatic
-    fun newPassword(name: String, file: File, rootDir: File): PasswordItem {
-      return PasswordItem(name, null, TYPE_PASSWORD, file, rootDir)
+    fun newPassword(
+      name: String,
+      file: File,
+      rootDir: File,
+      mappedName: String? = null,
+      aliases: List<String> = emptyList(),
+    ): PasswordItem {
+      return PasswordItem(name, null, TYPE_PASSWORD, file, rootDir, mappedName, aliases)
     }
 
     @JvmStatic
