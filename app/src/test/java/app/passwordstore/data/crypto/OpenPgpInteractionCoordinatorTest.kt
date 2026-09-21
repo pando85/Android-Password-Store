@@ -18,7 +18,7 @@ import org.robolectric.RuntimeEnvironment
 class OpenPgpInteractionCoordinatorTest {
 
   @Test
-  fun `handler is visible only inside its coroutine scope`() = runBlocking {
+  fun `handler is visible only inside its coroutine scope`(): Unit = runBlocking {
     val coordinator = OpenPgpInteractionCoordinator()
     val pendingIntent =
       PendingIntent.getActivity(
