@@ -17,6 +17,7 @@ import javax.inject.Inject
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import org.openintents.openpgp.IOpenPgpService2
 import org.openintents.openpgp.OpenPgpError
 import org.openintents.openpgp.util.OpenPgpApi
@@ -143,19 +144,41 @@ class OpenPgpApiBackend internal constructor(private val executor: OpenPgpApiExe
         }
 
       when (call.result.getIntExtra(OpenPgpApi.RESULT_CODE, OpenPgpApi.RESULT_CODE_ERROR)) {
-        OpenPgpApi.RESULT_CODE_SUCCESS -> return OperationResult.Success(onSuccess(call))
+        OpenPgpApi.RESULT_CODE_SUCCESS -> {
+          return try {
+            OperationResult.Success(onSuccess(call))
+          } catch (error: CancellationException) {
+            call.output.fill(0)
+            throw error
+          } catch (error: Throwable) {
+            call.output.fill(0)
+            OperationResult.Failure(error)
+          }
+        }
         OpenPgpApi.RESULT_CODE_USER_INTERACTION_REQUIRED -> {
           @Suppress("DEPRECATION")
           val pendingIntent =
             call.result.getParcelableExtra<PendingIntent>(OpenPgpApi.RESULT_INTENT)
-              ?: return OperationResult.Failure(
-                IllegalStateException(
-                  "OpenPGP provider requested user interaction without a PendingIntent"
+              ?: run {
+                call.output.fill(0)
+                return OperationResult.Failure(
+                  IllegalStateException(
+                    "OpenPGP provider requested user interaction without a PendingIntent"
+                  )
                 )
-              )
+              }
+          call.output.fill(0)
           val handler =
             interactionHandler ?: return OperationResult.UserInteractionRequired(pendingIntent)
-          when (val interaction = handler.interact(pendingIntent)) {
+          val interaction =
+            try {
+              handler.interact(pendingIntent)
+            } catch (error: CancellationException) {
+              throw error
+            } catch (error: Throwable) {
+              return OperationResult.Failure(error)
+            }
+          when (interaction) {
             is InteractionResult.Completed -> {
               // The OpenPGP API specifies that the result Intent contains the original operation
               // plus the provider's newly granted state. Some providers return no data after a
@@ -166,6 +189,7 @@ class OpenPgpApiBackend internal constructor(private val executor: OpenPgpApiExe
           }
         }
         else -> {
+          call.output.fill(0)
           @Suppress("DEPRECATION")
           val error = call.result.getParcelableExtra<OpenPgpError>(OpenPgpApi.RESULT_ERROR)
           return OperationResult.Failure(
@@ -245,7 +269,7 @@ internal class BinderOpenPgpApiExecutor(private val context: Context) : OpenPgpA
 
       try {
         connection.bindToService()
-        operation(service.await())
+        operation(withTimeout(SERVICE_BIND_TIMEOUT_MILLIS) { service.await() })
       } finally {
         if (connection.isBound) runCatching { connection.unbindFromService() }
       }
@@ -257,5 +281,9 @@ internal class BinderOpenPgpApiExecutor(private val context: Context) : OpenPgpA
     val label =
       info.loadLabel(context.packageManager)?.toString()?.ifBlank { packageName } ?: packageName
     return OpenPgpApiBackend.Provider(packageName, label)
+  }
+
+  private companion object {
+    const val SERVICE_BIND_TIMEOUT_MILLIS = 15_000L
   }
 }
