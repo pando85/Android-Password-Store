@@ -17,7 +17,7 @@ import javax.inject.Inject
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import org.openintents.openpgp.IOpenPgpService2
 import org.openintents.openpgp.OpenPgpError
 import org.openintents.openpgp.util.OpenPgpApi
@@ -267,7 +267,12 @@ internal class BinderOpenPgpApiExecutor(private val context: Context) : OpenPgpA
 
       try {
         connection.bindToService()
-        operation(withTimeout(SERVICE_BIND_TIMEOUT_MILLIS) { service.await() })
+        val boundService =
+          withTimeoutOrNull(SERVICE_BIND_TIMEOUT_MILLIS) { service.await() }
+            ?: throw OpenPgpProviderException(
+              "Timed out binding to OpenPGP provider $providerPackage"
+            )
+        operation(boundService)
       } finally {
         if (connection.isBound) runCatching { connection.unbindFromService() }
       }
