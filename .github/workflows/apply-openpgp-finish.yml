@@ -1,0 +1,36 @@
+name: Finish OpenPGP provider integration
+
+on:
+  push:
+    branches:
+      - feature/openpgp-provider
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-test:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: feature/openpgp-provider
+      - name: Setup build environment
+        uses: ./.github/reusable-workflows/setup-gradle
+        with:
+          java-version: 21
+      - name: Apply integration
+        run: python .github/apply-openpgp-finish.py
+      - name: Format
+        run: ./gradlew spotlessApply
+      - name: Commit implementation
+        run: |
+          rm .github/apply-openpgp-finish.py .github/workflows/apply-openpgp-finish.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat(pgp): integrate external OpenPGP providers"
+          git push origin HEAD:feature/openpgp-provider
+      - name: Run focused tests
+        run: ./gradlew :app:testDebugUnitTest :passkeys:core:test :passkeys:provider:testDebugUnitTest :crypto:pgpainless:test
