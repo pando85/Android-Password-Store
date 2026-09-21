@@ -54,5 +54,4 @@ class ApplicationPlugin : Plugin<Project> {
       project.configureBuildSigning()
     }
   }
-
 }
