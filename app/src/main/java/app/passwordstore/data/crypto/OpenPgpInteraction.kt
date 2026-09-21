@@ -14,6 +14,7 @@ import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.asContextElement
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -69,6 +70,12 @@ class OpenPgpActivityInteractionHandler(activity: ComponentActivity) :
         "Another OpenPGP provider interaction is already active"
       }
       continuation.invokeOnCancellation { waiting.compareAndSet(continuation, null) }
-      launcher.launch(IntentSenderRequest.Builder(pendingIntent.intentSender).build())
+      try {
+        launcher.launch(IntentSenderRequest.Builder(pendingIntent.intentSender).build())
+      } catch (error: Throwable) {
+        if (waiting.compareAndSet(continuation, null) && continuation.isActive) {
+          continuation.resumeWithException(error)
+        }
+      }
     }
 }
