@@ -102,7 +102,9 @@ public class DefaultPassRecipientResolver(
       resolveIdentifiersFor(target)
         .fold(
           success = { it },
-          failure = { error -> return com.github.michaelbull.result.Err(error) },
+          failure = { error ->
+            return com.github.michaelbull.result.Err(error)
+          },
         )
 
     return withContext(Dispatchers.IO) {

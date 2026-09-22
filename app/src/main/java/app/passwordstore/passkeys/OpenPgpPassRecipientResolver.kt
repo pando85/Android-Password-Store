@@ -32,7 +32,12 @@ class OpenPgpPassRecipientResolver(
     val identifiers =
       delegate
         .resolveIdentifiersFor(target)
-        .fold(success = { it }, failure = { return Err(it) })
+        .fold(
+          success = { it },
+          failure = {
+            return Err(it)
+          },
+        )
 
     return when (
       val resolved =

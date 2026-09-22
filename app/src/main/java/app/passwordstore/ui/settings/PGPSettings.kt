@@ -59,8 +59,9 @@ class PGPSettings(private val activity: FragmentActivity) : SettingsProvider {
   private fun showOpenPgpProviderDialog() {
     val providers = backend.providers()
     val current = activity.sharedPrefs.getString(PreferenceKeys.OPENPGP_PROVIDER_PACKAGE, null)
-    val unavailableCurrent =
-      current?.takeIf { selected -> providers.none { it.packageName == selected } }
+    val unavailableCurrent = current?.takeIf { selected ->
+      providers.none { it.packageName == selected }
+    }
     val labels = buildList {
       add(activity.getString(R.string.pref_openpgp_provider_internal))
       unavailableCurrent?.let { add("$it (${activity.getString(R.string.error)})") }
