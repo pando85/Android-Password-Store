@@ -81,9 +81,11 @@ constructor(
     return when (val resolved = resolvePublicKeysByIdentifier(identifiers, interactionHandler)) {
       is OpenPgpApiBackend.OperationResult.Success ->
         OpenPgpApiBackend.OperationResult.Success(deduplicate(resolved.value.values.flatten()))
-      is OpenPgpApiBackend.OperationResult.UserInteractionRequired -> resolved
-      OpenPgpApiBackend.OperationResult.Cancelled -> resolved
-      is OpenPgpApiBackend.OperationResult.Failure -> resolved
+      is OpenPgpApiBackend.OperationResult.UserInteractionRequired ->
+        OpenPgpApiBackend.OperationResult.UserInteractionRequired(resolved.pendingIntent)
+      OpenPgpApiBackend.OperationResult.Cancelled -> OpenPgpApiBackend.OperationResult.Cancelled
+      is OpenPgpApiBackend.OperationResult.Failure ->
+        OpenPgpApiBackend.OperationResult.Failure(resolved.error)
     }
   }
 
@@ -112,9 +114,11 @@ constructor(
         }
         OpenPgpApiBackend.OperationResult.Success(Unit)
       }
-      is OpenPgpApiBackend.OperationResult.UserInteractionRequired -> resolved
-      OpenPgpApiBackend.OperationResult.Cancelled -> resolved
-      is OpenPgpApiBackend.OperationResult.Failure -> resolved
+      is OpenPgpApiBackend.OperationResult.UserInteractionRequired ->
+        OpenPgpApiBackend.OperationResult.UserInteractionRequired(resolved.pendingIntent)
+      OpenPgpApiBackend.OperationResult.Cancelled -> OpenPgpApiBackend.OperationResult.Cancelled
+      is OpenPgpApiBackend.OperationResult.Failure ->
+        OpenPgpApiBackend.OperationResult.Failure(resolved.error)
     }
   }
 
@@ -154,10 +158,16 @@ constructor(
                   interactionHandler = interactionHandler,
                 )
             ) {
-              is OpenPgpApiBackend.OperationResult.Success -> resolved.value.distinct().toLongArray()
-              is OpenPgpApiBackend.OperationResult.UserInteractionRequired -> return resolved
-              OpenPgpApiBackend.OperationResult.Cancelled -> return resolved
-              is OpenPgpApiBackend.OperationResult.Failure -> return resolved
+              is OpenPgpApiBackend.OperationResult.Success ->
+                resolved.value.distinct().toLongArray()
+              is OpenPgpApiBackend.OperationResult.UserInteractionRequired ->
+                return OpenPgpApiBackend.OperationResult.UserInteractionRequired(
+                  resolved.pendingIntent
+                )
+              OpenPgpApiBackend.OperationResult.Cancelled ->
+                return OpenPgpApiBackend.OperationResult.Cancelled
+              is OpenPgpApiBackend.OperationResult.Failure ->
+                return OpenPgpApiBackend.OperationResult.Failure(resolved.error)
             }
           }
         }
@@ -218,9 +228,12 @@ constructor(
             }
             keys += PGPKey(certificate.getEncoded())
           }
-          is OpenPgpApiBackend.OperationResult.UserInteractionRequired -> return fetched
-          OpenPgpApiBackend.OperationResult.Cancelled -> return fetched
-          is OpenPgpApiBackend.OperationResult.Failure -> return fetched
+          is OpenPgpApiBackend.OperationResult.UserInteractionRequired ->
+            return OpenPgpApiBackend.OperationResult.UserInteractionRequired(fetched.pendingIntent)
+          OpenPgpApiBackend.OperationResult.Cancelled ->
+            return OpenPgpApiBackend.OperationResult.Cancelled
+          is OpenPgpApiBackend.OperationResult.Failure ->
+            return OpenPgpApiBackend.OperationResult.Failure(fetched.error)
         }
       }
       result[identifier] = keys
@@ -237,9 +250,7 @@ constructor(
     }
   }
 
-  private fun <T> providerUnavailable(
-    provider: String
-  ): OpenPgpApiBackend.OperationResult<T> =
+  private fun <T> providerUnavailable(provider: String): OpenPgpApiBackend.OperationResult<T> =
     OpenPgpApiBackend.OperationResult.Failure(
       OpenPgpProviderException("Selected OpenPGP provider $provider is not installed")
     )
