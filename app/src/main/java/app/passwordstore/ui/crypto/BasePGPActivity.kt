@@ -249,14 +249,9 @@ open class BasePGPActivity : AppCompatActivity() {
 
     if (openPgpProviderRepository.hasSelectedProvider()) {
       lifecycleScope.launch {
-        val missing = ids.filterNot(repository::hasKey)
-        if (missing.isEmpty()) {
-          onKeysExist(ids)
-          return@launch
-        }
         when (
           val result =
-            openPgpProviderRepository.ensurePublicKeys(missing, openPgpInteractionHandler)
+            openPgpProviderRepository.ensurePublicKeys(ids, openPgpInteractionHandler)
         ) {
           is OpenPgpApiBackend.OperationResult.Success -> onKeysExist(ids)
           OpenPgpApiBackend.OperationResult.Cancelled -> Unit

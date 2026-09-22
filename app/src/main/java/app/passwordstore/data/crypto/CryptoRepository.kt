@@ -53,9 +53,7 @@ constructor(
   fun hasKeys(): Boolean =
     pgpKeyManager.getAllKeys().mapBoth(success = { it.isNotEmpty() }, failure = { false })
 
-  fun hasKey(id: PGPIdentifier): Boolean =
-    if (openPgpProviderRepository.hasSelectedProvider()) false
-    else pgpKeyManager.getKeyById(id).isOk
+  fun hasKey(id: PGPIdentifier): Boolean = pgpKeyManager.getKeyById(id).isOk
 
   fun isSecretKey(id: PGPIdentifier): Boolean {
     val key = pgpKeyManager.getKeyById(id).get()
