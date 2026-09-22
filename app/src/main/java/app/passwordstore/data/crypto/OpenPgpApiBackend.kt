@@ -69,6 +69,7 @@ class OpenPgpApiBackend internal constructor(private val executor: OpenPgpApiExe
       providerPackage = providerPackage,
       initialRequest = Intent(OpenPgpApi.ACTION_CHECK_PERMISSION),
       input = null,
+      maxOutputBytes = MAX_METADATA_OUTPUT_BYTES,
       interactionHandler = interactionHandler,
     ) {}
 
@@ -76,11 +77,13 @@ class OpenPgpApiBackend internal constructor(private val executor: OpenPgpApiExe
     providerPackage: String,
     ciphertext: ByteArray,
     interactionHandler: InteractionHandler? = null,
+    maxOutputBytes: Long = DEFAULT_MAX_DECRYPT_OUTPUT_BYTES,
   ): OperationResult<ByteArray> =
     executeWithInteraction(
       providerPackage = providerPackage,
       initialRequest = Intent(OpenPgpApi.ACTION_DECRYPT_VERIFY),
       input = ciphertext,
+      maxOutputBytes = maxOutputBytes,
       interactionHandler = interactionHandler,
     ) { call ->
       call.output
@@ -100,6 +103,7 @@ class OpenPgpApiBackend internal constructor(private val executor: OpenPgpApiExe
           putExtra(OpenPgpApi.EXTRA_REQUEST_ASCII_ARMOR, asciiArmor)
         },
       input = null,
+      maxOutputBytes = MAX_PUBLIC_KEY_OUTPUT_BYTES,
       interactionHandler = interactionHandler,
     ) { call ->
       call.output
@@ -117,6 +121,7 @@ class OpenPgpApiBackend internal constructor(private val executor: OpenPgpApiExe
           putExtra(OpenPgpApi.EXTRA_USER_IDS, userIds)
         },
       input = null,
+      maxOutputBytes = MAX_METADATA_OUTPUT_BYTES,
       interactionHandler = interactionHandler,
     ) { call ->
       call.result.getLongArrayExtra(OpenPgpApi.RESULT_KEY_IDS) ?: longArrayOf()
@@ -126,6 +131,7 @@ class OpenPgpApiBackend internal constructor(private val executor: OpenPgpApiExe
     providerPackage: String,
     initialRequest: Intent,
     input: ByteArray?,
+    maxOutputBytes: Long,
     interactionHandler: InteractionHandler?,
     onSuccess: (OpenPgpApiCall) -> T,
   ): OperationResult<T> {
@@ -134,7 +140,7 @@ class OpenPgpApiBackend internal constructor(private val executor: OpenPgpApiExe
     repeat(MAX_INTERACTION_ROUNDS) {
       val call =
         try {
-          executor.execute(providerPackage, request, input)
+          executor.execute(providerPackage, request, input, maxOutputBytes)
         } catch (error: CancellationException) {
           throw error
         } catch (error: Throwable) {
@@ -202,12 +208,18 @@ class OpenPgpApiBackend internal constructor(private val executor: OpenPgpApiExe
     )
   }
 
-  private companion object {
-    const val MAX_INTERACTION_ROUNDS = 4
+  companion object {
+    const val DEFAULT_MAX_DECRYPT_OUTPUT_BYTES = 16 * 1024 * 1024L
+    private const val MAX_PUBLIC_KEY_OUTPUT_BYTES = 1024 * 1024L
+    private const val MAX_METADATA_OUTPUT_BYTES = 64 * 1024L
+    private const val MAX_INTERACTION_ROUNDS = 4
   }
 }
 
 class OpenPgpProviderException(message: String) : Exception(message)
+
+class OpenPgpOutputLimitExceededException(val maxBytes: Long) :
+  Exception("OpenPGP provider output exceeded $maxBytes bytes")
 
 internal data class OpenPgpApiCall(val result: Intent, val output: ByteArray)
 
@@ -218,7 +230,39 @@ internal interface OpenPgpApiExecutor {
     providerPackage: String,
     request: Intent,
     input: ByteArray?,
+    maxOutputBytes: Long,
   ): OpenPgpApiCall
+}
+
+internal class BoundedByteArrayOutputStream(private val maxBytes: Long) : ByteArrayOutputStream() {
+
+  init {
+    require(maxBytes in 1..Int.MAX_VALUE.toLong()) { "maxBytes must fit in a positive Int" }
+  }
+
+  override fun write(value: Int) {
+    ensureCapacityFor(1)
+    super.write(value)
+  }
+
+  override fun write(bytes: ByteArray, offset: Int, length: Int) {
+    if (offset < 0 || length < 0 || offset > bytes.size - length) {
+      throw IndexOutOfBoundsException()
+    }
+    ensureCapacityFor(length)
+    super.write(bytes, offset, length)
+  }
+
+  fun wipe() {
+    buf.fill(0)
+    reset()
+  }
+
+  private fun ensureCapacityFor(additionalBytes: Int) {
+    if (count.toLong() + additionalBytes > maxBytes) {
+      throw OpenPgpOutputLimitExceededException(maxBytes)
+    }
+  }
 }
 
 internal class BinderOpenPgpApiExecutor(private val context: Context) : OpenPgpApiExecutor {
@@ -236,12 +280,18 @@ internal class BinderOpenPgpApiExecutor(private val context: Context) : OpenPgpA
     providerPackage: String,
     request: Intent,
     input: ByteArray?,
+    maxOutputBytes: Long,
   ): OpenPgpApiCall =
     withService(providerPackage) { service ->
-      val output = ByteArrayOutputStream()
-      val result =
-        OpenPgpApi(context, service).executeApi(request, input?.let(::ByteArrayInputStream), output)
-      OpenPgpApiCall(result, output.toByteArray())
+      val output = BoundedByteArrayOutputStream(maxOutputBytes)
+      try {
+        val result =
+          OpenPgpApi(context, service)
+            .executeApi(request, input?.let(::ByteArrayInputStream), output)
+        OpenPgpApiCall(result, output.toByteArray())
+      } finally {
+        output.wipe()
+      }
     }
 
   private suspend fun <T> withService(

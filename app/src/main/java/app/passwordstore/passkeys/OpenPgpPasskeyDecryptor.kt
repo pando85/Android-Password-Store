@@ -8,6 +8,7 @@ package app.passwordstore.passkeys
 import android.content.SharedPreferences
 import app.passwordstore.data.crypto.OpenPgpApiBackend
 import app.passwordstore.data.crypto.OpenPgpInteractionCoordinator
+import app.passwordstore.data.crypto.OpenPgpOutputLimitExceededException
 import app.passwordstore.data.crypto.OpenPgpProviderRepository
 import app.passwordstore.injection.prefs.SettingsPreferences
 import app.passwordstore.passkeys.crypto.PasskeyDecryptionError
@@ -124,26 +125,23 @@ constructor(
           OpenPgpApiBackend.InteractionHandler { pendingIntent ->
             interactionCoordinator.interact(pendingIntent)
           },
+          maxOutputBytes = limits.maxPlaintextBytes,
         )
     ) {
-      is OpenPgpApiBackend.OperationResult.Success -> {
-        val plaintext = result.value
-        if (plaintext.size.toLong() > limits.maxPlaintextBytes) {
-          plaintext.fill(0)
-          Err(PasskeyDecryptionError.PlaintextTooLarge(limits.maxPlaintextBytes))
-        } else {
-          Ok(SensitiveBytes(plaintext))
-        }
-      }
+      is OpenPgpApiBackend.OperationResult.Success -> Ok(SensitiveBytes(result.value))
       is OpenPgpApiBackend.OperationResult.UserInteractionRequired ->
         Err(PasskeyDecryptionError.KeyLocked(provider))
       OpenPgpApiBackend.OperationResult.Cancelled -> Err(PasskeyDecryptionError.KeyLocked(provider))
       is OpenPgpApiBackend.OperationResult.Failure ->
-        Err(
-          PasskeyDecryptionError.UnsupportedFormat(
-            result.error.message ?: "External OpenPGP provider decryption failed"
+        if (result.error is OpenPgpOutputLimitExceededException) {
+          Err(PasskeyDecryptionError.PlaintextTooLarge(limits.maxPlaintextBytes))
+        } else {
+          Err(
+            PasskeyDecryptionError.UnsupportedFormat(
+              result.error.message ?: "External OpenPGP provider decryption failed"
+            )
           )
-        )
+        }
     }
   }
 

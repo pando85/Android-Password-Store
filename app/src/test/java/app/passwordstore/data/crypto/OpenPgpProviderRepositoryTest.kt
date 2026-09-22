@@ -38,7 +38,7 @@ class OpenPgpProviderRepositoryTest {
     var getKeyCalls = 0
     val backend =
       OpenPgpApiBackend(
-        FakeExecutor { _, request, _ ->
+        FakeExecutor { _, request, _, _ ->
           when (request.action) {
             OpenPgpApi.ACTION_GET_KEY -> {
               getKeyCalls++
@@ -65,7 +65,7 @@ class OpenPgpProviderRepositoryTest {
     var getKeyCalls = 0
     val backend =
       OpenPgpApiBackend(
-        FakeExecutor { _, request, _ ->
+        FakeExecutor { _, request, _, _ ->
           when (request.action) {
             OpenPgpApi.ACTION_GET_KEY_IDS ->
               OpenPgpApiCall(
@@ -96,7 +96,7 @@ class OpenPgpProviderRepositoryTest {
     val identifier = PGPIdentifier.KeyId(keyId)
     val backend =
       OpenPgpApiBackend(
-        FakeExecutor { _, request, _ ->
+        FakeExecutor { _, request, _, _ ->
           when (request.action) {
             OpenPgpApi.ACTION_GET_KEY -> OpenPgpApiCall(success(), certificate.getEncoded())
             else -> error("Unexpected action ${request.action}")
@@ -133,7 +133,7 @@ class OpenPgpProviderRepositoryTest {
     Intent().apply { putExtra(OpenPgpApi.RESULT_CODE, OpenPgpApi.RESULT_CODE_SUCCESS) }
 
   private class FakeExecutor(
-    private val executeBlock: suspend (String, Intent, ByteArray?) -> OpenPgpApiCall
+    private val executeBlock: suspend (String, Intent, ByteArray?, Long) -> OpenPgpApiCall
   ) : OpenPgpApiExecutor {
     override fun providers(): List<OpenPgpApiBackend.Provider> =
       listOf(OpenPgpApiBackend.Provider(PROVIDER, "Provider"))
@@ -142,7 +142,8 @@ class OpenPgpProviderRepositoryTest {
       providerPackage: String,
       request: Intent,
       input: ByteArray?,
-    ): OpenPgpApiCall = executeBlock(providerPackage, request, input)
+      maxOutputBytes: Long,
+    ): OpenPgpApiCall = executeBlock(providerPackage, request, input, maxOutputBytes)
   }
 
   private companion object {

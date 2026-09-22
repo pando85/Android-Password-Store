@@ -56,6 +56,7 @@ constructor(
   suspend fun decrypt(
     ciphertext: ByteArray,
     interactionHandler: OpenPgpApiBackend.InteractionHandler? = null,
+    maxOutputBytes: Long = OpenPgpApiBackend.DEFAULT_MAX_DECRYPT_OUTPUT_BYTES,
   ): OpenPgpApiBackend.OperationResult<ByteArray> {
     val provider =
       selectedProviderPackage()
@@ -63,7 +64,7 @@ constructor(
           IllegalStateException("No external OpenPGP provider is selected")
         )
     if (!backend.isProviderInstalled(provider)) return providerUnavailable(provider)
-    return backend.decrypt(provider, ciphertext, interactionHandler)
+    return backend.decrypt(provider, ciphertext, interactionHandler, maxOutputBytes)
   }
 
   /**

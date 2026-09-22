@@ -10,6 +10,7 @@ import android.content.Intent
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlinx.coroutines.runBlocking
 import org.junit.runner.RunWith
@@ -22,7 +23,7 @@ class OpenPgpApiBackendTest {
 
   @Test
   fun `decrypt returns provider output on success`(): Unit = runBlocking {
-    val executor = FakeExecutor { _, _, _ ->
+    val executor = FakeExecutor { _, _, _, _ ->
       OpenPgpApiCall(result(OpenPgpApi.RESULT_CODE_SUCCESS), byteArrayOf(1, 2, 3))
     }
     val backend = OpenPgpApiBackend(executor)
@@ -36,6 +37,29 @@ class OpenPgpApiBackendTest {
   }
 
   @Test
+  fun `decrypt forwards the caller output limit`(): Unit = runBlocking {
+    var seenLimit = 0L
+    val executor = FakeExecutor { _, _, _, maxOutputBytes ->
+      seenLimit = maxOutputBytes
+      OpenPgpApiCall(result(OpenPgpApi.RESULT_CODE_SUCCESS), byteArrayOf(1))
+    }
+    val backend = OpenPgpApiBackend(executor)
+
+    backend.decrypt("provider", byteArrayOf(9), maxOutputBytes = 1234L)
+
+    assertEquals(1234L, seenLimit)
+  }
+
+  @Test
+  fun `bounded provider output fails before exceeding limit`() {
+    val output = BoundedByteArrayOutputStream(3)
+    output.write(byteArrayOf(1, 2, 3))
+
+    assertFailsWith<OpenPgpOutputLimitExceededException> { output.write(4) }
+    output.wipe()
+  }
+
+  @Test
   fun `provider continuation intent is used after user interaction`(): Unit = runBlocking {
     val pendingIntent =
       PendingIntent.getActivity(
@@ -45,7 +69,7 @@ class OpenPgpApiBackendTest {
         PendingIntent.FLAG_IMMUTABLE,
       )
     val seenActions = mutableListOf<String?>()
-    val executor = FakeExecutor { _, request, _ ->
+    val executor = FakeExecutor { _, request, _, _ ->
       seenActions += request.action
       if (seenActions.size == 1) {
         OpenPgpApiCall(
@@ -85,7 +109,7 @@ class OpenPgpApiBackendTest {
         Intent("interaction"),
         PendingIntent.FLAG_IMMUTABLE,
       )
-    val executor = FakeExecutor { _, _, _ ->
+    val executor = FakeExecutor { _, _, _, _ ->
       OpenPgpApiCall(
         result(OpenPgpApi.RESULT_CODE_USER_INTERACTION_REQUIRED).apply {
           putExtra(OpenPgpApi.RESULT_INTENT, pendingIntent)
@@ -102,7 +126,7 @@ class OpenPgpApiBackendTest {
   private fun result(code: Int): Intent = Intent().apply { putExtra(OpenPgpApi.RESULT_CODE, code) }
 
   private class FakeExecutor(
-    private val executeBlock: suspend (String, Intent, ByteArray?) -> OpenPgpApiCall
+    private val executeBlock: suspend (String, Intent, ByteArray?, Long) -> OpenPgpApiCall
   ) : OpenPgpApiExecutor {
     override fun providers(): List<OpenPgpApiBackend.Provider> = emptyList()
 
@@ -110,6 +134,7 @@ class OpenPgpApiBackendTest {
       providerPackage: String,
       request: Intent,
       input: ByteArray?,
-    ): OpenPgpApiCall = executeBlock(providerPackage, request, input)
+      maxOutputBytes: Long,
+    ): OpenPgpApiCall = executeBlock(providerPackage, request, input, maxOutputBytes)
   }
 }
