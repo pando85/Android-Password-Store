@@ -44,6 +44,7 @@ constructor(
         ?: return OpenPgpApiBackend.OperationResult.Failure(
           IllegalStateException("No external OpenPGP provider is selected")
         )
+    if (!backend.isProviderInstalled(provider)) return providerUnavailable(provider)
     return backend.checkPermission(provider, interactionHandler)
   }
 
@@ -56,6 +57,7 @@ constructor(
         ?: return OpenPgpApiBackend.OperationResult.Failure(
           IllegalStateException("No external OpenPGP provider is selected")
         )
+    if (!backend.isProviderInstalled(provider)) return providerUnavailable(provider)
     return backend.decrypt(provider, ciphertext, interactionHandler)
   }
 
@@ -74,6 +76,7 @@ constructor(
         ?: return OpenPgpApiBackend.OperationResult.Failure(
           IllegalStateException("No external OpenPGP provider is selected")
         )
+    if (!backend.isProviderInstalled(provider)) return providerUnavailable(provider)
 
     for (identifier in identifiers) {
       if (hasLocalKey(identifier)) continue
@@ -169,6 +172,13 @@ constructor(
 
     return OpenPgpApiBackend.OperationResult.Success(Unit)
   }
+
+  private fun <T> providerUnavailable(
+    provider: String
+  ): OpenPgpApiBackend.OperationResult<T> =
+    OpenPgpApiBackend.OperationResult.Failure(
+      OpenPgpProviderException("Selected OpenPGP provider $provider is not installed")
+    )
 
   private fun hasLocalKey(identifier: PGPIdentifier): Boolean =
     keyManager.getKeyById(identifier).fold(success = { true }, failure = { false })

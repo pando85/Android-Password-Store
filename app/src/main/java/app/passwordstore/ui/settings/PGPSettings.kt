@@ -59,22 +59,42 @@ class PGPSettings(private val activity: FragmentActivity) : SettingsProvider {
   private fun showOpenPgpProviderDialog() {
     val providers = backend.providers()
     val current = activity.sharedPrefs.getString(PreferenceKeys.OPENPGP_PROVIDER_PACKAGE, null)
-    val labels =
-      listOf(activity.getString(R.string.pref_openpgp_provider_internal)) +
-        providers.map { "${it.label} (${it.packageName})" }
+    val unavailableCurrent =
+      current?.takeIf { selected -> providers.none { it.packageName == selected } }
+    val labels = buildList {
+      add(activity.getString(R.string.pref_openpgp_provider_internal))
+      unavailableCurrent?.let { add("$it (${activity.getString(R.string.error)})") }
+      addAll(providers.map { "${it.label} (${it.packageName})" })
+    }
     val checked =
-      providers.indexOfFirst { it.packageName == current }.let { if (it < 0) 0 else it + 1 }
+      when {
+        current == null -> 0
+        unavailableCurrent != null -> 1
+        else -> providers.indexOfFirst { it.packageName == current } + 1
+      }
+    val providerOffset = if (unavailableCurrent != null) 2 else 1
 
     MaterialAlertDialogBuilder(activity)
       .setTitle(R.string.pref_openpgp_provider_title)
       .setSingleChoiceItems(labels.toTypedArray(), checked) { dialog, which ->
-        dialog.dismiss()
         if (which == 0) {
+          dialog.dismiss()
           activity.sharedPrefs.edit { remove(PreferenceKeys.OPENPGP_PROVIDER_PACKAGE) }
           return@setSingleChoiceItems
         }
+        if (unavailableCurrent != null && which == 1) {
+          dialog.dismiss()
+          showProviderError(
+            activity.getString(
+              R.string.openpgp_provider_operation_failed,
+              "$unavailableCurrent: ${activity.getString(R.string.error)}",
+            )
+          )
+          return@setSingleChoiceItems
+        }
 
-        val provider = providers[which - 1]
+        dialog.dismiss()
+        val provider = providers[which - providerOffset]
         activity.lifecycleScope.launch {
           when (val result = backend.checkPermission(provider.packageName, interactionHandler)) {
             is OpenPgpApiBackend.OperationResult.Success ->
