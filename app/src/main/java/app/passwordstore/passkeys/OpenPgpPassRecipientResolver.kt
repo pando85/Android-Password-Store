@@ -5,8 +5,9 @@
 
 package app.passwordstore.passkeys
 
-import app.passwordstore.crypto.PGPIdentifier
+import app.passwordstore.crypto.DefaultPassRecipientResolver
 import app.passwordstore.crypto.PGPKey
+import app.passwordstore.data.crypto.OpenPgpAmbiguousRecipientException
 import app.passwordstore.data.crypto.OpenPgpApiBackend
 import app.passwordstore.data.crypto.OpenPgpInteractionCoordinator
 import app.passwordstore.data.crypto.OpenPgpProviderRepository
@@ -18,50 +19,43 @@ import com.github.michaelbull.result.Result
 import com.github.michaelbull.result.fold
 import java.io.File
 
-/** Adds provider public-certificate retrieval without weakening hierarchical `.gpg-id` policy. */
+/** Resolves pass recipients from the selected provider without weakening `.gpg-id` policy. */
 class OpenPgpPassRecipientResolver(
-  private val delegate: PassRecipientResolver<PGPKey>,
+  private val delegate: DefaultPassRecipientResolver,
   private val providerRepository: OpenPgpProviderRepository,
   private val interactionCoordinator: OpenPgpInteractionCoordinator,
 ) : PassRecipientResolver<PGPKey> {
 
   override suspend fun resolveFor(target: File): Result<List<PGPKey>, RecipientPolicyError> {
-    val attemptedIdentifiers = mutableSetOf<String>()
+    if (!providerRepository.hasSelectedProvider()) return delegate.resolveFor(target)
 
-    while (true) {
-      var resolvedKeys: List<PGPKey>? = null
-      var resolutionError: RecipientPolicyError? = null
+    val identifiers =
       delegate
-        .resolveFor(target)
-        .fold(
-          success = { resolvedKeys = it },
-          failure = { resolutionError = it },
-        )
+        .resolveIdentifiersFor(target)
+        .fold(success = { it }, failure = { return Err(it) })
 
-      resolvedKeys?.let {
-        return Ok(it)
-      }
-      val error = resolutionError ?: return Err(RecipientPolicyError.EmptyRecipientSet)
-      if (
-        error !is RecipientPolicyError.RecipientNotFound ||
-          !providerRepository.hasSelectedProvider() ||
-          !attemptedIdentifiers.add(error.identifier)
-      ) {
-        return Err(error)
-      }
-
-      val identifier = PGPIdentifier.fromString(error.identifier) ?: return Err(error)
-      when (
-        providerRepository.ensurePublicKeys(
-          listOf(identifier),
+    return when (
+      val resolved =
+        providerRepository.resolvePublicKeys(
+          identifiers,
           OpenPgpApiBackend.InteractionHandler { pendingIntent ->
             interactionCoordinator.interact(pendingIntent)
           },
         )
-      ) {
-        is OpenPgpApiBackend.OperationResult.Success -> Unit
-        else -> return Err(error)
+    ) {
+      is OpenPgpApiBackend.OperationResult.Success -> Ok(resolved.value)
+      is OpenPgpApiBackend.OperationResult.Failure -> {
+        val error = resolved.error
+        if (error is OpenPgpAmbiguousRecipientException) {
+          Err(RecipientPolicyError.AmbiguousRecipient(error.identifier))
+        } else {
+          Err(RecipientPolicyError.RecipientNotFound(identifiers.joinToString(", ")))
+        }
       }
+      is OpenPgpApiBackend.OperationResult.UserInteractionRequired ->
+        Err(RecipientPolicyError.RecipientNotFound(identifiers.joinToString(", ")))
+      OpenPgpApiBackend.OperationResult.Cancelled ->
+        Err(RecipientPolicyError.RecipientNotFound(identifiers.joinToString(", ")))
     }
   }
 }

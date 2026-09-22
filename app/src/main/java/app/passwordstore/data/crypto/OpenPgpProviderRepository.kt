@@ -9,22 +9,27 @@ import android.content.SharedPreferences
 import app.passwordstore.crypto.KeyUtils
 import app.passwordstore.crypto.PGPIdentifier
 import app.passwordstore.crypto.PGPKey
-import app.passwordstore.crypto.PGPKeyManager
 import app.passwordstore.injection.prefs.SettingsPreferences
 import app.passwordstore.util.settings.PreferenceKeys
-import com.github.michaelbull.result.fold
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Coordinates APS-local provider selection with local public-certificate storage. */
+/** Coordinates APS-local provider selection with provider-owned OpenPGP key material. */
 @Singleton
 class OpenPgpProviderRepository
 @Inject
 constructor(
   private val backend: OpenPgpApiBackend,
-  private val keyManager: PGPKeyManager,
   @SettingsPreferences private val settings: SharedPreferences,
 ) {
+
+  private data class PublicKeyCacheKey(
+    val providerPackage: String,
+    val identifier: PGPIdentifier,
+  )
+
+  private val resolvedPublicKeys = ConcurrentHashMap<PublicKeyCacheKey, List<PGPKey>>()
 
   fun providers(): List<OpenPgpApiBackend.Provider> = backend.providers()
 
@@ -62,10 +67,32 @@ constructor(
   }
 
   /**
-   * Makes the public certificates required by [identifiers] available to PGPainless.
+   * Resolves [identifiers] against the selected provider and returns fresh public certificates.
    *
-   * The provider remains the sole owner of private key material. Retrieved certificates are checked
-   * against the provider-returned key ID before they are accepted by the local key manager.
+   * The provider is authoritative for recipient resolution whenever it is selected. The local APS
+   * key manager is deliberately not consulted here: otherwise a previously imported certificate or
+   * an older key carrying the same user ID could silently override provider-side rotation or
+   * revocation state.
+   */
+  suspend fun resolvePublicKeys(
+    identifiers: List<PGPIdentifier>,
+    interactionHandler: OpenPgpApiBackend.InteractionHandler? = null,
+  ): OpenPgpApiBackend.OperationResult<List<PGPKey>> {
+    return when (val resolved = resolvePublicKeysByIdentifier(identifiers, interactionHandler)) {
+      is OpenPgpApiBackend.OperationResult.Success ->
+        OpenPgpApiBackend.OperationResult.Success(deduplicate(resolved.value.values.flatten()))
+      is OpenPgpApiBackend.OperationResult.UserInteractionRequired -> resolved
+      OpenPgpApiBackend.OperationResult.Cancelled -> resolved
+      is OpenPgpApiBackend.OperationResult.Failure -> resolved
+    }
+  }
+
+  /**
+   * Resolves fresh provider certificates and makes that exact resolution available to the immediate
+   * APS password-encryption path.
+   *
+   * This cache is only a hand-off between recipient validation and encryption; it is never used to
+   * avoid a provider lookup. Every call refreshes the provider state first.
    */
   suspend fun ensurePublicKeys(
     identifiers: List<PGPIdentifier>,
@@ -78,9 +105,43 @@ constructor(
         )
     if (!backend.isProviderInstalled(provider)) return providerUnavailable(provider)
 
-    for (identifier in identifiers) {
-      if (hasLocalKey(identifier)) continue
+    return when (val resolved = resolvePublicKeysByIdentifier(identifiers, interactionHandler)) {
+      is OpenPgpApiBackend.OperationResult.Success -> {
+        for ((identifier, keys) in resolved.value) {
+          resolvedPublicKeys[PublicKeyCacheKey(provider, identifier)] = keys
+        }
+        OpenPgpApiBackend.OperationResult.Success(Unit)
+      }
+      is OpenPgpApiBackend.OperationResult.UserInteractionRequired -> resolved
+      OpenPgpApiBackend.OperationResult.Cancelled -> resolved
+      is OpenPgpApiBackend.OperationResult.Failure -> resolved
+    }
+  }
 
+  /** Returns only a complete provider resolution previously produced by [ensurePublicKeys]. */
+  fun resolvedPublicKeysFor(identifiers: List<PGPIdentifier>): List<PGPKey>? {
+    val provider = selectedProviderPackage() ?: return null
+    val keys = mutableListOf<PGPKey>()
+    for (identifier in identifiers) {
+      val resolved = resolvedPublicKeys[PublicKeyCacheKey(provider, identifier)] ?: return null
+      keys += resolved
+    }
+    return deduplicate(keys)
+  }
+
+  private suspend fun resolvePublicKeysByIdentifier(
+    identifiers: List<PGPIdentifier>,
+    interactionHandler: OpenPgpApiBackend.InteractionHandler?,
+  ): OpenPgpApiBackend.OperationResult<Map<PGPIdentifier, List<PGPKey>>> {
+    val provider =
+      selectedProviderPackage()
+        ?: return OpenPgpApiBackend.OperationResult.Failure(
+          IllegalStateException("No external OpenPGP provider is selected")
+        )
+    if (!backend.isProviderInstalled(provider)) return providerUnavailable(provider)
+
+    val result = linkedMapOf<PGPIdentifier, List<PGPKey>>()
+    for (identifier in identifiers.distinct()) {
       val keyIds =
         when (identifier) {
           is PGPIdentifier.KeyId -> longArrayOf(identifier.id)
@@ -93,15 +154,10 @@ constructor(
                   interactionHandler = interactionHandler,
                 )
             ) {
-              is OpenPgpApiBackend.OperationResult.Success -> resolved.value
-              is OpenPgpApiBackend.OperationResult.UserInteractionRequired ->
-                return OpenPgpApiBackend.OperationResult.UserInteractionRequired(
-                  resolved.pendingIntent
-                )
-              OpenPgpApiBackend.OperationResult.Cancelled ->
-                return OpenPgpApiBackend.OperationResult.Cancelled
-              is OpenPgpApiBackend.OperationResult.Failure ->
-                return OpenPgpApiBackend.OperationResult.Failure(resolved.error)
+              is OpenPgpApiBackend.OperationResult.Success -> resolved.value.distinct().toLongArray()
+              is OpenPgpApiBackend.OperationResult.UserInteractionRequired -> return resolved
+              OpenPgpApiBackend.OperationResult.Cancelled -> return resolved
+              is OpenPgpApiBackend.OperationResult.Failure -> return resolved
             }
           }
         }
@@ -111,8 +167,14 @@ constructor(
           IllegalStateException("OpenPGP provider could not resolve $identifier")
         )
       }
+      if (identifier is PGPIdentifier.UserId && keyIds.size > 1) {
+        return OpenPgpApiBackend.OperationResult.Failure(
+          OpenPgpAmbiguousRecipientException(identifier.email, keyIds.toList())
+        )
+      }
 
-      for (keyId in keyIds.distinct()) {
+      val keys = mutableListOf<PGPKey>()
+      for (keyId in keyIds) {
         when (
           val fetched =
             backend.getPublicKey(
@@ -138,39 +200,41 @@ constructor(
                 SecurityException("Provider certificate does not match requested key ID")
               )
             }
-
-            var importFailure: Throwable? = null
-            keyManager
-              .addKey(candidate, replace = false)
-              .fold(
-                success = {},
-                failure = { error ->
-                  // A concurrent import or an existing public certificate is harmless if the
-                  // requested identity can now be resolved locally.
-                  if (!hasLocalKey(identifier)) importFailure = error
-                },
+            if (!KeyUtils.isKeyUsable(certificate)) {
+              return OpenPgpApiBackend.OperationResult.Failure(
+                IllegalArgumentException("Provider returned an unusable OpenPGP certificate")
               )
-            importFailure?.let { error ->
-              return OpenPgpApiBackend.OperationResult.Failure(error)
             }
+            if (
+              identifier is PGPIdentifier.UserId &&
+                certificate.getAllUserIds().none {
+                  identifier.email == it.getUserId() ||
+                    identifier.email == PGPIdentifier.splitUserId(it.getUserId())
+                }
+            ) {
+              return OpenPgpApiBackend.OperationResult.Failure(
+                SecurityException("Provider certificate does not match requested user ID")
+              )
+            }
+            keys += PGPKey(certificate.getEncoded())
           }
-          is OpenPgpApiBackend.OperationResult.UserInteractionRequired ->
-            return OpenPgpApiBackend.OperationResult.UserInteractionRequired(fetched.pendingIntent)
-          OpenPgpApiBackend.OperationResult.Cancelled ->
-            return OpenPgpApiBackend.OperationResult.Cancelled
-          is OpenPgpApiBackend.OperationResult.Failure ->
-            return OpenPgpApiBackend.OperationResult.Failure(fetched.error)
+          is OpenPgpApiBackend.OperationResult.UserInteractionRequired -> return fetched
+          OpenPgpApiBackend.OperationResult.Cancelled -> return fetched
+          is OpenPgpApiBackend.OperationResult.Failure -> return fetched
         }
       }
-
-      if (!hasLocalKey(identifier)) {
-        return OpenPgpApiBackend.OperationResult.Failure(
-          IllegalStateException("Retrieved certificates do not satisfy $identifier")
-        )
-      }
+      result[identifier] = keys
     }
 
-    return OpenPgpApiBackend.OperationResult.Success(Unit)
+    return OpenPgpApiBackend.OperationResult.Success(result)
+  }
+
+  private fun deduplicate(keys: List<PGPKey>): List<PGPKey> {
+    val seenPrimaryKeyIds = mutableSetOf<Long>()
+    return keys.filter { key ->
+      val certificate = KeyUtils.tryParseCertificateOrKey(key) ?: return@filter false
+      seenPrimaryKeyIds.add(KeyUtils.tryGetKeyId(certificate).id)
+    }
   }
 
   private fun <T> providerUnavailable(
@@ -179,7 +243,9 @@ constructor(
     OpenPgpApiBackend.OperationResult.Failure(
       OpenPgpProviderException("Selected OpenPGP provider $provider is not installed")
     )
-
-  private fun hasLocalKey(identifier: PGPIdentifier): Boolean =
-    keyManager.getKeyById(identifier).fold(success = { true }, failure = { false })
 }
+
+class OpenPgpAmbiguousRecipientException(
+  val identifier: String,
+  val keyIds: List<Long>,
+) : Exception("OpenPGP provider resolved $identifier to multiple keys")
