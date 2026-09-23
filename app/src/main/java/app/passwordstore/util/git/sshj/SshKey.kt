@@ -382,9 +382,11 @@ object SshKey {
     val publicKey = androidKeystore.sshPublicKey ?: throw NullPointerException()
     val privateKey = androidKeystore.sshPrivateKey ?: throw NullPointerException()
 
-    // let Keystore do cryptographic operations
-    SecurityUtils.setRegisterBouncyCastle(false)
+    // SSHJ 0.41.1 resets the BouncyCastle registration mode when its configured provider is
+    // cleared. Clear the provider first, then explicitly disable BC so Android Keystore-backed
+    // private keys are signed by the platform provider without requiring an exportable encoding.
     SecurityUtils.setSecurityProvider(null)
+    SecurityUtils.setRegisterBouncyCastle(false)
 
     client.loadKeys(KeyPair(publicKey, privateKey))
   }
