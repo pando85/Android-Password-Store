@@ -17,6 +17,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import org.bouncycastle.openpgp.api.OpenPGPKey
 import org.junit.Rule
@@ -58,6 +59,49 @@ class OpenPgpProviderRepositoryTest {
     )
 
     assertEquals(2, getKeyCalls)
+  }
+
+  @Test
+  fun `provider key output is wiped after resolution`() = runBlocking {
+    val certificate = certificate()
+    val keyId = KeyUtils.tryGetKeyId(certificate).id
+    val providerOutput = certificate.getEncoded()
+    val backend =
+      OpenPgpApiBackend(
+        FakeExecutor { _, request, _, _ ->
+          when (request.action) {
+            OpenPgpApi.ACTION_GET_KEY -> OpenPgpApiCall(success(), providerOutput)
+            else -> error("Unexpected action ${request.action}")
+          }
+        }
+      )
+
+    assertIs<OpenPgpApiBackend.OperationResult.Success<List<PGPKey>>>(
+      repository(backend).resolvePublicKeys(listOf(PGPIdentifier.KeyId(keyId)))
+    )
+    assertTrue(providerOutput.all { it == 0.toByte() })
+  }
+
+  @Test
+  fun `mismatched provider certificate fails closed`() = runBlocking {
+    val certificate = certificate()
+    val actualKeyId = KeyUtils.tryGetKeyId(certificate).id
+    val requestedKeyId = actualKeyId xor 1L
+    val backend =
+      OpenPgpApiBackend(
+        FakeExecutor { _, request, _, _ ->
+          when (request.action) {
+            OpenPgpApi.ACTION_GET_KEY -> OpenPgpApiCall(success(), certificate.getEncoded())
+            else -> error("Unexpected action ${request.action}")
+          }
+        }
+      )
+
+    val result =
+      repository(backend).resolvePublicKeys(listOf(PGPIdentifier.KeyId(requestedKeyId)))
+
+    val failure = assertIs<OpenPgpApiBackend.OperationResult.Failure>(result)
+    assertIs<SecurityException>(failure.error)
   }
 
   @Test
