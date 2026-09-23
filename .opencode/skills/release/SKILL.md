@@ -103,7 +103,7 @@ git push origin main
 
 The auto-tag workflow runs only when `app/version.properties` changes on `main` and the version is not a snapshot/pre-release.
 
-### Step 7: Monitor Tag And Release Workflows
+### Step 7: Monitor Tag, Release, and Prepare Next Cycle
 
 ```bash
 gh run list --limit 5
@@ -117,9 +117,7 @@ Expected flow:
 
 Do not manually create tags. CI handles tags and releases.
 
-### Step 8: Prepare Next Development Cycle
-
-Immediately after pushing the release, bump to the next snapshot version using the bump type chosen in Step 5:
+After the release is published, immediately bump to the next snapshot version using the bump type chosen in Step 5:
 
 ```bash
 ./gradlew :app:bumpSnapshot -PbumpType=<major|minor|patch>
@@ -167,4 +165,4 @@ git push origin main
 - [ ] Committed `app/version.properties` and `CHANGELOG.md` together
 - [ ] Pushed to main
 - [ ] Confirmed auto-tag and release workflows passed
-- [ ] Ran `./gradlew :app:bumpSnapshot -PbumpType=<type>` and committed next snapshot
+- [ ] Bumped to next snapshot and committed
