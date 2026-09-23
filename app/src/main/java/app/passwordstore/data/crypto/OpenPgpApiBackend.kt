@@ -336,11 +336,12 @@ internal class BinderOpenPgpApiExecutor(private val context: Context) : OpenPgpA
             )
         operation(boundService)
       } finally {
-        if (connection.isBound) {
-          try {
-            connection.unbindFromService()
-          } catch (_: Exception) {}
-        }
+        // A successful bindService() call can still be pending when this coroutine is cancelled or
+        // times out, so isBound is not sufficient to decide whether the ServiceConnection needs to
+        // be unregistered. unbindService() is safe to attempt here; failed binds are ignored.
+        try {
+          connection.unbindFromService()
+        } catch (_: Exception) {}
       }
     }
 
