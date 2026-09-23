@@ -300,27 +300,22 @@ cat gpg-private.txt | gh secret set GPG_PRIVATE_KEY --repo <owner/repo>
 After initial setup, the day-to-day release flow is:
 
 ```bash
-# 1. Update CHANGELOG.md: rename [Unreleased] to [version] with date
+# 1. Choose bump type based on changes: major / minor / patch
+
+# 2. Bump version (or clear SNAPSHOT if version is already correct)
+./gradlew :app:bumpPatch   # or bumpMinor, or bumpMajor
+
+# 3. Update CHANGELOG.md: rename [Unreleased] to [version] with date
 #    Example: ## [1.17.1] - 2026-06-30
 
-# 2. Prepare release version (removes -SNAPSHOT suffix)
-./gradlew :app:clearPreRelease
-
-# 3. Commit and push
+# 4. Commit and push
 git add app/version.properties CHANGELOG.md
 git commit -m "release: <version>"
 git push origin main
 
-# 4. Auto-tag fires → creates GPG-signed tag → release.yml builds APK
+# 5. Auto-tag fires → creates GPG-signed tag → release.yml builds APK
 #    Release notes are extracted from CHANGELOG.md entry matching the version
 #    (wait ~8 minutes for CI)
-
-# 5. Start next development cycle
-./gradlew :app:bumpSnapshot
-# Add a new [Unreleased] section to CHANGELOG.md
-git add app/version.properties CHANGELOG.md
-git commit -m "chore: start <next-version>-SNAPSHOT"
-git push origin main
 ```
 
 The auto-tag workflow only fires when:
@@ -412,7 +407,7 @@ After setup, report:
 1. Which workflow files were created
 2. Which secrets were set (names only, never values)
 3. The release URL if a release was triggered
-4. How to cut the next release (clearPreRelease → push → bumpSnapshot cycle)
+4. How to cut the next release (choose bump type → bumpMajor/bumpMinor/bumpPatch → push)
 
 When cutting a release, report:
 1. The CHANGELOG.md changes (what was moved from [Unreleased] to [version])
