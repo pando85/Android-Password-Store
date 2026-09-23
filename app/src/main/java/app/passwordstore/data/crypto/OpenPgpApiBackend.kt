@@ -12,6 +12,7 @@ import android.content.pm.ResolveInfo
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
+import java.io.IOException
 import java.util.concurrent.CancellationException
 import javax.inject.Inject
 import kotlinx.coroutines.CompletableDeferred
@@ -219,7 +220,7 @@ class OpenPgpApiBackend internal constructor(private val executor: OpenPgpApiExe
 class OpenPgpProviderException(message: String) : Exception(message)
 
 class OpenPgpOutputLimitExceededException(val maxBytes: Long) :
-  Exception("OpenPGP provider output exceeded $maxBytes bytes")
+  IOException("OpenPGP provider output exceeded $maxBytes bytes")
 
 internal data class OpenPgpApiCall(val result: Intent, val output: ByteArray)
 
@@ -235,6 +236,8 @@ internal interface OpenPgpApiExecutor {
 }
 
 internal class BoundedByteArrayOutputStream(private val maxBytes: Long) : ByteArrayOutputStream() {
+
+  @Volatile private var limitExceeded = false
 
   init {
     require(maxBytes in 1..Int.MAX_VALUE.toLong()) { "maxBytes must fit in a positive Int" }
@@ -253,6 +256,10 @@ internal class BoundedByteArrayOutputStream(private val maxBytes: Long) : ByteAr
     super.write(bytes, offset, length)
   }
 
+  fun throwIfLimitExceeded() {
+    if (limitExceeded) throw OpenPgpOutputLimitExceededException(maxBytes)
+  }
+
   fun wipe() {
     buf.fill(0)
     reset()
@@ -260,6 +267,7 @@ internal class BoundedByteArrayOutputStream(private val maxBytes: Long) : ByteAr
 
   private fun ensureCapacityFor(additionalBytes: Int) {
     if (count.toLong() + additionalBytes > maxBytes) {
+      limitExceeded = true
       throw OpenPgpOutputLimitExceededException(maxBytes)
     }
   }
@@ -288,6 +296,10 @@ internal class BinderOpenPgpApiExecutor(private val context: Context) : OpenPgpA
         val result =
           OpenPgpApi(context, service)
             .executeApi(request, input?.let(::ByteArrayInputStream), output)
+        // OpenPgpApi pumps provider output on a background thread and swallows IOExceptions from
+        // that thread. Keep an explicit overflow flag so a rejected write cannot be mistaken for a
+        // successful, truncated provider response.
+        output.throwIfLimitExceeded()
         OpenPgpApiCall(result, output.toByteArray())
       } finally {
         output.wipe()
