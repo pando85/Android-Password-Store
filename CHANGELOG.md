@@ -4,6 +4,29 @@ All notable changes to this project will be documented in this file
 
 ## [Unreleased]
 
+## [1.23.0] - 2026-09-23
+
+### Added
+
+- External OpenPGP provider integration: encrypt and decrypt using compatible OpenPGP apps
+- Provider selection UI for choosing an external OpenPGP provider
+- External OpenPGP decryptor selection for passkeys
+
+### Fixed
+
+- Provider interaction slot is now released on launch failure
+- Provider bind timeouts are correctly surfaced as failures
+- Encryption recipients are resolved without altering local key state
+- Oversized provider output is rejected to prevent resource exhaustion
+- Raw provider key output is wiped after use
+- Pending provider connections are properly unbound
+- Resolved provider recipients are reported correctly
+- Lint: replaced `runCatching` with try-catch and removed stale baseline entries
+
+### Changed
+
+- Updated dependency: sshj to v0.41.1
+
 ## [1.22.0] - 2026-09-21
 
 ### Added
