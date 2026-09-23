@@ -51,11 +51,12 @@ class OpenPgpApiBackendTest {
   }
 
   @Test
-  fun `bounded provider output fails before exceeding limit`() {
+  fun `bounded provider output remembers overflow after the write fails`() {
     val output = BoundedByteArrayOutputStream(3)
     output.write(byteArrayOf(1, 2, 3))
 
     assertFailsWith<OpenPgpOutputLimitExceededException> { output.write(4) }
+    assertFailsWith<OpenPgpOutputLimitExceededException> { output.throwIfLimitExceeded() }
     output.wipe()
   }
 
