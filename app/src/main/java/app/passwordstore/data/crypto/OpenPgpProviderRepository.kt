@@ -195,39 +195,44 @@ constructor(
             )
         ) {
           is OpenPgpApiBackend.OperationResult.Success -> {
-            val candidate = PGPKey(fetched.value)
-            val certificate =
-              KeyUtils.tryParseCertificateOrKey(candidate)
-                ?: return OpenPgpApiBackend.OperationResult.Failure(
-                  IllegalArgumentException("Provider returned an invalid OpenPGP certificate")
+            val providerOutput = fetched.value
+            try {
+              val candidate = PGPKey(providerOutput)
+              val certificate =
+                KeyUtils.tryParseCertificateOrKey(candidate)
+                  ?: return OpenPgpApiBackend.OperationResult.Failure(
+                    IllegalArgumentException("Provider returned an invalid OpenPGP certificate")
+                  )
+              if (KeyUtils.isSecretKey(certificate)) {
+                return OpenPgpApiBackend.OperationResult.Failure(
+                  SecurityException("OpenPGP provider unexpectedly returned secret key material")
                 )
-            if (KeyUtils.isSecretKey(certificate)) {
-              return OpenPgpApiBackend.OperationResult.Failure(
-                SecurityException("OpenPGP provider unexpectedly returned secret key material")
-              )
+              }
+              if (certificate.getAllKeyIdentifiers().none { it.getKeyId() == keyId }) {
+                return OpenPgpApiBackend.OperationResult.Failure(
+                  SecurityException("Provider certificate does not match requested key ID")
+                )
+              }
+              if (!KeyUtils.isKeyUsable(certificate)) {
+                return OpenPgpApiBackend.OperationResult.Failure(
+                  IllegalArgumentException("Provider returned an unusable OpenPGP certificate")
+                )
+              }
+              if (
+                identifier is PGPIdentifier.UserId &&
+                  certificate.getAllUserIds().none {
+                    identifier.email == it.getUserId() ||
+                      identifier.email == PGPIdentifier.splitUserId(it.getUserId())
+                  }
+              ) {
+                return OpenPgpApiBackend.OperationResult.Failure(
+                  SecurityException("Provider certificate does not match requested user ID")
+                )
+              }
+              keys += PGPKey(certificate.getEncoded())
+            } finally {
+              providerOutput.fill(0)
             }
-            if (certificate.getAllKeyIdentifiers().none { it.getKeyId() == keyId }) {
-              return OpenPgpApiBackend.OperationResult.Failure(
-                SecurityException("Provider certificate does not match requested key ID")
-              )
-            }
-            if (!KeyUtils.isKeyUsable(certificate)) {
-              return OpenPgpApiBackend.OperationResult.Failure(
-                IllegalArgumentException("Provider returned an unusable OpenPGP certificate")
-              )
-            }
-            if (
-              identifier is PGPIdentifier.UserId &&
-                certificate.getAllUserIds().none {
-                  identifier.email == it.getUserId() ||
-                    identifier.email == PGPIdentifier.splitUserId(it.getUserId())
-                }
-            ) {
-              return OpenPgpApiBackend.OperationResult.Failure(
-                SecurityException("Provider certificate does not match requested user ID")
-              )
-            }
-            keys += PGPKey(certificate.getEncoded())
           }
           is OpenPgpApiBackend.OperationResult.UserInteractionRequired ->
             return OpenPgpApiBackend.OperationResult.UserInteractionRequired(fetched.pendingIntent)
