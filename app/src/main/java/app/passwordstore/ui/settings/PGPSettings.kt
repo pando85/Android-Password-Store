@@ -24,7 +24,15 @@ import kotlinx.coroutines.launch
 
 class PGPSettings(private val activity: FragmentActivity) : SettingsProvider {
 
-  private val backend = OpenPgpApiBackend(activity.applicationContext)
+  // Keep the optional OpenPGP API implementation out of the SettingsActivity startup path. A
+  // broken or unavailable provider integration must not make the entire settings screen unusable.
+  private val backend by
+    lazy(LazyThreadSafetyMode.NONE) {
+      OpenPgpApiBackend(activity.applicationContext)
+    }
+
+  // Activity Result launchers must be registered before the activity reaches STARTED, so this
+  // bridge remains eager even though the OpenPGP backend itself is initialized on demand.
   private val interactionHandler = OpenPgpActivityInteractionHandler(activity)
 
   override fun provideSettings(builder: PreferenceScreen.Builder) {
