@@ -91,7 +91,12 @@ constructor(
   }
 
   fun getEmailFromKeyId(identifier: PGPIdentifier): String? {
-    val key = pgpKeyManager.getKeyById(identifier).get() ?: return null
+    val key =
+      if (openPgpProviderRepository.hasSelectedProvider()) {
+        openPgpProviderRepository.resolvedPublicKeysFor(listOf(identifier))?.firstOrNull()
+      } else {
+        pgpKeyManager.getKeyById(identifier).get()
+      } ?: return null
     val userId = KeyUtils.tryGetUserId(key) ?: return null
     return PGPIdentifier.splitUserId(userId.email)
   }
