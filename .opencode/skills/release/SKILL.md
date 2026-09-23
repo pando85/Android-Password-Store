@@ -76,7 +76,15 @@ Ensure every user-facing change is represented in `CHANGELOG.md`. Dependency bum
 3. Add a new empty `## [Unreleased]` section above the release section.
 4. Keep fork/CI/signing-only changes in a `### Fork infrastructure` subsection when relevant.
 
-### Step 5: Clear Snapshot Version
+### Step 5: Determine Bump Type and Clear Snapshot
+
+Before releasing, decide the next version bump type based on the changes:
+
+- **major** -- breaking changes, new major API
+- **minor** -- new features, backwards-compatible
+- **patch** -- bug fixes only (default)
+
+Clear the snapshot suffix to produce the release version:
 
 ```bash
 ./gradlew :app:clearPreRelease
@@ -109,23 +117,15 @@ Expected flow:
 
 Do not manually create tags. CI handles tags and releases.
 
-### Step 8: Start Next Development Cycle
+### Step 8: Prepare Next Development Cycle
 
-After the release is published, determine the next snapshot version bump type:
-
-- **major** -- breaking changes, new major API
-- **minor** -- new features, backwards-compatible
-- **patch** -- bug fixes only (default)
-
-Run `bumpSnapshot` with the chosen bump type:
+Immediately after pushing the release, bump to the next snapshot version using the bump type chosen in Step 5:
 
 ```bash
 ./gradlew :app:bumpSnapshot -PbumpType=<major|minor|patch>
 ```
 
-If no bump type is specified, it defaults to `patch`.
-
-Ensure `CHANGELOG.md` still has an empty `## [Unreleased]` section, then commit:
+Ensure `CHANGELOG.md` has an empty `## [Unreleased]` section, then commit:
 
 ```bash
 NEXT_VERSION=$(grep 'versioning-plugin.versionName' app/version.properties | cut -d= -f2 | tr -d '[:space:]')
@@ -161,6 +161,7 @@ git push origin main
 - [ ] Repository has full history/tags if using git log for release notes
 - [ ] Reviewed commits since latest tag
 - [ ] Updated `CHANGELOG.md` release section
+- [ ] Decided bump type (major/minor/patch) for next development cycle
 - [ ] Ran `./gradlew :app:clearPreRelease`
 - [ ] Verified version matches changelog section
 - [ ] Committed `app/version.properties` and `CHANGELOG.md` together
