@@ -79,8 +79,8 @@ class VersioningPlugin : Plugin<Project> {
         propertyFile.set(propFile)
       }
       tasks.register<VersioningTask>("bumpSnapshot") {
-        description = "Increment the minor version and add the `SNAPSHOT` suffix"
-        semverString.set(version.nextMinorVersion("SNAPSHOT").toString())
+        description = "Increment the patch version and add the `SNAPSHOT` suffix"
+        semverString.set(version.nextPatchVersion("SNAPSHOT").toString())
         propertyFile.set(propFile)
       }
       afterEvaluate {
