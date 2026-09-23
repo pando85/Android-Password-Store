@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file
 
 ## [Unreleased]
 
+## [1.24.0] - 2026-09-23
+
+### Fixed
+
+- Settings screen no longer crashes when the external OpenPGP provider is broken or unavailable
+- EC SSH key authentication with Android Keystore-backed keys works correctly after SSHJ 0.41.1 update
+
 ## [1.23.0] - 2026-09-23
 
 ### Added
@@ -911,7 +918,10 @@ All notable changes to this project will be documented in this file
 
 - Fix elements overlapping.
 
-[unreleased]: https://github.com/pando85/Android-Password-Store/compare/v1.21.0...HEAD
+[unreleased]: https://github.com/pando85/Android-Password-Store/compare/v1.24.0...HEAD
+[1.24.0]: https://github.com/pando85/Android-Password-Store/compare/v1.23.0...v1.24.0
+[1.23.0]: https://github.com/pando85/Android-Password-Store/compare/v1.22.0...v1.23.0
+[1.22.0]: https://github.com/pando85/Android-Password-Store/compare/v1.21.0...v1.22.0
 [1.21.0]: https://github.com/pando85/Android-Password-Store/compare/v1.20.0...v1.21.0
 [1.20.0]: https://github.com/pando85/Android-Password-Store/compare/v1.19.3...v1.20.0
 [1.19.3]: https://github.com/pando85/Android-Password-Store/compare/v1.19.2...v1.19.3
