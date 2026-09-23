@@ -83,7 +83,7 @@ class OpenPgpProviderRepositoryTest {
   }
 
   @Test
-  fun `mismatched provider certificate fails closed`() = runBlocking {
+  fun `mismatched provider certificate fails closed`(): Unit = runBlocking {
     val certificate = certificate()
     val actualKeyId = KeyUtils.tryGetKeyId(certificate).id
     val requestedKeyId = actualKeyId xor 1L
@@ -97,8 +97,7 @@ class OpenPgpProviderRepositoryTest {
         }
       )
 
-    val result =
-      repository(backend).resolvePublicKeys(listOf(PGPIdentifier.KeyId(requestedKeyId)))
+    val result = repository(backend).resolvePublicKeys(listOf(PGPIdentifier.KeyId(requestedKeyId)))
 
     val failure = assertIs<OpenPgpApiBackend.OperationResult.Failure>(result)
     assertIs<SecurityException>(failure.error)
