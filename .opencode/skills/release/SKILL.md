@@ -76,18 +76,24 @@ Ensure every user-facing change is represented in `CHANGELOG.md`. Dependency bum
 3. Add a new empty `## [Unreleased]` section above the release section.
 4. Keep fork/CI/signing-only changes in a `### Fork infrastructure` subsection when relevant.
 
-### Step 5: Determine Bump Type and Clear Snapshot
+### Step 5: Choose Bump Type and Set Version
 
-Before releasing, decide the next version bump type based on the changes:
+Based on the changes since the last release, decide the bump type:
 
 - **major** -- breaking changes, new major API
 - **minor** -- new features, backwards-compatible
 - **patch** -- bug fixes only (default)
 
-Clear the snapshot suffix to produce the release version:
+If the version already has the correct numbers but carries a `-SNAPSHOT` suffix, strip it:
 
 ```bash
 ./gradlew :app:clearPreRelease
+```
+
+Otherwise, bump to the new version directly:
+
+```bash
+./gradlew :app:bumpMajor   # or bumpMinor, or bumpPatch
 ```
 
 Verify `app/version.properties` version matches the changelog release section exactly.
@@ -103,7 +109,7 @@ git push origin main
 
 The auto-tag workflow runs only when `app/version.properties` changes on `main` and the version is not a snapshot/pre-release.
 
-### Step 7: Monitor Tag, Release, and Prepare Next Cycle
+### Step 7: Monitor Tag and Release
 
 ```bash
 gh run list --limit 5
@@ -117,20 +123,7 @@ Expected flow:
 
 Do not manually create tags. CI handles tags and releases.
 
-After the release is published, immediately bump to the next snapshot version using the bump type chosen in Step 5:
-
-```bash
-./gradlew :app:bumpSnapshot -PbumpType=<major|minor|patch>
-```
-
-Ensure `CHANGELOG.md` has an empty `## [Unreleased]` section, then commit:
-
-```bash
-NEXT_VERSION=$(grep 'versioning-plugin.versionName' app/version.properties | cut -d= -f2 | tr -d '[:space:]')
-git add app/version.properties CHANGELOG.md
-git commit -m "chore: start $NEXT_VERSION"
-git push origin main
-```
+No further action is needed after the release is published. The version in `app/version.properties` stays at the release version until the next release is cut.
 
 ## What Not To Do
 
@@ -159,10 +152,8 @@ git push origin main
 - [ ] Repository has full history/tags if using git log for release notes
 - [ ] Reviewed commits since latest tag
 - [ ] Updated `CHANGELOG.md` release section
-- [ ] Decided bump type (major/minor/patch) for next development cycle
-- [ ] Ran `./gradlew :app:clearPreRelease`
+- [ ] Chose bump type (major/minor/patch) and set version
 - [ ] Verified version matches changelog section
 - [ ] Committed `app/version.properties` and `CHANGELOG.md` together
 - [ ] Pushed to main
 - [ ] Confirmed auto-tag and release workflows passed
-- [ ] Bumped to next snapshot and committed

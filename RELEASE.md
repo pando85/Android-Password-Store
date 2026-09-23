@@ -14,29 +14,27 @@ Releases are fully automated via GitHub Actions:
 ## Cutting a release
 
 ```bash
-# 1. Update CHANGELOG.md: rename [Unreleased] to [version] with today's date
-#    Example: ## [1.17.1] - 2026-06-30
+# 1. Choose bump type based on changes: major / minor / patch
 
-# 2. Remove SNAPSHOT suffix
+# 2. Bump version (or clear SNAPSHOT if version is already correct)
+./gradlew :app:bumpPatch   # or bumpMinor, or bumpMajor
+# If only removing -SNAPSHOT suffix:
 ./gradlew :app:clearPreRelease
 
-# 3. Commit and push
+# 3. Update CHANGELOG.md: rename [Unreleased] to [version] with today's date
+#    Example: ## [1.17.1] - 2026-06-30
+
+# 4. Commit and push
 git add app/version.properties CHANGELOG.md
 git commit -m "release: $(grep 'versionName' app/version.properties | cut -d= -f2)"
 git push origin main
 
-# 4. Wait ~8 minutes for CI to build and publish
+# 5. Wait ~8 minutes for CI to build and publish
 #    Auto-tag creates GPG-signed tag → release.yml builds APK
 #    Release notes are extracted from CHANGELOG.md entry
 
-# 5. Verify
+# 6. Verify
 gh release view v$(grep 'versionName' app/version.properties | cut -d= -f2 | tr -d ' ')
-
-# 6. Start next development cycle
-./gradlew :app:bumpSnapshot
-git add app/version.properties
-git commit -m "chore: start next SNAPSHOT"
-git push origin main
 ```
 
 ## CHANGELOG.md format
@@ -93,5 +91,4 @@ If no entry is found for the version, the release fails.
                     └───────────────────┘
 ```
 
-The version follows semver with `-SNAPSHOT` for development builds.
-`clearPreRelease` removes the suffix; `bumpSnapshot` increments and re-adds it.
+The version follows semver. `clearPreRelease` removes a pre-release suffix; `bumpMajor`, `bumpMinor`, and `bumpPatch` increment the version directly.
