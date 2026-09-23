@@ -111,11 +111,19 @@ Do not manually create tags. CI handles tags and releases.
 
 ### Step 8: Start Next Development Cycle
 
-After the release is published:
+After the release is published, determine the next snapshot version bump type:
+
+- **major** -- breaking changes, new major API
+- **minor** -- new features, backwards-compatible
+- **patch** -- bug fixes only (default)
+
+Run `bumpSnapshot` with the chosen bump type:
 
 ```bash
-./gradlew :app:bumpSnapshot
+./gradlew :app:bumpSnapshot -PbumpType=<major|minor|patch>
 ```
+
+If no bump type is specified, it defaults to `patch`.
 
 Ensure `CHANGELOG.md` still has an empty `## [Unreleased]` section, then commit:
 
@@ -158,4 +166,4 @@ git push origin main
 - [ ] Committed `app/version.properties` and `CHANGELOG.md` together
 - [ ] Pushed to main
 - [ ] Confirmed auto-tag and release workflows passed
-- [ ] Ran `./gradlew :app:bumpSnapshot` and committed next snapshot
+- [ ] Ran `./gradlew :app:bumpSnapshot -PbumpType=<type>` and committed next snapshot

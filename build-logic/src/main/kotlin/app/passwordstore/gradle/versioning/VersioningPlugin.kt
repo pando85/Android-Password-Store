@@ -79,8 +79,16 @@ class VersioningPlugin : Plugin<Project> {
         propertyFile.set(propFile)
       }
       tasks.register<VersioningTask>("bumpSnapshot") {
-        description = "Increment the patch version and add the `SNAPSHOT` suffix"
-        semverString.set(version.nextPatchVersion("SNAPSHOT").toString())
+        val type = (project.findProperty("bumpType") as? String)?.lowercase() ?: "patch"
+        description =
+          "Increment the version and add the `SNAPSHOT` suffix. Use -PbumpType=major|minor|patch (default: patch)"
+        semverString.set(
+          when (type) {
+            "major" -> version.nextMajorVersion("SNAPSHOT").toString()
+            "minor" -> version.nextMinorVersion("SNAPSHOT").toString()
+            else -> version.nextPatchVersion("SNAPSHOT").toString()
+          }
+        )
         propertyFile.set(propFile)
       }
       afterEvaluate {
