@@ -27,7 +27,10 @@ public class DefaultPassRecipientResolver(
   private val gpgIdFileName: String = GPG_ID_FILE_NAME,
 ) : PassRecipientResolver<PGPKey> {
 
-  override suspend fun resolveFor(target: File): Result<List<PGPKey>, RecipientPolicyError> =
+  /** Resolves only the hierarchical recipient policy, without consulting a key store. */
+  public suspend fun resolveIdentifiersFor(
+    target: File
+  ): Result<List<PGPIdentifier>, RecipientPolicyError> =
     withContext(Dispatchers.IO) {
       val canonicalRoot = repositoryRoot.canonicalFile
       val canonicalTarget =
@@ -91,6 +94,20 @@ public class DefaultPassRecipientResolver(
         return@withContext com.github.michaelbull.result.Err(RecipientPolicyError.EmptyRecipientSet)
       }
 
+      com.github.michaelbull.result.Ok(parsedIdentifiers)
+    }
+
+  override suspend fun resolveFor(target: File): Result<List<PGPKey>, RecipientPolicyError> {
+    val parsedIdentifiers =
+      resolveIdentifiersFor(target)
+        .fold(
+          success = { it },
+          failure = { error ->
+            return com.github.michaelbull.result.Err(error)
+          },
+        )
+
+    return withContext(Dispatchers.IO) {
       val resolvedKeys = mutableListOf<PGPKey>()
       val seenFingerprints = mutableSetOf<Long>()
 
@@ -115,9 +132,7 @@ public class DefaultPassRecipientResolver(
         }
 
         val primaryKeyId = KeyUtils.tryGetKeyId(cert).id
-        if (!seenFingerprints.add(primaryKeyId)) {
-          continue
-        }
+        if (!seenFingerprints.add(primaryKeyId)) continue
         resolvedKeys.add(key)
       }
 
@@ -127,14 +142,13 @@ public class DefaultPassRecipientResolver(
 
       com.github.michaelbull.result.Ok(resolvedKeys)
     }
+  }
 
   private fun findGpgIdFile(startDir: File, root: File): File? {
     var current: File? = startDir
     while (current != null) {
       val candidate = File(current, gpgIdFileName)
-      if (candidate.exists() && candidate.isFile) {
-        return candidate
-      }
+      if (candidate.exists() && candidate.isFile) return candidate
       if (current.canonicalPath == root.canonicalPath) break
       current = current.parentFile ?: break
     }
@@ -152,7 +166,6 @@ public class DefaultPassRecipientResolver(
       }
 
     val identifiers = mutableListOf<PGPIdentifier>()
-
     for ((index, rawLine) in lines.withIndex()) {
       val commentMatch = COMMENT_PATTERN.find(rawLine)
       val line =
@@ -180,9 +193,7 @@ public class DefaultPassRecipientResolver(
     val canonicalRoot = root.canonicalFile
     var current = target
     while (true) {
-      if (java.nio.file.Files.isSymbolicLink(current.toPath())) {
-        return true
-      }
+      if (java.nio.file.Files.isSymbolicLink(current.toPath())) return true
       if (current.canonicalPath == canonicalRoot.path) break
       val parent = current.parentFile ?: break
       if (parent.canonicalPath == canonicalRoot.path) break

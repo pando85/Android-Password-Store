@@ -91,6 +91,7 @@ dependencies {
   implementation(libs.thirdparty.kotlinResult)
   implementation(libs.thirdparty.logcat)
   implementation(libs.thirdparty.modernAndroidPrefs)
+  implementation(libs.thirdparty.openpgp.api)
   implementation(libs.thirdparty.sshj)
   implementation(libs.thirdparty.bouncycastle.bcprov)
   implementation(libs.thirdparty.bouncycastle.bcutil)

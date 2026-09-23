@@ -46,6 +46,7 @@ constructor(
   private val pgpKeyManager: PGPKeyManager,
   private val pgpCryptoHandler: PGPainlessCryptoHandler,
   private val dispatcherProvider: DispatcherProvider,
+  private val openPgpProviderRepository: OpenPgpProviderRepository,
   @SettingsPreferences private val settings: SharedPreferences,
 ) {
 
@@ -90,7 +91,12 @@ constructor(
   }
 
   fun getEmailFromKeyId(identifier: PGPIdentifier): String? {
-    val key = pgpKeyManager.getKeyById(identifier).get() ?: return null
+    val key =
+      if (openPgpProviderRepository.hasSelectedProvider()) {
+        openPgpProviderRepository.resolvedPublicKeysFor(listOf(identifier))?.firstOrNull()
+      } else {
+        pgpKeyManager.getKeyById(identifier).get()
+      } ?: return null
     val userId = KeyUtils.tryGetUserId(key) ?: return null
     return PGPIdentifier.splitUserId(userId.email)
   }
@@ -116,8 +122,7 @@ constructor(
     encryptedMessage: ByteArrayInputStream,
     message: ByteArrayOutputStream,
   ) = run {
-    if (passphrases.keys.first() == "") { // New passphrase from user input
-      // Test it against the PGP identities of current entry
+    if (passphrases.keys.first() == "") {
       identities.mapUntil({ it.second.isOk }) { id ->
         encryptedMessage.reset()
         message.reset()
@@ -134,7 +139,7 @@ constructor(
         result.getError()?.let { logcat { it.asLog() } }
         Pair(id.toString(), result.map { message })
       }
-    } else { // Get the first working cached passphrase
+    } else {
       passphrases.keys.toList().mapUntil({ it.second.isOk }) { id ->
         encryptedMessage.reset()
         message.reset()
@@ -172,13 +177,25 @@ constructor(
     message: ByteArrayInputStream,
     encryptedMessage: ByteArrayOutputStream,
   ) = run {
-    // get primary key IDs in order to identify and avoid duplicate keys
-    val primaryKeyIds =
-      identities
-        .mapNotNull { getLongKeyIdFromKeyId(it) }
-        .distinct()
-        .mapNotNull { PGPIdentifier.fromString(it) }
-    val keys = primaryKeyIds.map { id -> pgpKeyManager.getKeyById(id) }.filterOk()
+    val keys =
+      if (openPgpProviderRepository.hasSelectedProvider()) {
+        openPgpProviderRepository.resolvedPublicKeysFor(identities).orEmpty()
+      } else {
+        val primaryKeyIds =
+          identities
+            .mapNotNull { getLongKeyIdFromKeyId(it) }
+            .distinct()
+            .mapNotNull { PGPIdentifier.fromString(it) }
+        primaryKeyIds.map { id -> pgpKeyManager.getKeyById(id) }.filterOk()
+      }
+    encryptWithKeys(keys, message, encryptedMessage)
+  }
+
+  private fun encryptWithKeys(
+    keys: List<PGPKey>,
+    message: ByteArrayInputStream,
+    encryptedMessage: ByteArrayOutputStream,
+  ) = run {
     val encryptionOptions =
       PGPEncryptOptions.Builder()
         .withAsciiArmor(settings.getBoolean(PreferenceKeys.ASCII_ARMOR, false))

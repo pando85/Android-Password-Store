@@ -1,35 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <issues format="6" by="lint 9.2.0" type="baseline" client="gradle" dependencies="false" name="AGP (9.2.0)" variant="all" version="9.2.0">
 
-    <issue
-        id="InvalidPackage"
-        message="Invalid package reference in library; not included in Android: `javax.naming.directory`. Referenced from `org.bouncycastle.cert.dane.fetcher.JndiDANEFetcherFactory`.">
-        <location
-            file="$GRADLE_USER_HOME/caches/modules-2/files-2.1/org.bouncycastle/bcpkix-jdk18on/1.80/5277dfaaef2e92ce1d802499599a0ca7488f86e6/bcpkix-jdk18on-1.80.jar"/>
-    </issue>
-
-    <issue
-        id="InvalidPackage"
-        message="Invalid package reference in library; not included in Android: `javax.naming`. Referenced from `org.bouncycastle.cert.dane.fetcher.JndiDANEFetcherFactory.1`.">
-        <location
-            file="$GRADLE_USER_HOME/caches/modules-2/files-2.1/org.bouncycastle/bcpkix-jdk18on/1.80/5277dfaaef2e92ce1d802499599a0ca7488f86e6/bcpkix-jdk18on-1.80.jar"/>
-    </issue>
-
-    <issue
-        id="InvalidPackage"
-        message="Invalid package reference in org.eclipse.jgit:org.eclipse.jgit; not included in Android: `java.lang.management`. Referenced from `org.eclipse.jgit.util.Monitoring`.">
-        <location
-            file="$GRADLE_USER_HOME/caches/modules-2/files-2.1/org.eclipse.jgit/org.eclipse.jgit/6.2.0.202206071550-r/d59e7ae8528fcc3854acbb307de8443b28a5c945/org.eclipse.jgit-6.2.0.202206071550-r.jar"/>
-    </issue>
-
-    <issue
-        id="InvalidPackage"
-        message="Invalid package reference in org.eclipse.jgit:org.eclipse.jgit; not included in Android: `javax.management`. Referenced from `org.eclipse.jgit.util.Monitoring`.">
-        <location
-            file="$GRADLE_USER_HOME/caches/modules-2/files-2.1/org.eclipse.jgit/org.eclipse.jgit/6.2.0.202206071550-r/d59e7ae8528fcc3854acbb307de8443b28a5c945/org.eclipse.jgit-6.2.0.202206071550-r.jar"/>
-    </issue>
-
-    <issue
+<issue
         id="MissingQuantity"
         message="For locale &quot;it&quot; (Italian) the following quantity should also be defined: `many`"
         errorLine1="  &lt;plurals name=&quot;delete_title&quot;>"

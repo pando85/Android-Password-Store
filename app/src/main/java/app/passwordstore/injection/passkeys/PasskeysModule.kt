@@ -8,15 +8,21 @@
 package app.passwordstore.injection.passkeys
 
 import android.content.Context
+import android.content.SharedPreferences
 import app.passwordstore.crypto.DefaultPassRecipientResolver
 import app.passwordstore.crypto.PGPKey
 import app.passwordstore.crypto.PGPKeyManager
 import app.passwordstore.crypto.PGPainlessCryptoHandler
 import app.passwordstore.crypto.PgpainlessPasskeyDecryptor
+import app.passwordstore.data.crypto.OpenPgpInteractionCoordinator
+import app.passwordstore.data.crypto.OpenPgpProviderRepository
+import app.passwordstore.injection.prefs.SettingsPreferences
 import app.passwordstore.passkeys.BiometricPasskeyAuthenticator
 import app.passwordstore.passkeys.DefaultRepositoryGenerationProvider
 import app.passwordstore.passkeys.DefaultWebAuthnCallerVerifier
 import app.passwordstore.passkeys.KeystorePgpUnlockContext
+import app.passwordstore.passkeys.OpenPgpPassRecipientResolver
+import app.passwordstore.passkeys.OpenPgpPasskeyDecryptor
 import app.passwordstore.passkeys.PasskeyMetadataIndex
 import app.passwordstore.passkeys.PasskeyPassphraseCache
 import app.passwordstore.passkeys.crypto.ES256CryptoHandler
@@ -70,7 +76,16 @@ object PasskeysModule {
   fun providePasskeyPgpDecryptor(
     cryptoHandler: PGPainlessCryptoHandler,
     keyManager: PGPKeyManager,
-  ): PasskeyPgpDecryptor = PgpainlessPasskeyDecryptor(cryptoHandler, keyManager)
+    providerRepository: OpenPgpProviderRepository,
+    interactionCoordinator: OpenPgpInteractionCoordinator,
+    @SettingsPreferences settings: SharedPreferences,
+  ): PasskeyPgpDecryptor =
+    OpenPgpPasskeyDecryptor(
+      localDecryptor = PgpainlessPasskeyDecryptor(cryptoHandler, keyManager),
+      providerRepository = providerRepository,
+      interactionCoordinator = interactionCoordinator,
+      settings = settings,
+    )
 
   @Provides
   @Singleton
@@ -84,9 +99,16 @@ object PasskeysModule {
   fun providePassRecipientResolver(
     @ApplicationContext context: Context,
     keyManager: PGPKeyManager,
+    providerRepository: OpenPgpProviderRepository,
+    interactionCoordinator: OpenPgpInteractionCoordinator,
   ): PassRecipientResolver<PGPKey> {
     val repositoryRoot = File(context.filesDir, "store")
-    return DefaultPassRecipientResolver(repositoryRoot, keyManager)
+    val localResolver = DefaultPassRecipientResolver(repositoryRoot, keyManager)
+    return OpenPgpPassRecipientResolver(
+      localResolver,
+      providerRepository,
+      interactionCoordinator,
+    )
   }
 
   @Provides

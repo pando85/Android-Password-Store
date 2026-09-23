@@ -7,6 +7,12 @@
   xmlns:tools="http://schemas.android.com/tools"
   android:installLocation="auto">
 
+  <queries>
+    <intent>
+      <action android:name="org.openintents.openpgp.IOpenPgpService2" />
+    </intent>
+  </queries>
+
   <uses-permission android:name="android.permission.INTERNET" />
   <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
