@@ -69,6 +69,14 @@ class GpgIdScopeTest {
   }
 
   @Test
+  fun recoversWhitespaceNamedDirectoryWithoutTreatingItAsRoot() {
+    val root = createTempDirectory().toFile()
+    val nested = File(root, " ").apply { mkdirs() }
+
+    assertEquals(" ", resolveGpgIdScope(root, nested, ""))
+  }
+
+  @Test
   fun emptyScopeAtRepositoryRootUsesRootMarker() {
     val root = createTempDirectory().toFile()
 
