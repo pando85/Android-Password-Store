@@ -8,7 +8,10 @@ import java.io.File
 
 /** Resolve the directory scope used for hierarchical `.gpg-id` lookup and creation. */
 internal fun resolveGpgIdScope(repoRoot: File, operationPath: File, subDir: String): String {
-  if (subDir.isNotBlank()) return subDir
+  // Existing callers have historically passed explicit scopes such as "/", "/foo", and
+  // "/foo/". Preserve every explicit value exactly as supplied and recover only the invalid
+  // empty state that can otherwise collapse to the physical repository root.
+  if (subDir.isNotEmpty()) return subDir
 
   val root = repoRoot.canonicalFile
   val operationDirectory =
