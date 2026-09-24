@@ -23,5 +23,5 @@ internal fun resolveGpgIdScope(repoRoot: File, operationPath: File, subDir: Stri
   }
 
   val relativePath = operationDirectory.relativeTo(root).invariantSeparatorsPath
-  return if (relativePath.isBlank() || relativePath == ".") "/" else relativePath
+  return if (relativePath.isEmpty() || relativePath == ".") "/" else relativePath
 }
