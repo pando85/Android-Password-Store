@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file
 
 ## [Unreleased]
 
+## [1.25.0] - 2026-09-24
+
+### Fixed
+
+- GPG recipient scope resolution now correctly handles nested identities, empty relative paths, and legacy explicit scopes
+- Recovery of nested GPG scopes during key selection preserves legacy behavior
+- GPG scope resolution no longer alters local key state for empty-scope recovery
+
+### Changed
+
+- Updated dependency: androidx
+
+### Fork infrastructure
+
+- Release workflow documentation improvements
+- `bumpSnapshot` now accepts `-PbumpType=major|minor|patch` and correctly increments patch version
+
 ## [1.24.0] - 2026-09-23
 
 ### Fixed
