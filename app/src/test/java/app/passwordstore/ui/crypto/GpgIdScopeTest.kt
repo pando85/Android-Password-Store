@@ -17,10 +17,38 @@ class GpgIdScopeTest {
     val root = createTempDirectory().toFile()
     val nested = File(root, "ID-Pessoal/HG").apply { mkdirs() }
 
-    assertEquals(
-      "ID-Pessoal/HG",
-      resolveGpgIdScope(root, nested, "ID-Pessoal/HG"),
-    )
+    assertEquals("ID-Pessoal/HG", resolveGpgIdScope(root, nested, "ID-Pessoal/HG"))
+  }
+
+  @Test
+  fun preservesLegacyRootScope() {
+    val root = createTempDirectory().toFile()
+
+    assertEquals("/", resolveGpgIdScope(root, root, "/"))
+  }
+
+  @Test
+  fun preservesLegacyCreationDirectoryScope() {
+    val root = createTempDirectory().toFile()
+    val nested = File(root, "ID-Pessoal/HG").apply { mkdirs() }
+
+    assertEquals("/ID-Pessoal/HG", resolveGpgIdScope(root, nested, "/ID-Pessoal/HG"))
+  }
+
+  @Test
+  fun preservesLegacyDecryptionParentScope() {
+    val root = createTempDirectory().toFile()
+    val nested = File(root, "ID-Pessoal/HG").apply { mkdirs() }
+
+    assertEquals("/ID-Pessoal/HG/", resolveGpgIdScope(root, nested, "/ID-Pessoal/HG/"))
+  }
+
+  @Test
+  fun preservesAnyExplicitScopeWithoutNormalization() {
+    val root = createTempDirectory().toFile()
+    val nested = File(root, "ID-Pessoal/HG").apply { mkdirs() }
+
+    assertEquals(" ", resolveGpgIdScope(root, nested, " "))
   }
 
   @Test
@@ -38,13 +66,6 @@ class GpgIdScopeTest {
     val password = File(nested, "example.gpg").apply { writeText("encrypted") }
 
     assertEquals("ID-Pessoal/HG", resolveGpgIdScope(root, password, ""))
-  }
-
-  @Test
-  fun keepsExplicitRootScope() {
-    val root = createTempDirectory().toFile()
-
-    assertEquals("/", resolveGpgIdScope(root, root, "/"))
   }
 
   @Test
