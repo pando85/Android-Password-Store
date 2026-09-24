@@ -123,7 +123,12 @@ open class BasePGPActivity : AppCompatActivity() {
             ?: return@registerForActivityResult
 
         val repoRoot = PasswordRepository.getRepositoryDirectory()
-        val subPath = data.getStringExtra("SUB_PATH") ?: return@registerForActivityResult
+        val subPath =
+          resolveGpgIdScope(
+            repoRoot,
+            File(fullPath),
+            data.getStringExtra("SUB_PATH").orEmpty(),
+          )
 
         val gpgIdDir =
           File(repoRoot, subPath).let { if (it.isFile()) it.getParent() else it.getPath() }
@@ -229,7 +234,9 @@ open class BasePGPActivity : AppCompatActivity() {
     subDir: String,
     onKeysExist: (List<PGPIdentifier>) -> Unit,
   ) {
-    val ids = getPGPIdentifiers(subDir)
+    val resolvedSubDir =
+      resolveGpgIdScope(PasswordRepository.getRepositoryDirectory(), File(fullPath), subDir)
+    val ids = getPGPIdentifiers(resolvedSubDir)
     if (ids.isNullOrEmpty()) {
       val (title, message) =
         if (ids == null) {
@@ -241,7 +248,7 @@ open class BasePGPActivity : AppCompatActivity() {
         }
       openKeyManagerDialog(title, message) {
         val intent = PGPKeyListActivity.newIntent(this@BasePGPActivity, keySelection = true)
-        intent.putExtra("SUB_PATH", subDir)
+        intent.putExtra("SUB_PATH", resolvedSubDir)
         keySelectAction.launch(intent)
       }
       return
@@ -286,7 +293,9 @@ open class BasePGPActivity : AppCompatActivity() {
     subDir: String,
     onKeysExist: (List<PGPIdentifier>) -> Unit,
   ) {
-    val ids = getPGPIdentifiers(subDir)
+    val resolvedSubDir =
+      resolveGpgIdScope(PasswordRepository.getRepositoryDirectory(), File(fullPath), subDir)
+    val ids = getPGPIdentifiers(resolvedSubDir)
     if (ids.isNullOrEmpty()) {
       val (title, message) =
         if (ids == null) {
@@ -298,7 +307,7 @@ open class BasePGPActivity : AppCompatActivity() {
         }
       openKeyManagerDialog(title, message) {
         val intent = PGPKeyListActivity.newIntent(this@BasePGPActivity, keySelection = true)
-        intent.putExtra("SUB_PATH", subDir)
+        intent.putExtra("SUB_PATH", resolvedSubDir)
         keySelectAction.launch(intent)
       }
       return
