@@ -5,7 +5,6 @@
 package app.passwordstore.ui.crypto
 
 import java.io.File
-import kotlin.io.path.createDirectories
 import kotlin.io.path.createTempDirectory
 import kotlin.test.Test
 import kotlin.test.assertEquals
