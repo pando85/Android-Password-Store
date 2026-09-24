@@ -57,7 +57,8 @@ class GpgIdScopeTest {
   @Test
   fun rejectsRecoveredScopeOutsideRepository() {
     val root = createTempDirectory().toFile()
-    val outside = createTempDirectory().resolve("entry.gpg").toFile().apply { writeText("encrypted") }
+    val outside =
+      createTempDirectory().resolve("entry.gpg").toFile().apply { writeText("encrypted") }
 
     assertFailsWith<IllegalArgumentException> { resolveGpgIdScope(root, outside, "") }
   }
