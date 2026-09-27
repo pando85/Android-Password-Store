@@ -5,6 +5,7 @@
 package app.passwordstore.ui.crypto
 
 import java.io.File
+import java.io.IOException
 
 /** Resolve the directory scope used for hierarchical `.gpg-id` lookup and creation. */
 internal fun resolveGpgIdScope(repoRoot: File, operationPath: File, subDir: String): String {
@@ -36,14 +37,15 @@ private fun physicalScopeRelativeToRoot(repoRoot: File, subDir: String): String?
   val explicitScope = File(subDir)
   if (!explicitScope.isAbsolute) return null
 
-  return runCatching {
+  return try {
     val root = repoRoot.canonicalFile
     val physicalScope = explicitScope.canonicalFile
-    if (!physicalScope.toPath().startsWith(root.toPath())) return@runCatching null
+    if (!physicalScope.toPath().startsWith(root.toPath())) return null
 
     physicalScope.relativeTo(root).invariantSeparatorsPath.toGpgIdScope()
+  } catch (_: IOException) {
+    null
   }
-    .getOrNull()
 }
 
 private fun String.toGpgIdScope(): String = if (isEmpty() || this == ".") "/" else this
