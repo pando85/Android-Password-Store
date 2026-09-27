@@ -5,6 +5,7 @@
 package app.passwordstore.ui.crypto
 
 import java.io.File
+import java.nio.file.Files
 import kotlin.io.path.createTempDirectory
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -44,11 +45,42 @@ class GpgIdScopeTest {
   }
 
   @Test
-  fun preservesAnyExplicitScopeWithoutNormalization() {
+  fun preservesNonPhysicalExplicitScopeWithoutNormalization() {
     val root = createTempDirectory().toFile()
     val nested = File(root, "ID-Pessoal/HG").apply { mkdirs() }
 
     assertEquals(" ", resolveGpgIdScope(root, nested, " "))
+  }
+
+  @Test
+  fun normalizesPhysicalScopeInsideRepository() {
+    val root = createTempDirectory().toFile()
+    val nested = File(root, "ID-Pessoal/HG").apply { mkdirs() }
+
+    assertEquals("ID-Pessoal/HG", resolveGpgIdScope(root, nested, nested.absolutePath))
+  }
+
+  @Test
+  fun normalizesCanonicalRepositoryAliasScope() {
+    val temp = createTempDirectory()
+    val physicalRoot = temp.resolve("physical-store").toFile().apply { mkdirs() }
+    val aliasRootPath = temp.resolve("store")
+    Files.createSymbolicLink(aliasRootPath, physicalRoot.toPath())
+    val aliasRoot = aliasRootPath.toFile()
+    val nested = File(physicalRoot, "ID-Pessoal/HG").apply { mkdirs() }
+    val metadata = File(nested, ".secrets.gpg").apply { writeText("encrypted") }
+
+    assertEquals(
+      "ID-Pessoal/HG",
+      resolveGpgIdScope(aliasRoot, metadata, nested.absolutePath),
+    )
+  }
+
+  @Test
+  fun normalizesPhysicalRepositoryRootToRootMarker() {
+    val root = createTempDirectory().toFile()
+
+    assertEquals("/", resolveGpgIdScope(root, root, root.absolutePath))
   }
 
   @Test
