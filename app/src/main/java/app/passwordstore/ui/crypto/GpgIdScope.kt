@@ -13,7 +13,9 @@ internal fun resolveGpgIdScope(repoRoot: File, operationPath: File, subDir: Stri
   // physical path inside the repository. This can happen when Android exposes the same private
   // storage through aliases such as /data/user/0 and /data/data.
   if (subDir.isNotEmpty()) {
-    physicalScopeRelativeToRoot(repoRoot, subDir)?.let { return it }
+    physicalScopeRelativeToRoot(repoRoot, subDir)?.let {
+      return it
+    }
     return subDir
   }
 
@@ -35,12 +37,12 @@ private fun physicalScopeRelativeToRoot(repoRoot: File, subDir: String): String?
   if (!explicitScope.isAbsolute) return null
 
   return runCatching {
-      val root = repoRoot.canonicalFile
-      val physicalScope = explicitScope.canonicalFile
-      if (!physicalScope.toPath().startsWith(root.toPath())) return@runCatching null
+    val root = repoRoot.canonicalFile
+    val physicalScope = explicitScope.canonicalFile
+    if (!physicalScope.toPath().startsWith(root.toPath())) return@runCatching null
 
-      physicalScope.relativeTo(root).invariantSeparatorsPath.toGpgIdScope()
-    }
+    physicalScope.relativeTo(root).invariantSeparatorsPath.toGpgIdScope()
+  }
     .getOrNull()
 }
 
