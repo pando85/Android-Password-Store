@@ -36,7 +36,7 @@ fun File.contains(other: File): Boolean {
  * [PasswordRepository.getRepositoryDirectory]
  */
 fun File.isInsideRepository(): Boolean {
-  return canonicalPath.contains(PasswordRepository.getRepositoryDirectory().canonicalPath)
+  return toPath().startsWith(PasswordRepository.getRepositoryDirectory().toPath())
 }
 
 /** Recursively lists the files in this [File], skipping any directories it encounters. */
