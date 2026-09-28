@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file
 
 ## [Unreleased]
 
+## [1.25.1] - 2026-09-28
+
+### Fixed
+
+- Physical GPG ID scopes are now normalized correctly for aliased identities
+- Replaced `runCatching` with try-catch in GpgIdScope to satisfy DenyListedApi lint
+
 ## [1.25.0] - 2026-09-24
 
 ### Fixed
@@ -935,7 +942,9 @@ All notable changes to this project will be documented in this file
 
 - Fix elements overlapping.
 
-[unreleased]: https://github.com/pando85/Android-Password-Store/compare/v1.24.0...HEAD
+[unreleased]: https://github.com/pando85/Android-Password-Store/compare/v1.25.1...HEAD
+[1.25.1]: https://github.com/pando85/Android-Password-Store/compare/v1.25.0...v1.25.1
+[1.25.0]: https://github.com/pando85/Android-Password-Store/compare/v1.24.0...v1.25.0
 [1.24.0]: https://github.com/pando85/Android-Password-Store/compare/v1.23.0...v1.24.0
 [1.23.0]: https://github.com/pando85/Android-Password-Store/compare/v1.22.0...v1.23.0
 [1.22.0]: https://github.com/pando85/Android-Password-Store/compare/v1.21.0...v1.22.0
