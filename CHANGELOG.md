@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file
 
 ## [Unreleased]
 
+## [1.25.2] - 2026-09-29
+
 ### Fixed
 
 - Autofill no longer crashes when decrypting an entry
@@ -946,7 +948,8 @@ All notable changes to this project will be documented in this file
 
 - Fix elements overlapping.
 
-[unreleased]: https://github.com/pando85/Android-Password-Store/compare/v1.25.1...HEAD
+[unreleased]: https://github.com/pando85/Android-Password-Store/compare/v1.25.2...HEAD
+[1.25.2]: https://github.com/pando85/Android-Password-Store/compare/v1.25.1...v1.25.2
 [1.25.1]: https://github.com/pando85/Android-Password-Store/compare/v1.25.0...v1.25.1
 [1.25.0]: https://github.com/pando85/Android-Password-Store/compare/v1.24.0...v1.25.0
 [1.24.0]: https://github.com/pando85/Android-Password-Store/compare/v1.23.0...v1.24.0
