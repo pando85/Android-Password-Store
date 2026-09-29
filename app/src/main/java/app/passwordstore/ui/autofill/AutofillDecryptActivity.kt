@@ -54,7 +54,7 @@ class AutofillDecryptActivity : BasePGPActivity() {
   override fun onStart() {
     super.onStart()
     filePath =
-      intent?.getStringExtra(EXTRA_FILE_PATH)
+      intent?.getStringExtra(BasePGPActivity.EXTRA_FILE_PATH)
         ?: run {
           logcat(ERROR) { "AutofillDecryptActivity started without EXTRA_FILE_PATH" }
           finish()
@@ -251,7 +251,6 @@ class AutofillDecryptActivity : BasePGPActivity() {
 
   companion object {
 
-    private const val EXTRA_FILE_PATH = "app.passwordstore.autofill.oreo.EXTRA_FILE_PATH"
     private const val EXTRA_SEARCH_ACTION = "app.passwordstore.autofill.oreo.EXTRA_SEARCH_ACTION"
 
     private var decryptFileRequestCode = 1
@@ -261,7 +260,7 @@ class AutofillDecryptActivity : BasePGPActivity() {
       return Intent(context, AutofillDecryptActivity::class.java).apply {
         putExtras(forwardedExtras)
         putExtra(EXTRA_SEARCH_ACTION, true)
-        putExtra(EXTRA_FILE_PATH, file.absolutePath)
+        putExtra(BasePGPActivity.EXTRA_FILE_PATH, file.absolutePath)
       }
     }
 
@@ -269,7 +268,7 @@ class AutofillDecryptActivity : BasePGPActivity() {
       val intent =
         Intent(context, AutofillDecryptActivity::class.java).apply {
           putExtra(EXTRA_SEARCH_ACTION, false)
-          putExtra(EXTRA_FILE_PATH, file.absolutePath)
+          putExtra(BasePGPActivity.EXTRA_FILE_PATH, file.absolutePath)
         }
       return PendingIntent.getActivity(
           context,
