@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file
 
 ## [Unreleased]
 
+### Fixed
+
+- Autofill no longer crashes when decrypting an entry
+
 ## [1.25.1] - 2026-09-28
 
 ### Fixed
