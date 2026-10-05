@@ -15,5 +15,6 @@ dependencies {
   implementation(libs.kotlinx.coroutines.core)
   implementation(libs.kotlinx.datetime)
   implementation(libs.kotlinx.serialization.json)
-  testImplementation(libs.bundles.testDependencies)
+  testImplementation(libs.testing.junit)
+  testImplementation(libs.testing.kotlintest.junit)
 }
