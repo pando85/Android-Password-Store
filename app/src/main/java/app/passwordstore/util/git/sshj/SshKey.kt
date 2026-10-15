@@ -271,7 +271,9 @@ object SshKey {
         context.getString(R.string.ssh_key_import_error_not_an_ssh_key_message)
       )
 
-    val userId = context.sharedPrefs.getString(PreferenceKeys.GIT_CONFIG_AUTHOR_EMAIL) ?: "nn@aps"
+    val userId =
+      context.sharedPrefs.getString(PreferenceKeys.GIT_CONFIG_AUTHOR_EMAIL)
+        ?: "aps@" + android.os.Build.MODEL.replace(' ', '_')
 
     // At this point, we are reasonably confident that we have actually been provided a private
     // key and delete the old key.
@@ -308,7 +310,9 @@ object SshKey {
         generateKeyPair()
       }
 
-    val userId = context.sharedPrefs.getString(PreferenceKeys.GIT_CONFIG_AUTHOR_EMAIL) ?: "nn@aps"
+    val userId =
+      context.sharedPrefs.getString(PreferenceKeys.GIT_CONFIG_AUTHOR_EMAIL)
+        ?: "aps@" + android.os.Build.MODEL.replace(' ', '_')
 
     // Write public key in SSH format to .ssh_key.pub.
     publicKeyFile.writeText(toSshPublicKey(keyPair.public) + " " + userId)
@@ -341,7 +345,9 @@ object SshKey {
       )
     }
 
-    val userId = context.sharedPrefs.getString(PreferenceKeys.GIT_CONFIG_AUTHOR_EMAIL) ?: "nn@aps"
+    val userId =
+      context.sharedPrefs.getString(PreferenceKeys.GIT_CONFIG_AUTHOR_EMAIL)
+        ?: "aps@" + android.os.Build.MODEL.replace(' ', '_')
     publicKeyFile.writeText(toSshPublicKey(keyPair.public) + " " + userId)
 
     type = Type.KeystoreWrappedEd25519
