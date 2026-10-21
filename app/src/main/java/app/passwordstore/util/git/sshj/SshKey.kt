@@ -236,7 +236,10 @@ object SshKey {
         context.getString(R.string.ssh_key_import_error_not_an_ssh_key_message)
       )
 
-    val userId = context.sharedPrefs.getString(PreferenceKeys.GIT_CONFIG_AUTHOR_EMAIL) ?: "nn@aps"
+    val userId =
+      context.sharedPrefs.getString(PreferenceKeys.GIT_CONFIG_AUTHOR_EMAIL, null).let {
+        if (it.isNullOrEmpty()) "aps@" + android.os.Build.MODEL.replace(' ', '_') else it
+      }
 
     // At this point, we are reasonably confident that we have actually been provided a private
     // key and delete the old key.
@@ -273,7 +276,10 @@ object SshKey {
         generateKeyPair()
       }
 
-    val userId = context.sharedPrefs.getString(PreferenceKeys.GIT_CONFIG_AUTHOR_EMAIL) ?: "nn@aps"
+    val userId =
+      context.sharedPrefs.getString(PreferenceKeys.GIT_CONFIG_AUTHOR_EMAIL, null).let {
+        if (it.isNullOrEmpty()) "aps@" + android.os.Build.MODEL.replace(' ', '_') else it
+      }
 
     // Write public key in SSH format to .ssh_key.pub.
     publicKeyFile.writeText(toSshPublicKey(keyPair.public) + " " + userId)
@@ -306,7 +312,10 @@ object SshKey {
       )
     }
 
-    val userId = context.sharedPrefs.getString(PreferenceKeys.GIT_CONFIG_AUTHOR_EMAIL) ?: "nn@aps"
+    val userId =
+      context.sharedPrefs.getString(PreferenceKeys.GIT_CONFIG_AUTHOR_EMAIL, null).let {
+        if (it.isNullOrEmpty()) "aps@" + android.os.Build.MODEL.replace(' ', '_') else it
+      }
     publicKeyFile.writeText(toSshPublicKey(keyPair.public) + " " + userId)
 
     type = Type.KeystoreWrappedEd25519
@@ -347,9 +356,11 @@ object SshKey {
     val publicKey = androidKeystore.sshPublicKey ?: throw NullPointerException()
     val privateKey = androidKeystore.sshPrivateKey ?: throw NullPointerException()
 
-    // SSHJ 0.41.1 resets the BouncyCastle registration mode when its configured provider is
-    // cleared. Clear the provider first, then explicitly disable BC so Android Keystore-backed
-    // private keys are signed by the platform provider without requiring an exportable encoding.
+    /**
+     * SSHJ 0.41.1 resets the BouncyCastle registration mode when its configured provider is
+     * cleared. Clear the provider first, then explicitly disable BC so Android Keystore-backed
+     * private keys are signed by the platform provider without requiring an exportable encoding.
+     */
     SecurityUtils.setSecurityProvider(null)
     SecurityUtils.setRegisterBouncyCastle(false)
 
@@ -380,10 +391,6 @@ object SshKey {
     val keyFactory = KeyFactory.getInstance("Ed25519", BouncyCastleProvider())
     val keySpec = PKCS8EncodedKeySpec(privateKeyEncoded)
     val privateKey = keyFactory.generatePrivate(keySpec)
-
-    // ensure that BC carries out cryptographic operations
-    SecurityUtils.setRegisterBouncyCastle(true)
-    SecurityUtils.setSecurityProvider(BouncyCastleProvider.PROVIDER_NAME)
 
     client.loadKeys(KeyPair(publicKey, privateKey))
   }
