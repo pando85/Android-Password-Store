@@ -686,7 +686,7 @@ class PasswordStore : BaseGitActivity() {
       PasswordRepository.getRelativePath(target.absolutePath, repoPath)
     }
     if (relativeTargetPath != null) {
-      model.reset()
+      runCatching { model.reset() }
       model.navigateTo(PasswordRepository.getRepositoryDirectory(), pushPreviousLocation = false)
       relativeTargetPath.trim('/').split('/').forEach { item ->
         val file = File(model.currentDir.value, item)
@@ -696,9 +696,9 @@ class PasswordStore : BaseGitActivity() {
         } else getPasswordFragment()?.scrollToOnNextRefresh(file)
       }
     } else if (model.currentDir.value.isDirectory) {
-      model.forceRefresh()
+      runCatching { model.forceRefresh() }
     } else {
-      model.reset()
+      runCatching { model.reset() }
     }
     supportActionBar?.setDisplayHomeAsUpEnabled(model.canNavigateBack)
     updateFabSync()
