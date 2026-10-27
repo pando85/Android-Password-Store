@@ -76,8 +76,8 @@ fun makeInlinePresentation(
     )
   val slice =
     InlineSuggestionUi.newContentBuilder(launchIntent).run {
-      setTitle(metadata.title?.let { it } ?: "")
-      setSubtitle(metadata.subtitle?.let { it } ?: "")
+      setTitle(metadata.title ?: "")
+      setSubtitle(metadata.subtitle ?: "")
       setContentDescription(listOfNotNull(metadata.title, metadata.subtitle).joinToString(" - "))
       setStartIcon(Icon.createWithResource(context, metadata.iconRes))
       build().slice

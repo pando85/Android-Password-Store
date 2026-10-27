@@ -288,8 +288,6 @@ class GitServerConfigActivity : BaseGitActivity() {
 
   companion object {
 
-    private val PORT_REGEX = ":[0-9]{1,5}/".toRegex()
-
     fun createCloneIntent(context: Context): Intent {
       return Intent(context, GitServerConfigActivity::class.java).apply {
         putExtra("cloning", true)

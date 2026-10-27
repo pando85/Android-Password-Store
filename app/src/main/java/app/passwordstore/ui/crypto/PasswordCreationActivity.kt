@@ -473,8 +473,8 @@ class PasswordCreationActivity : BasePGPActivity() {
 
       // username, if it is part of the file path
       if (
-        autofilling && directoryStructure != DirectoryStructure.EncryptedUsername ||
-          !editing && directoryStructure == DirectoryStructure.FileBased
+        (autofilling && directoryStructure != DirectoryStructure.EncryptedUsername) ||
+          (!editing && directoryStructure == DirectoryStructure.FileBased)
       ) {
         if (editUsername.isBlank()) {
           username.requestFocus()
