@@ -4,6 +4,7 @@
  */
 package app.passwordstore.passkeys
 
+import android.annotation.SuppressLint
 import android.content.SharedPreferences
 import app.passwordstore.injection.prefs.PGPPassphrases
 import app.passwordstore.injection.prefs.UnlockPins
@@ -11,7 +12,13 @@ import app.passwordstore.util.crypto.AESEncryption
 import app.passwordstore.util.crypto.AESEncryption.KeyType
 import javax.inject.Inject
 
-/** Validates the app's Fast Unlock PIN before unwrapping the PGP passphrase. */
+/**
+ * Validates the app's Fast Unlock PIN before unwrapping the PGP passphrase.
+ *
+ * PIN failure counters require durable writes before reporting an authentication result. Using
+ * apply() would allow an app crash to reset the counter, so these writes use commit() deliberately.
+ */
+@SuppressLint("ApplySharedPref")
 class PasskeyPinUnlocker
 @Inject
 constructor(
