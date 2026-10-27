@@ -30,7 +30,39 @@ The baseline is deliberately an upstream SHA rather than a merge base. Selective
 
 This split is intentional: detection is automated; adoption remains explicit.
 
-## Current reconciliation (2026-08-29)
+## Current reconciliation (2026-10-27)
+
+Reviewed through upstream `5f320126e14b9324db7a84f33e48fa9fdbdc30ca` (`develop`), starting from `48ce3af5b4cd9b818d44edca4249a15d48e2170f`. The opencode skill `.opencode/skills/upstream-sync` describes how to repeat this.
+
+| Upstream PR / commit | Disposition | Scope |
+| --- | --- | --- |
+| 6f66681c, 47692244, 0c2ab3c8, #1056, #1101, #1109 | adapted | Password creation and Autofill save honour the directory-structure setting, keep subfolders and pre-fill the username. Ported as one change; Pass-Secrets mapped directories keep their encrypted-name structure, and paths are still sanitised against traversal |
+| 47692244 | adopted (partial) | Forward client state to the save flow; unique PendingIntent request codes. The upstream passkey (CredmanUtils) hunk was not taken |
+| #1057, #1059, #1060, #1081, #1082 | adopted | Autofill inline suggestions with two parent levels, refactored search pane, whitespace-tolerant search, start-ellipsised paths |
+| #1061, #1087 | adapted | Improved username lookup; the form origin comes from the Autofill client state, not a static field |
+| #1062 | adopted | Persistent switches on the Autofill search pane |
+| #1072 | adapted | More Autofill suggestions; matches stored by older versions are migrated rather than dropped |
+| #1079 | adapted | Classic Autofill never offers or fills passkey files (`fido2/<rp>/<id>.gpg`); path-based `AutofillPasskeyExclusion` with tests |
+| #1080 | adapted | Empty search results suppressed by filtering to non-hidden `*.gpg` files instead of toggling the global hidden-files setting |
+| #1090, #1091, #1094 | adopted | Enable-Autofill switch in app settings |
+| #1093 | adapted | Autofill improvements; repository lookups skip hidden directories and passkey files |
+| #1095, #1097, #1100 | adopted/adapted | Username extraction from file path; missing create-entry suggestion; no fuzzy match on empty folder names |
+| #1088, #1089, 20222228 | skipped | Shorten passkey/hex ids: passkeys are now excluded from Autofill, and the fork has no upstream passkey creation screen |
+| 35a42948 | already solved | Passkey app-authenticity verification; the fork does its own caller verification |
+| #1076, #1116, #1119 | adopted/adapted | Android 17 local-network runtime permission and connectivity probe, kept behind the fork's `GitOperationCoordinator`; probe socket is closed |
+| #1112 | adopted | sshj 0.41.x fixes (fork is already on sshj 0.41.2) |
+| #1129 | adopted | Dialog showing the SSH server authentication banner |
+| #1162 | adopted | SSH host key verification fix; also applies to the headless passkey SSH path |
+| #1168 | adapted | External/shared repository option (`Documents/PasswordStore`). Passkey providers now resolve their storage root from `PasswordRepository` so passkeys stay in the Git working tree |
+| #1063, #1115 | adapted | Bouncy Castle and coroutines versions aligned through BOMs (including passkey module build wiring) |
+| #1065 | adopted | Alert dialogs no longer clipped by the IME on short screens |
+| #1149, #1152, 1c048ab5 | adopted | Spanish translation fix; empty git author email allowed; fastlane banner renamed |
+| #1055, #1086, 324757ed, 2ccde523 | skipped | Upstream README/verification text, lint baseline for absent `bcpkix`, string tweaks to diverged fork strings, upstream typo fixes |
+| PSL updates | adopted as snapshot | Public Suffix List refreshed once from `upstream/develop` |
+| Kotlin/Compose/androidx/serialization bumps, renovate commits | skipped | Owned by Renovate. Fork lags upstream on `bouncycastle` 1.86 → 1.86.2, `serialization` 1.11.0 → 1.12.0, `test-parameter-injector` 1.24 → 1.25; fork keeps jgit 7.8.0 (upstream reverted to 6.2.0) |
+| Changelog, release and snapshot-bump commits | skipped | Fork keeps its own changelog and release pipeline |
+
+## Reconciliation (2026-08-29)
 
 Reviewed through upstream `48ce3af5b4cd9b818d44edca4249a15d48e2170f` (`develop`). The initial reconciliation ports or adapts the following upstream work while keeping the fork-owned passkey implementation:
 
