@@ -106,7 +106,9 @@ object BiometricAuthenticator {
         when (errorCode) {
           /** Keep in sync with [androidx.biometric.BiometricPrompt.AuthenticationError] */
           BiometricPrompt.ERROR_HW_UNAVAILABLE -> callback(Result.HardwareUnavailableOrDisabled)
-          BiometricPrompt.ERROR_UNABLE_TO_PROCESS -> callback(Result.Retry)
+          // This onAuthenticationError callback is terminal, unlike onAuthenticationFailed.
+          BiometricPrompt.ERROR_UNABLE_TO_PROCESS ->
+            callback(Result.Failure(errorCode, errString))
           BiometricPrompt.ERROR_TIMEOUT ->
             callback(
               Result.Failure(

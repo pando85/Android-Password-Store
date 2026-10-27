@@ -126,8 +126,12 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
   private suspend fun handleGetCredential(
     request: androidx.credentials.provider.ProviderGetCredentialRequest
   ) {
-    // Never reuse a passphrase unlocked for a previous credential-provider request.
-    passphraseCache.clear()
+    passphraseCache.withExclusiveGetRequest { handleGetCredentialLocked(request) }
+  }
+
+  private suspend fun handleGetCredentialLocked(
+    request: androidx.credentials.provider.ProviderGetCredentialRequest
+  ) {
     try {
       @Suppress("InlinedApi")
       val selectedCredentialId =
@@ -526,8 +530,6 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
     } catch (e: Exception) {
       logcat(LogPriority.ERROR) { "handleGetCredential unexpected error: $e" }
       finishWithGetError(GetCredentialUnknownException("Unexpected error"))
-    } finally {
-      passphraseCache.clear()
     }
   }
 
@@ -825,7 +827,11 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
         allowPin = false,
         cipher = cipher,
       ) { result ->
-        if (continuation.isActive) {
+        // A failed scan does not close Android's biometric prompt; wait for its terminal callback.
+        if (
+          result !is app.passwordstore.util.auth.BiometricAuthenticator.Result.Retry &&
+            continuation.isActive
+        ) {
           when (result) {
             is app.passwordstore.util.auth.BiometricAuthenticator.Result.Success ->
               continuation.resume(AuthOutcome.Success(result.cryptoObject?.cipher))

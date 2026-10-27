@@ -11,6 +11,7 @@ import app.passwordstore.injection.prefs.UnlockPins
 import app.passwordstore.util.crypto.AESEncryption
 import app.passwordstore.util.crypto.AESEncryption.KeyType
 import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * Validates the app's Fast Unlock PIN before unwrapping the PGP passphrase.
@@ -20,6 +21,7 @@ import javax.inject.Inject
  * The KTX edit helper discards the commit result, which must be checked on the retry path.
  */
 @SuppressLint("ApplySharedPref", "UseKtx")
+@Singleton
 class PasskeyPinUnlocker
 @Inject
 constructor(
@@ -36,6 +38,7 @@ constructor(
     data object Unavailable : Result
   }
 
+  @Synchronized
   fun unlock(
     persistedId: String,
     encryptedPassphrase: CharArray,
