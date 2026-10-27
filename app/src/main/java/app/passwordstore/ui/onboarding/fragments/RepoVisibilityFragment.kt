@@ -108,7 +108,6 @@ class RepoVisibilityFragment : Fragment(R.layout.fragment_repo_visibility) {
       check(localDir.exists() || localDir.mkdirs()) { "Failed to create directory!" }
       PasswordRepository.createRepository(localDir)
       PasswordRepository.initialize()
-      parentFragmentManager.performTransactionWithBackStack(KeySelectionFragment.newInstance())
       if (File(PasswordRepository.getRepositoryDirectory(), ".gpg-id").isFile()) {
         settings.edit { putBoolean(PreferenceKeys.REPOSITORY_INITIALIZED, true) }
         finish()

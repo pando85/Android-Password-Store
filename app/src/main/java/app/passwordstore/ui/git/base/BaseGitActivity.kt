@@ -124,9 +124,9 @@ abstract class BaseGitActivity : AppCompatActivity() {
                     else -> 22
                   }
                 }
-            val socketFactory = SocketFactory.getDefault()
-            val socket = socketFactory.createSocket()
-            if (!socket.isConnected()) socket.connect(InetSocketAddress(host, port), 5000)
+            SocketFactory.getDefault().createSocket().use { socket ->
+              socket.connect(InetSocketAddress(host, port), 5000)
+            }
           }
         }
           .onOk {
@@ -167,7 +167,9 @@ abstract class BaseGitActivity : AppCompatActivity() {
    * network permission flow so a pending dialog never blocks background workers.
    */
   private suspend fun lockedGitOperation(operation: GitOp): Result<Unit, Throwable> =
-    GitOperationCoordinator.withLock { launchGitOperationWithPermission(operation) }
+    GitOperationCoordinator.withLock {
+      launchGitOperationWithPermission(operation)
+    }
 
   private suspend fun launchGitOperationWithPermission(operation: GitOp): Result<Unit, Throwable> {
     if (operation == GitOp.SYNC && !gitSettings.useMultiplexing) {
