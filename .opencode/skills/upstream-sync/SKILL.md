@@ -93,3 +93,4 @@ PR body sections: Summary (upstream range `<old-baseline>..<reviewed-sha>`), Ado
 - Upstream "autofill" commits sometimes touch passkey screens too (e.g. shortening passkey ids); port only the classic part.
 - Upstream runtime-permission and SSH host-key changes are security relevant; review them rather than blindly cherry-picking.
 - The fork's applicationId, CI workflows and release pipeline differ from upstream; never take upstream `.github/workflows/` or release commits.
+- The external/shared repository option (upstream #1168, `PREF_SHARED_REPO`, `Documents/PasswordStore`) was deliberately removed: this fork is Git-only and keeps the store (and passkeys) in app-private storage. Skip later upstream changes that build on it.
