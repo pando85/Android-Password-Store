@@ -23,6 +23,7 @@ import androidx.credentials.exceptions.GetCredentialUnknownException
 import androidx.credentials.provider.PendingIntentHandler
 import androidx.lifecycle.lifecycleScope
 import app.passwordstore.R as AppR
+import app.passwordstore.crypto.PGPIdentifier
 import app.passwordstore.data.crypto.OpenPgpActivityInteractionHandler
 import app.passwordstore.data.crypto.OpenPgpInteractionCoordinator
 import app.passwordstore.data.repo.PasswordRepository
@@ -666,8 +667,9 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
 
   private fun findFirstPersistentPassphrase(): Pair<String, CharArray>? {
     val allKeys = persistentPassphrases.all
-    for ((keyId, value) in allKeys) {
-      if (keyId == "unlock_pin" || keyId == PreferenceKeys.BIOMETRICS_AND_PIN_LAST_USE) continue
+    for ((id, value) in allKeys) {
+      if (id == "unlock_pin" || id == PreferenceKeys.BIOMETRICS_AND_PIN_LAST_USE) continue
+      val keyId = PGPIdentifier.fromString(id)?.let(repository::getLongKeyIdFromKeyId) ?: continue
       if (passphraseCache.contains(keyId)) continue
       val encrypted = (value as? String)?.toCharArray() ?: continue
       return keyId to encrypted

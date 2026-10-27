@@ -138,7 +138,7 @@ public class PgpainlessPasskeyDecryptor(
     var lastError: PasskeyDecryptionError? = null
 
     for ((key, keyId) in matchingKeys) {
-      val passphrase = unlockContext.unlockKey(keyId.toString())
+      val passphrase = unlockContext.unlockKey(KeyUtils.tryGetKeyId(key).toString())
 
       try {
         val plaintext = attemptBoundedDecryption(key, passphrase, ciphertext, limits)

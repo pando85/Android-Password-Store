@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file
 
 ## [Unreleased]
 
+### Fixed
+
+- Passkey sign-in no longer fails for passphrase-protected PGP keys when the passphrase is cached with biometric Fast Unlock
+
 ## [1.25.2] - 2026-09-29
 
 ### Fixed

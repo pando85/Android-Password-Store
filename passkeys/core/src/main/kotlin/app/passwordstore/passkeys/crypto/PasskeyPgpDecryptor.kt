@@ -43,5 +43,6 @@ public interface PasskeyPgpDecryptor {
 }
 
 public interface PgpUnlockContext {
+  /** [keyId] is the key's primary key ID, as formatted by `PGPIdentifier.KeyId`. */
   public suspend fun unlockKey(keyId: String): CharArray?
 }
