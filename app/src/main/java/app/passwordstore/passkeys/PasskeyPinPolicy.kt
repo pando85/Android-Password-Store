@@ -11,8 +11,7 @@ internal object PasskeyPinPolicy {
   fun parse(plaintext: CharArray): Record? {
     val separator = plaintext.indexOf(':')
     if (separator <= 0 || separator == plaintext.lastIndex) return null
-    val count =
-      plaintext.copyOfRange(0, separator).concatToString().toIntOrNull() ?: return null
+    val count = plaintext.copyOfRange(0, separator).concatToString().toIntOrNull() ?: return null
     if (count !in 0..3) return null
     return Record(count, plaintext.copyOfRange(separator + 1, plaintext.size))
   }
