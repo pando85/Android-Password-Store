@@ -98,6 +98,9 @@ class PasswordCreationActivity : BasePGPActivity() {
     intent.getBooleanExtra(EXTRA_GENERATE_PASSWORD, false)
   }
   private val editing by unsafeLazy { intent.getBooleanExtra(EXTRA_EDITING, false) }
+  /** A new entry suggested by Autofill: [suggestedName] is the web origin or app name. */
+  private val autofilling by unsafeLazy { !editing && suggestedName != null }
+  private val directoryStructure by unsafeLazy { AutofillPreferences.directoryStructure(this) }
   private var copy: Boolean = false
   private var pendingSave = false
 
@@ -176,7 +179,8 @@ class PasswordCreationActivity : BasePGPActivity() {
       if (result.resultCode == RESULT_OK) {
         result.data?.getStringExtra(SelectFolderActivity.SELECTED_FOLDER_PATH)?.let { fullPath ->
           val relPath = PasswordRepository.getRelativePath(fullPath, repoPath)
-          binding.directory.setText(if (!relPath.isEmpty()) relPath else "/")
+          val path = if (relPath.isEmpty()) "/" else relPath
+          binding.directory.setText(path)
         }
       }
     }
@@ -240,12 +244,6 @@ class PasswordCreationActivity : BasePGPActivity() {
         }
       }
 
-      val suggestedEntry: PasswordEntry? = suggestedEntryChars?.let { encrypted ->
-        AESEncryption.decrypt(encrypted)?.let { decrypted ->
-          passwordEntryFactory.create(decrypted).also { decrypted.wipe() }
-        }
-      }
-
       directory.inputType = InputType.TYPE_NULL
       val relPath = PasswordRepository.getRelativePath(fullPath, repoPath)
       directory.setText(if (relPath.isEmpty()) "/" else relPath)
@@ -256,46 +254,71 @@ class PasswordCreationActivity : BasePGPActivity() {
         selectFolderAction.launch(intent)
       }
 
-      if (suggestedName != null) {
-        filename.setText(suggestedName)
-      } else {
-        filename.requestFocus()
+      val suggestedEntry: PasswordEntry? = suggestedEntryChars?.let { encrypted ->
+        AESEncryption.decrypt(encrypted)?.let { decrypted ->
+          passwordEntryFactory.create(decrypted).also { decrypted.wipe() }
+        }
       }
 
-      if (
-        AutofillPreferences.directoryStructure(this@PasswordCreationActivity) ==
-          DirectoryStructure.EncryptedUsername || suggestedEntry?.username != null
-      ) {
-        usernameInputLayout.visibility = View.VISIBLE
-        if (suggestedEntry?.username != null) {
-          val charBuf = CharBuffer.wrap(suggestedEntry?.username)
-          username.setText(charBuf)
-          charBuf.array().wipe()
-        } else if (suggestedName != null) username.requestFocus()
-      }
+      /*
+       * input fields
+       */
 
-      if (
-        suggestedName == null &&
-          AutofillPreferences.directoryStructure(this@PasswordCreationActivity) ==
-            DirectoryStructure.FileBased
-      ) {
-        encryptUsername.apply {
-          visibility = View.VISIBLE
-          setOnClickListener {
-            if (isChecked) {
-              val login = filename.text.toString()
-              filename.text?.clear()
-              username.setText(login)
-              usernameInputLayout.apply { visibility = View.VISIBLE }
-            } else {
-              val login = username.text.toString()
-              username.text?.clear()
-              filename.setText(login)
-              usernameInputLayout.apply { visibility = View.GONE }
+      // visibilities
+      if (editing) {
+        nameInputLayout.visibility = View.GONE
+        filenameInputLayout.visibility = View.VISIBLE
+        if (suggestedEntry?.username == null) {
+          usernameInputLayout.visibility = View.GONE
+          insertUsername.apply {
+            visibility = View.VISIBLE
+            setOnClickListener { toggleUsernameInput(isChecked) }
+          }
+        } else {
+          usernameInputLayout.visibility = View.VISIBLE
+        }
+        insertUsername.isChecked = suggestedEntry?.username != null
+      } else if (autofilling) {
+        when (directoryStructure) {
+          DirectoryStructure.EncryptedUsername -> {}
+          DirectoryStructure.FileBased -> insertUsername.visibility = View.VISIBLE
+          DirectoryStructure.DirectoryBased -> {
+            filenameInputLayout.visibility = View.VISIBLE
+            insertUsername.visibility = View.VISIBLE
+          }
+        }
+      } else { // new entry via app UI
+        when (directoryStructure) {
+          DirectoryStructure.EncryptedUsername -> {}
+          DirectoryStructure.FileBased -> {
+            nameInputLayout.visibility = View.GONE
+            insertUsername.visibility = View.VISIBLE
+          }
+          DirectoryStructure.DirectoryBased -> {
+            nameInputLayout.visibility = View.GONE
+            usernameInputLayout.visibility = View.GONE
+            filenameInputLayout.visibility = View.VISIBLE
+            insertUsername.apply {
+              visibility = View.VISIBLE
+              setOnClickListener { toggleUsernameInput(isChecked) }
             }
           }
         }
       }
+
+      // pre-sets
+      if (editing) {
+        filename.setText(suggestedName)
+      } else if (autofilling) {
+        name.setText(suggestedName)
+      }
+
+      suggestedEntry?.username?.let {
+        val charBuf = CharBuffer.wrap(it)
+        username.setText(charBuf)
+        charBuf.array().wipe()
+      }
+
       suggestedEntry?.password?.let {
         val charBuf = CharBuffer.wrap(it)
         password.setText(charBuf)
@@ -315,7 +338,7 @@ class PasswordCreationActivity : BasePGPActivity() {
         password.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
       }
     }
-    listOf(binding.filename, binding.username, binding.extraContent).forEach {
+    listOf(binding.name, binding.username, binding.filename, binding.extraContent).forEach {
       it.doAfterTextChanged { updateViewState() }
     }
     updateViewState()
@@ -348,7 +371,7 @@ class PasswordCreationActivity : BasePGPActivity() {
   private fun continueSave() {
     if (!pendingSave) return
     val repositoryRoot = File(repoPath)
-    val destinationDirectory = selectedDirectory()
+    val destinationDirectory = destination().directory
     val sourceFile = sourcePasswordFile()
     val requiredMetadata =
       passSecretsMutationService.requiredMetadataForPasswordWrite(
@@ -383,6 +406,115 @@ class PasswordCreationActivity : BasePGPActivity() {
     return File(fullPath.trimEnd('/'), "$physicalName.gpg")
   }
 
+  /** Where an entry is written: the [directory] and the requested (logical) entry name. */
+  private data class Destination(val directory: File, val requestedName: String)
+
+  private fun isMappedDirectory(directory: File): Boolean =
+    PassSecretsMapStore.mapFileForDirectory(directory, File(repoPath)) != null
+
+  /**
+   * Computes the destination of the entry from the input fields, following the directory structure
+   * setting (password file organisation) for new entries:
+   * - `.../example.org.gpg` (encrypted username),
+   * - `.../[example.org/]john@doe.org.gpg` (file-based),
+   * - `.../[example.org/john@doe.org/]password.gpg` (directory-based),
+   *
+   * where the bracketed parts are only added for entries created via Autofill. Inside a
+   * Pass-Secrets mapped directory no plaintext sub-directories are created; the structure becomes
+   * part of the (encrypted) logical entry name instead.
+   */
+  private fun destination(): Destination {
+    with(binding) {
+      val selected = selectedDirectory()
+      val editName = name.text?.toString()?.trim().orEmpty()
+      val editUsername = username.text?.toString()?.trim().orEmpty()
+      val editFilename = filename.text?.toString()?.trim().orEmpty()
+      if (editing) return Destination(selected, editFilename)
+      val components =
+        when (directoryStructure) {
+          DirectoryStructure.EncryptedUsername -> listOf(editName)
+          DirectoryStructure.FileBased ->
+            if (autofilling) listOf(editName, editUsername) else listOf(editUsername)
+          DirectoryStructure.DirectoryBased ->
+            if (autofilling) listOf(editName, editUsername, editFilename) else listOf(editFilename)
+        }
+      if (isMappedDirectory(selected)) {
+        return Destination(selected, components.joinToString("/"))
+      }
+      val directory = components.dropLast(1).fold(selected) { parent, child -> File(parent, child) }
+      return Destination(directory, components.last())
+    }
+  }
+
+  private fun isInvalidPathComponent(value: String, mappedDestination: Boolean): Boolean =
+    !mappedDestination &&
+      (value.contains('/') || value.contains('\\') || value == "." || value == "..")
+
+  /** Checks the input fields required by the current mode, showing a message if invalid. */
+  private fun validateInput(): Boolean {
+    with(binding) {
+      val mappedDestination = isMappedDirectory(selectedDirectory())
+      val editName = name.text?.toString()?.trim().orEmpty()
+      val editUsername = username.text?.toString()?.trim().orEmpty()
+      val editFilename = filename.text?.toString()?.trim().orEmpty()
+
+      // name (domain), e.g. example.org
+      if (autofilling || !editing && directoryStructure == DirectoryStructure.EncryptedUsername) {
+        if (editName.isBlank()) {
+          name.requestFocus()
+          snackbar(message = resources.getString(R.string.empty_name_toast_text))
+          return false
+        } else if (isInvalidPathComponent(editName, mappedDestination)) {
+          name.requestFocus()
+          snackbar(message = resources.getString(R.string.invalid_name_text))
+          return false
+        }
+      }
+
+      // username, if it is part of the file path
+      if (
+        autofilling && directoryStructure != DirectoryStructure.EncryptedUsername ||
+          !editing && directoryStructure == DirectoryStructure.FileBased
+      ) {
+        if (editUsername.isBlank()) {
+          username.requestFocus()
+          snackbar(message = resources.getString(R.string.empty_username_toast_text))
+          return false
+        } else if (isInvalidPathComponent(editUsername, mappedDestination)) {
+          username.requestFocus()
+          snackbar(message = resources.getString(R.string.invalid_username_text))
+          return false
+        }
+      }
+
+      // file name
+      if (editing || directoryStructure == DirectoryStructure.DirectoryBased) {
+        if (editFilename.isBlank()) {
+          filename.requestFocus()
+          snackbar(message = resources.getString(R.string.file_toast_text))
+          return false
+        } else if (isInvalidPathComponent(editFilename, mappedDestination)) {
+          filename.requestFocus()
+          snackbar(message = resources.getString(R.string.invalid_filename_text))
+          return false
+        }
+      }
+    }
+    return true
+  }
+
+  private fun toggleUsernameInput(show: Boolean) {
+    with(binding) {
+      if (show) {
+        usernameInputLayout.visibility = View.VISIBLE
+        username.requestFocus()
+      } else {
+        username.text?.clear()
+        usernameInputLayout.visibility = View.GONE
+      }
+    }
+  }
+
   private fun selectedDirectory(): File {
     val relative = binding.directory.text.toString().trim().trim('/')
     return File(repoPath, relative)
@@ -406,13 +538,7 @@ class PasswordCreationActivity : BasePGPActivity() {
 
   private fun updateViewState() =
     with(binding) {
-      encryptUsername.apply {
-        if (visibility != View.VISIBLE) return@apply
-        val hasUsernameInFileName = filename.text.toString().isNotBlank()
-        val usernameIsEncrypted = username.text.toString().isNotEmpty()
-        isEnabled = hasUsernameInFileName xor usernameIsEncrypted
-        isChecked = usernameIsEncrypted
-      }
+      // Use PasswordEntry to parse extras for OTP
       val entry = passwordEntryFactory.create("PLACEHOLDER\n${extraContent.text}".toCharArray())
       val hasTotp = entry.hasTotp()
       entry.clear()
@@ -422,32 +548,15 @@ class PasswordCreationActivity : BasePGPActivity() {
   /** Encrypts the password and extra content, then atomically updates Pass-Secrets metadata. */
   private fun encrypt(identifiers: List<PGPIdentifier>) {
     with(binding) {
-      val editName = filename.text.toString().trim()
-      var editUsername = username.text?.let { CharArray(it.length) { i -> it[i] } } ?: charArrayOf()
+      if (!validateInput()) return@with
+      val editUsername = username.text?.let { CharArray(it.length) { i -> it[i] } } ?: charArrayOf()
       val editPass = password.text?.let { CharArray(it.length) { i -> it[i] } } ?: charArrayOf()
       var editExtra =
         extraContent.text?.let { CharArray(it.length) { i -> it[i] } } ?: charArrayOf()
-      val destinationDirectory = selectedDirectory()
-      val mappedDestination =
-        PassSecretsMapStore.mapFileForDirectory(destinationDirectory, File(repoPath)) != null
-
-      if (editName.isEmpty()) {
-        snackbar(message = resources.getString(R.string.file_toast_text))
-        return@with
-      } else if (!mappedDestination && (editName.contains('/') || editName.contains('\\'))) {
-        snackbar(message = resources.getString(R.string.invalid_filename_text))
-        return@with
-      }
-
-      if (!editUsername.isEmpty()) {
-        editUsername = editUsername.let {
-          val withPrefix = "\nusername: ".toCharArray() + it
-          it.wipe()
-          withPrefix
-        }
-      }
+      val (destinationDirectory, requestedName) = destination()
 
       if (editPass.isEmpty() && editExtra.isEmpty()) {
+        password.requestFocus()
         snackbar(message = resources.getString(R.string.empty_toast_text))
         return@with
       }
@@ -468,8 +577,9 @@ class PasswordCreationActivity : BasePGPActivity() {
         clearTimer = copyPasswordToClipboard(editPass.copyOf(editPass.size))
       }
 
+      // ensure destination dir exists
       destinationDirectory.toPath().createDirectories()
-      if (!destinationDirectory.toPath().exists()) {
+      if (!destinationDirectory.toPath().exists()) { // should not happen
         snackbar(message = "Failed to create directory ${destinationDirectory.path}")
         return@with
       }
@@ -480,7 +590,7 @@ class PasswordCreationActivity : BasePGPActivity() {
             passSecretsMutationService.planPasswordWrite(
               sourcePasswordFile(),
               destinationDirectory,
-              editName,
+              requestedName,
               File(repoPath),
             )
           if (!plan.destinationFile.isInsideRepository()) {
@@ -488,7 +598,15 @@ class PasswordCreationActivity : BasePGPActivity() {
             return@runCatching
           }
 
-          val contentChars = editPass + editUsername + '\n' + editExtra
+          val contentChars =
+            if (
+              !editUsername.isEmpty() &&
+                (editing ||
+                  insertUsername.isChecked ||
+                  directoryStructure == DirectoryStructure.EncryptedUsername)
+            )
+              editPass + "\nusername: ".toCharArray() + editUsername + '\n' + editExtra
+            else editPass + '\n' + editExtra
           val contentBytes = contentChars.toByteArray()
           contentChars.wipe()
 
@@ -539,27 +657,21 @@ class PasswordCreationActivity : BasePGPActivity() {
 
           val returnIntent = Intent()
           returnIntent.putExtra(RETURN_EXTRA_CREATED_FILE, plan.destinationFile.absolutePath)
-          returnIntent.putExtra(RETURN_EXTRA_NAME, editName)
+          returnIntent.putExtra(RETURN_EXTRA_NAME, plan.logicalName)
           returnIntent.putExtra(
             RETURN_EXTRA_LONG_NAME,
-            PasswordRepository.getLongName(destinationDirectory.absolutePath, repoPath, editName),
+            PasswordRepository.getLongName(
+              destinationDirectory.absolutePath,
+              repoPath,
+              plan.logicalName,
+            ),
           )
 
           if (shouldGeneratePassword) {
-            val directoryStructure = AutofillPreferences.directoryStructure(applicationContext)
-            val entry = passwordEntryFactory.create(editPass + editUsername + '\n' + editExtra)
-
-            entry.password?.let {
-              val password = it.copyOf(it.size)
-              returnIntent.putExtra(RETURN_EXTRA_PASSWORD, password)
-            }
-
-            val username =
-              entry.username?.let { it.copyOf(it.size) }
-                ?: directoryStructure.getUsernameFor(plan.destinationFile)
-            returnIntent.putExtra(RETURN_EXTRA_USERNAME, username)
-
-            entry.clear()
+            // credentials to be filled into the Autofill form after creation
+            if (!editPass.isEmpty()) returnIntent.putExtra(RETURN_EXTRA_PASSWORD, editPass.copyOf())
+            if (!editUsername.isEmpty())
+              returnIntent.putExtra(RETURN_EXTRA_USERNAME, editUsername.copyOf())
           }
 
           editPass.wipe()
