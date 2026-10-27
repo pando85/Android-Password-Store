@@ -108,7 +108,7 @@ constructor(
     persistentPassphrases.edit().remove(id).commit()
   }
 
-  private companion object {
+  companion object {
     const val MAX_RETRIES = 3
   }
 }

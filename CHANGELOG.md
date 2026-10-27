@@ -16,7 +16,7 @@ All notable changes to this project will be documented in this file
 
 ### Fork infrastructure
 
-- Updated dependencies: Gradle 9.8.2, sshj 0.41.2, Kotlin/Compose 2.4.21, R8 9.5.26, CodeQL 4.39.1
+- Updated dependencies: Gradle 9.8.2, sshj 0.41.2, Kotlin/Compose 2.4.21, R8 9.5.28, CodeQL 4.39.1
 
 ## [1.25.2] - 2026-09-29
 

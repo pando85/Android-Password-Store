@@ -7,6 +7,7 @@
 
 package app.passwordstore.passkeys
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
@@ -722,13 +723,17 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
       .show()
   }
 
+  @SuppressLint("ApplySharedPref")
   private fun expirePersistentPassphrasesIfNeeded() {
     val timeoutDays =
       sharedPrefs.getString(PreferenceKeys.BIOMETRICS_AND_PIN_TIMEOUT, null)?.toLongOrNull() ?: 3L
     val lastUse = persistentPassphrases.getLong(PreferenceKeys.BIOMETRICS_AND_PIN_LAST_USE, 0L)
     if (PasskeyFastUnlockPolicy.isExpired(System.currentTimeMillis(), lastUse, timeoutDays)) {
-      persistentPassphrases.edit { clear() }
-      unlockPins.edit { clear() }
+      // Use commit() instead of apply() to ensure durable writes before clearing the cache.
+      // If the app crashes after clearing passphraseCache but before apply() flushes,
+      // the expired passphrases would persist, contradicting the expiry enforcement.
+      persistentPassphrases.edit().clear().commit()
+      unlockPins.edit().clear().commit()
       passphraseCache.clear()
     }
   }
@@ -745,7 +750,7 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
   /** PIN Fast Unlock is a separate secret from Android's device credential. */
   private suspend fun authenticateWithSavedPin(entry: PersistentPassphraseEntry): Boolean {
     var showError = false
-    repeat(PIN_MAX_RETRIES) {
+    repeat(PasskeyPinUnlocker.MAX_RETRIES) {
       val pin = requestFastUnlockPin(showError)
       if (pin == null) {
         finishWithGetError(GetCredentialCancellationException("PIN entry canceled"))
@@ -814,10 +819,6 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
       }
       dialog.show(supportFragmentManager, "PASSKEY_PIN_DIALOG")
     }
-
-  private companion object {
-    const val PIN_MAX_RETRIES = 3
-  }
 
   private suspend fun authenticateWithCipher(cipher: javax.crypto.Cipher?): AuthOutcome {
     return suspendCancellableCoroutine { continuation ->
