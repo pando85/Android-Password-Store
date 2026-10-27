@@ -274,9 +274,12 @@ class AutofillDecryptActivity : BasePGPActivity() {
 
   /** Update the autofill suggestion order (most recently used first). */
   private fun updateAutofillMatches() {
+    // add/move to front or remove
     formOrigin?.let {
       if (AutofillPreferences.addQuickSelectButton(this@AutofillDecryptActivity))
         AutofillMatcher.addMatchFor(this@AutofillDecryptActivity, it, File(filePath))
+      else
+        AutofillMatcher.updateMatches(this@AutofillDecryptActivity, delete = listOf(File(filePath)))
     }
   }
 
