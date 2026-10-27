@@ -6,7 +6,6 @@ All notable changes to this project will be documented in this file
 
 ### Added
 
-- Option to keep the password store in a shared external folder (`Documents/PasswordStore`); passkeys follow the selected repository
 - Setting to enable Autofill directly from the app settings
 - Dialog showing the SSH server's authentication banner, if any
 - Android 17: runtime request for the local network permission and a connectivity check for local Git servers

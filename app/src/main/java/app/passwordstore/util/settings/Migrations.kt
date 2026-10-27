@@ -28,6 +28,7 @@ import logcat.logcat
 private const val TAG = "Migrations"
 
 fun runMigrations(
+  filesDirPath: String,
   sharedPrefs: SharedPreferences,
   gitSettings: GitSettings,
   persistentPassphrases: SharedPreferences,
@@ -38,6 +39,7 @@ fun runMigrations(
   migrateToHideAll(sharedPrefs)
   migrateToClipboardHistory(sharedPrefs)
   migrateToDiceware(sharedPrefs)
+  removeExternalStorageProperties(sharedPrefs)
   removeCurrentBranchValue(sharedPrefs)
   removePersistentCredentialCache(sharedPrefs, gitSettings, context, runTest)
   if (!runTest) moveToPasswordGeneratorPrefs(sharedPrefs, context)
@@ -263,6 +265,20 @@ private fun migrateToDiceware(sharedPrefs: SharedPreferences) {
       if (sharedPrefs.getString(PreferenceKeys.PREF_KEY_PWGEN_TYPE) == "xkpasswd") {
         putString(PreferenceKeys.PREF_KEY_PWGEN_TYPE, "diceware")
       }
+    }
+  }
+}
+
+private fun removeExternalStorageProperties(prefs: SharedPreferences) {
+  prefs.edit {
+    if (prefs.contains(PreferenceKeys.GIT_EXTERNAL)) {
+      if (prefs.getBoolean(PreferenceKeys.GIT_EXTERNAL, false)) {
+        putBoolean(PreferenceKeys.GIT_EXTERNAL_MIGRATED, true)
+      }
+      remove(PreferenceKeys.GIT_EXTERNAL)
+    }
+    if (prefs.contains(PreferenceKeys.GIT_EXTERNAL_REPO)) {
+      remove(PreferenceKeys.GIT_EXTERNAL_REPO)
     }
   }
 }

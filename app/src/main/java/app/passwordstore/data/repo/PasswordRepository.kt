@@ -4,7 +4,6 @@
  */
 package app.passwordstore.data.repo
 
-import android.os.Environment
 import androidx.core.content.edit
 import app.passwordstore.Application
 import app.passwordstore.data.password.PasswordItem
@@ -117,29 +116,11 @@ object PasswordRepository {
   fun closeRepository() {
     repository?.close()
     repository = null
-    settings.edit {
-      putBoolean(PreferenceKeys.REPOSITORY_INITIALIZED, false)
-      putBoolean(PreferenceKeys.PREF_SHARED_REPO, false)
-    }
   }
 
-  fun deleteRepository() {
-    getRepositoryDirectory().let { dir ->
-      dir.deleteRecursively()
-    }
-    closeRepository()
+  fun getRepositoryDirectory(): File {
+    return File(filesDir.toString(), "/store")
   }
-
-  fun getRepositoryDirectory(): File =
-    if (settings.getBoolean(PreferenceKeys.PREF_SHARED_REPO, false))
-      File(
-        File(
-          Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS),
-          "PasswordStore",
-        ),
-        "store",
-      )
-    else File(filesDir, "store")
 
   /* referencePath: /a/b/c
    * /a/b/c/d/e/dir -> /d/e/dir
