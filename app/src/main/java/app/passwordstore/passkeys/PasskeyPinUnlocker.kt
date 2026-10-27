@@ -17,8 +17,9 @@ import javax.inject.Inject
  *
  * PIN failure counters require durable writes before reporting an authentication result. Using
  * apply() would allow an app crash to reset the counter, so these writes use commit() deliberately.
+ * The KTX edit helper discards the commit result, which must be checked on the retry path.
  */
-@SuppressLint("ApplySharedPref")
+@SuppressLint("ApplySharedPref", "UseKtx")
 class PasskeyPinUnlocker
 @Inject
 constructor(
