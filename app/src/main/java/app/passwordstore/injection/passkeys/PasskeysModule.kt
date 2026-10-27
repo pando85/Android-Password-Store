@@ -16,7 +16,6 @@ import app.passwordstore.crypto.PGPainlessCryptoHandler
 import app.passwordstore.crypto.PgpainlessPasskeyDecryptor
 import app.passwordstore.data.crypto.OpenPgpInteractionCoordinator
 import app.passwordstore.data.crypto.OpenPgpProviderRepository
-import app.passwordstore.data.repo.PasswordRepository
 import app.passwordstore.injection.prefs.SettingsPreferences
 import app.passwordstore.passkeys.BiometricPasskeyAuthenticator
 import app.passwordstore.passkeys.DefaultRepositoryGenerationProvider
@@ -47,6 +46,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import java.io.File
 import javax.inject.Singleton
 
 @Module
@@ -89,17 +89,20 @@ object PasskeysModule {
 
   @Provides
   @Singleton
-  fun provideRepositoryGenerationProvider(): RepositoryGenerationProvider =
-    DefaultRepositoryGenerationProvider(PasswordRepository.getRepositoryDirectory())
+  fun provideRepositoryGenerationProvider(
+    @ApplicationContext context: Context
+  ): RepositoryGenerationProvider =
+    DefaultRepositoryGenerationProvider(File(context.filesDir, "store"))
 
   @Provides
   @Singleton
   fun providePassRecipientResolver(
+    @ApplicationContext context: Context,
     keyManager: PGPKeyManager,
     providerRepository: OpenPgpProviderRepository,
     interactionCoordinator: OpenPgpInteractionCoordinator,
   ): PassRecipientResolver<PGPKey> {
-    val repositoryRoot = PasswordRepository.getRepositoryDirectory()
+    val repositoryRoot = File(context.filesDir, "store")
     val localResolver = DefaultPassRecipientResolver(repositoryRoot, keyManager)
     return OpenPgpPassRecipientResolver(
       localResolver,
@@ -111,6 +114,7 @@ object PasskeysModule {
   @Provides
   @Singleton
   fun providePasskeyStorage(
+    @ApplicationContext context: Context,
     cryptoHandler: PGPainlessCryptoHandler,
     passkeyPgpDecryptor: PasskeyPgpDecryptor,
     pgpUnlockContext: PgpUnlockContext,
@@ -118,7 +122,7 @@ object PasskeysModule {
     generationProvider: RepositoryGenerationProvider,
     metadataIndex: PasskeyMetadataIndex,
   ): PasskeyStorage {
-    val repositoryRoot = PasswordRepository.getRepositoryDirectory()
+    val repositoryRoot = File(context.filesDir, "store")
     val passkeyConfig = PasskeyStorageConfig(passkeyDirectory = "fido2", fileExtension = ".gpg")
     val fileStorage =
       FilePasskeyStorage(

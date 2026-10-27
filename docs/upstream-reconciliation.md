@@ -53,7 +53,7 @@ Reviewed through upstream `5f320126e14b9324db7a84f33e48fa9fdbdc30ca` (`develop`)
 | #1112 | adopted | sshj 0.41.x fixes (fork is already on sshj 0.41.2) |
 | #1129 | adopted | Dialog showing the SSH server authentication banner |
 | #1162 | adopted | SSH host key verification fix; also applies to the headless passkey SSH path |
-| #1168 | adapted | External/shared repository option (`Documents/PasswordStore`). Passkey providers now resolve their storage root from `PasswordRepository` so passkeys stay in the Git working tree |
+| #1168 | skipped (reverted) | External/shared repository option (`Documents/PasswordStore`). Ported, then removed before release: this fork is Git-only, and shared storage weakens the passkey storage guarantees (other apps can read/replace files, no storage permission, files may become unreadable after reinstall). Do not re-adopt |
 | #1063, #1115 | adapted | Bouncy Castle and coroutines versions aligned through BOMs (including passkey module build wiring) |
 | #1065 | adopted | Alert dialogs no longer clipped by the IME on short screens |
 | #1149, #1152, 1c048ab5 | adopted | Spanish translation fix; empty git author email allowed; fastlane banner renamed |

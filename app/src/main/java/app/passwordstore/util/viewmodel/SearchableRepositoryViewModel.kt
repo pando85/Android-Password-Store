@@ -327,9 +327,7 @@ constructor(
   ) {
     require(newDirectory.isInsideRepository()) { "Trying to access target outside the repository" }
     if (!newDirectory.exists()) return
-    require(newDirectory.isDirectory) {
-      "Cannot navigate into non-directory ${newDirectory}"
-    }
+    require(newDirectory.isDirectory) { "Can only navigate to a directory" }
     if (pushPreviousLocation) {
       navigationStack.addFirst(NavigationStackEntry(_currentDir.value, recyclerViewState))
     }

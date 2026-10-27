@@ -16,6 +16,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import org.junit.Rule
 import org.junit.rules.TemporaryFolder
 
@@ -57,6 +58,7 @@ class MigrationsTest {
       putString(PreferenceKeys.GIT_REMOTE_AUTH, AuthMode.Password.pref)
     }
     runMigrations(
+      filesDir,
       sharedPrefs,
       GitSettings(sharedPrefs, gitSecrets, filesDir),
       sharedPrefs,
@@ -80,6 +82,7 @@ class MigrationsTest {
       putString(PreferenceKeys.GIT_REMOTE_AUTH, AuthMode.SshKey.pref)
     }
     runMigrations(
+      filesDir,
       sharedPrefs,
       GitSettings(sharedPrefs, gitSecrets, filesDir),
       sharedPrefs,
@@ -103,6 +106,7 @@ class MigrationsTest {
       putString(PreferenceKeys.GIT_REMOTE_AUTH, AuthMode.None.pref)
     }
     runMigrations(
+      filesDir,
       sharedPrefs,
       GitSettings(sharedPrefs, gitSecrets, filesDir),
       sharedPrefs,
@@ -119,6 +123,7 @@ class MigrationsTest {
   @Test
   fun verifyHiddenFoldersMigrationIfDisabled() {
     runMigrations(
+      filesDir,
       sharedPrefs,
       GitSettings(sharedPrefs, gitSecrets, filesDir),
       sharedPrefs,
@@ -133,6 +138,7 @@ class MigrationsTest {
   fun verifyHiddenFoldersMigrationIfEnabled() {
     sharedPrefs.edit { putBoolean(PreferenceKeys.SHOW_HIDDEN_FOLDERS, true) }
     runMigrations(
+      filesDir,
       sharedPrefs,
       GitSettings(sharedPrefs, gitSecrets, filesDir),
       sharedPrefs,
@@ -147,6 +153,7 @@ class MigrationsTest {
   fun verifyClearClipboardHistoryMigration() {
     sharedPrefs.edit { putBoolean(PreferenceKeys.CLEAR_CLIPBOARD_20X, true) }
     runMigrations(
+      filesDir,
       sharedPrefs,
       GitSettings(sharedPrefs, gitSecrets, filesDir),
       sharedPrefs,
@@ -161,6 +168,7 @@ class MigrationsTest {
   fun verifyClassicPasswordGeneratorMigration() {
     sharedPrefs.edit { putString(PreferenceKeys.PREF_KEY_PWGEN_TYPE, "classic") }
     runMigrations(
+      filesDir,
       sharedPrefs,
       GitSettings(sharedPrefs, gitSecrets, filesDir),
       sharedPrefs,
@@ -174,6 +182,7 @@ class MigrationsTest {
   fun verifyXkPasswdPasswordGeneratorMigration() {
     sharedPrefs.edit { putString(PreferenceKeys.PREF_KEY_PWGEN_TYPE, "xkpasswd") }
     runMigrations(
+      filesDir,
       sharedPrefs,
       GitSettings(sharedPrefs, gitSecrets, filesDir),
       sharedPrefs,
@@ -184,12 +193,32 @@ class MigrationsTest {
   }
 
   @Test
+  fun verifyExternalStorageMigration() {
+    sharedPrefs.edit {
+      putBoolean(PreferenceKeys.GIT_EXTERNAL, true)
+      putString(PreferenceKeys.GIT_EXTERNAL_REPO, "/sdcard/")
+    }
+    runMigrations(
+      filesDir,
+      sharedPrefs,
+      GitSettings(sharedPrefs, gitSecrets, filesDir),
+      sharedPrefs,
+      context,
+      runTest = true,
+    )
+    assertFalse { sharedPrefs.contains(PreferenceKeys.GIT_EXTERNAL) }
+    assertFalse { sharedPrefs.contains(PreferenceKeys.GIT_EXTERNAL_REPO) }
+    assertTrue { sharedPrefs.getBoolean(PreferenceKeys.GIT_EXTERNAL_MIGRATED, false) }
+  }
+
+  @Test
   fun verifyPersistentCredentialCache() {
     sharedPrefs.edit {
       putBoolean(PreferenceKeys.CLEAR_PASSPHRASE_CACHE, true)
       putString(PreferenceKeys.SSH_KEY_LOCAL_PASSPHRASE, "my secret local ssh key passphrase")
     }
     runMigrations(
+      filesDir,
       sharedPrefs,
       GitSettings(sharedPrefs, gitSecrets, filesDir),
       sharedPrefs,
@@ -206,6 +235,7 @@ class MigrationsTest {
       putString("unlock_pin", "abcdefg")
     }
     runMigrations(
+      filesDir,
       sharedPrefs,
       GitSettings(sharedPrefs, gitSecrets, filesDir),
       sharedPrefs,
