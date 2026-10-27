@@ -201,13 +201,14 @@ public class FilePasskeyStorage<
               val decryptResult =
                 try {
                   val fileSize = file.fileSize()
-                  val stream = file.inputStream()
-                  passkeyPgpDecryptor.decryptFromStream(
-                    stream,
-                    fileSize,
-                    pgpUnlockContext,
-                    inputLimits,
-                  )
+                  file.inputStream().use { stream ->
+                    passkeyPgpDecryptor.decryptFromStream(
+                      stream,
+                      fileSize,
+                      pgpUnlockContext,
+                      inputLimits,
+                    )
+                  }
                 } finally {
                   concurrencyLimiter.decryptionSemaphore.release()
                 }
@@ -264,13 +265,14 @@ public class FilePasskeyStorage<
             val decryptResult =
               try {
                 val fileSize = file.fileSize()
-                val stream = file.inputStream()
-                passkeyPgpDecryptor.decryptFromStream(
-                  stream,
-                  fileSize,
-                  pgpUnlockContext,
-                  inputLimits,
-                )
+                file.inputStream().use { stream ->
+                  passkeyPgpDecryptor.decryptFromStream(
+                    stream,
+                    fileSize,
+                    pgpUnlockContext,
+                    inputLimits,
+                  )
+                }
               } finally {
                 concurrencyLimiter.decryptionSemaphore.release()
               }
@@ -514,18 +516,21 @@ public class FilePasskeyStorage<
             val sensitivePlaintext =
               try {
                 val fileSize = file.fileSize()
-                val stream = file.inputStream()
-                passkeyPgpDecryptor
-                  .decryptFromStream(stream, fileSize, pgpUnlockContext, inputLimits)
-                  .fold(
-                    success = { it },
-                    failure = { error ->
-                      return@withContext Err(
-                        IllegalStateException("Decryption failed: ${formatDecryptionError(error)}")
-                      )
-                        as Result<Unit, Throwable>
-                    },
-                  )
+                file.inputStream().use { stream ->
+                  passkeyPgpDecryptor
+                    .decryptFromStream(stream, fileSize, pgpUnlockContext, inputLimits)
+                    .fold(
+                      success = { it },
+                      failure = { error ->
+                        return@withContext Err(
+                          IllegalStateException(
+                            "Decryption failed: ${formatDecryptionError(error)}"
+                          )
+                        )
+                          as Result<Unit, Throwable>
+                      },
+                    )
+                }
               } finally {
                 concurrencyLimiter.decryptionSemaphore.release()
               }
