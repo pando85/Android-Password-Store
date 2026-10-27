@@ -8,6 +8,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.IntentSender
+import android.content.SharedPreferences
 import android.os.Build
 import android.os.Bundle
 import android.view.View
@@ -25,6 +26,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import app.passwordstore.R
 import app.passwordstore.data.password.PasswordItem
 import app.passwordstore.databinding.ActivityOreoAutofillFilterBinding
+import app.passwordstore.injection.prefs.SettingsPreferences
 import app.passwordstore.util.autofill.AutofillMatcher
 import app.passwordstore.util.autofill.AutofillPasskeyExclusion
 import app.passwordstore.util.autofill.AutofillPreferences
@@ -32,6 +34,7 @@ import app.passwordstore.util.coroutines.DispatcherProvider
 import app.passwordstore.util.extensions.enableEdgeToEdgeView
 import app.passwordstore.util.extensions.viewBinding
 import app.passwordstore.util.settings.DirectoryStructure
+import app.passwordstore.util.settings.PreferenceKeys
 import app.passwordstore.util.viewmodel.FilterMode
 import app.passwordstore.util.viewmodel.ListMode
 import app.passwordstore.util.viewmodel.SearchMode
@@ -49,6 +52,8 @@ import logcat.logcat
 class AutofillFilterView : AppCompatActivity() {
 
   @Inject lateinit var dispatcherProvider: DispatcherProvider
+
+  @SettingsPreferences @Inject lateinit var settings: SharedPreferences
 
   companion object {
 
@@ -180,15 +185,9 @@ class AutofillFilterView : AppCompatActivity() {
 
   private suspend fun handleSearchResults() {
     model.searchResult.collect { result ->
-      // Classic Autofill never offers passkey credentials.
-      val list =
-        result.passwordItems.filterNot {
-          AutofillPasskeyExclusion.isPasskeyCredentialFile(
-            it.file,
-            it.rootDir,
-            resolveLinks = false,
-          )
-        }
+      // Only offer password files: no hidden files or directories (even if the "show hidden
+      // contents" setting is enabled), and never passkey credentials.
+      val list = result.passwordItems.filter { isFillableSearchResult(it) }
       (binding.rvPassword.adapter as SearchableRepositoryAdapter).submitList(list) {
         binding.rvPassword.scrollToPosition(0)
       }
@@ -201,6 +200,17 @@ class AutofillFilterView : AppCompatActivity() {
         binding.rvPasswordSwitcher.showNext()
       }
     }
+  }
+
+  private fun isFillableSearchResult(item: PasswordItem): Boolean {
+    val relativeFile = item.file.relativeTo(item.rootDir)
+    return item.file.extension == "gpg" &&
+      relativeFile.invariantSeparatorsPath.split('/').none { it.startsWith('.') } &&
+      !AutofillPasskeyExclusion.isPasskeyCredentialFile(
+        item.file,
+        item.rootDir,
+        resolveLinks = false,
+      )
   }
 
   private fun buildResultList() {
@@ -247,7 +257,10 @@ class AutofillFilterView : AppCompatActivity() {
     model.search(
       binding.search.text.toString(),
       filterMode =
-        if (binding.strictDomainSearch.isChecked) FilterMode.StrictDomain else FilterMode.Fuzzy,
+        if (binding.strictDomainSearch.isChecked) FilterMode.StrictDomain
+        else if (settings.getString(PreferenceKeys.SEARCH_FILTER_MODE, "exact") == "fuzzy")
+          FilterMode.Fuzzy
+        else FilterMode.Exact,
       searchMode = SearchMode.RecursivelyInSubdirectories,
       listMode = ListMode.FilesOnly,
     )
