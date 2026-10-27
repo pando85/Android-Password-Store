@@ -48,7 +48,7 @@ class AutofillPasskeyExclusionTest {
     val target = File(root, "fido2/example.org").apply { mkdirs() }
     File(target, "0123abcd.gpg").writeText("x")
     val link = File(root, "web/example.org")
-    link.parentFile.mkdirs()
+    checkNotNull(link.parentFile).mkdirs()
     Files.createSymbolicLink(link.toPath(), target.toPath())
     assertTrue(AutofillPasskeyExclusion.isPasskeyCredentialFile(File(link, "0123abcd.gpg"), root))
   }
