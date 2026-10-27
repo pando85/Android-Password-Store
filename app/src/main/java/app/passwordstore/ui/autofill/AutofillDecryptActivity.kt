@@ -20,6 +20,8 @@ import app.passwordstore.data.crypto.OpenPgpApiBackend
 import app.passwordstore.data.passfile.PasswordEntry
 import app.passwordstore.data.repo.PasswordRepository
 import app.passwordstore.ui.crypto.BasePGPActivity
+import app.passwordstore.util.autofill.AutofillMatcher
+import app.passwordstore.util.autofill.AutofillPasskeyExclusion
 import app.passwordstore.util.autofill.AutofillPreferences
 import app.passwordstore.util.autofill.AutofillResponseBuilder
 import app.passwordstore.util.extensions.snackbar
@@ -27,6 +29,7 @@ import app.passwordstore.util.extensions.toCharArray
 import app.passwordstore.util.extensions.wipe
 import app.passwordstore.util.settings.PreferenceKeys
 import com.github.androidpasswordstore.autofillparser.AutofillAction
+import com.github.androidpasswordstore.autofillparser.FormOrigin
 import com.github.michaelbull.result.getError
 import com.github.michaelbull.result.getOrThrow
 import com.github.michaelbull.result.onSuccess
@@ -50,6 +53,8 @@ class AutofillDecryptActivity : BasePGPActivity() {
   private lateinit var repositoryPath: String
   private lateinit var clientState: Bundle
   private lateinit var action: AutofillAction
+  private var formOrigin: FormOrigin? = null
+  private var origin: String? = null
 
   override fun onStart() {
     super.onStart()
@@ -68,6 +73,18 @@ class AutofillDecryptActivity : BasePGPActivity() {
           finish()
           return
         }
+    // Derive the form origin from the client state instead of static state so it survives process
+    // death between the fill request and the dataset authentication.
+    formOrigin = FormOrigin.fromBundle(clientState)
+    origin = formOrigin?.getPrettyIdentifier(this, untrusted = false) // web origin or app name
+    // Classic Autofill must never fill passkey data: refuse before anything is decrypted.
+    if (AutofillPasskeyExclusion.isPasskeyCredentialFile(File(filePath))) {
+      logcat(ERROR) { "AutofillDecryptActivity refuses to fill a passkey credential file" }
+      AutofillMatcher.updateMatches(this, delete = listOf(File(filePath)))
+      snackbar(message = getString(R.string.password_decryption_no_autofill_with_passkey_error))
+      Executors.newSingleThreadScheduledExecutor().schedule({ finish() }, 4, TimeUnit.SECONDS)
+      return
+    }
     val isSearchAction =
       intent?.getBooleanExtra(EXTRA_SEARCH_ACTION, true) ?: throw NullPointerException()
     action = if (isSearchAction) AutofillAction.Search else AutofillAction.Match
@@ -102,6 +119,7 @@ class AutofillDecryptActivity : BasePGPActivity() {
                 this,
                 encryptedFile,
                 entry,
+                origin,
                 directoryStructure,
               )
             val fillInDataset =
@@ -134,8 +152,9 @@ class AutofillDecryptActivity : BasePGPActivity() {
                 )
               }
               entry.clear()
-              finish()
             }
+            updateAutofillMatches()
+            withContext(dispatcherProvider.main()) { finish() }
           } finally {
             plaintextBytes.wipe()
           }
@@ -184,6 +203,7 @@ class AutofillDecryptActivity : BasePGPActivity() {
           this,
           encryptedFile,
           entry,
+          origin,
           directoryStructure,
         )
       val fillInDataset =
@@ -213,6 +233,9 @@ class AutofillDecryptActivity : BasePGPActivity() {
         }
       }
       onSuccess(lastResult.first) // pass ID
+
+      updateAutofillMatches()
+
       withContext(dispatcherProvider.main()) { finish() }
     } else {
       passphrases.values.forEach { it?.wipe() }
@@ -249,11 +272,22 @@ class AutofillDecryptActivity : BasePGPActivity() {
     }
   }
 
+  /** Update the autofill suggestion order (most recently used first). */
+  private fun updateAutofillMatches() {
+    // add/move to front or remove
+    formOrigin?.let {
+      if (AutofillPreferences.addQuickSelectButton(this@AutofillDecryptActivity))
+        AutofillMatcher.addMatchFor(this@AutofillDecryptActivity, it, File(filePath))
+      else
+        AutofillMatcher.updateMatches(this@AutofillDecryptActivity, delete = listOf(File(filePath)))
+    }
+  }
+
   companion object {
 
     private const val EXTRA_SEARCH_ACTION = "app.passwordstore.autofill.oreo.EXTRA_SEARCH_ACTION"
 
-    private var decryptFileRequestCode = 1
+    private var decryptFileRequestCode = 100000
     private var otpTimer: ScheduledExecutorService? = null
 
     fun makeDecryptFileIntent(file: File, forwardedExtras: Bundle, context: Context): Intent {

@@ -14,7 +14,6 @@
     <string name="dialog_delete_msg">El directori de destinació ja existeix. La versió actual només admet un sol magatzem. Voleu suprimir el directori actual del magatzem de contrasenyes?\n(%1$s)</string>
     <string name="dialog_delete">Suprimeix el directori</string>
     <string name="dialog_do_not_delete">Cancel·lar</string>
-    <string name="title_activity_git_clone">Informació del repositori</string>
     <string name="title_activity_git_config">Configuració de Git</string>
     <string name="title_activity_git_log">Registre de commits</string>
     <string name="creation_dialog_text">Cloneu o creeu un nou repositori absn d\'intentar afegir una contrasenya o sincronitzar.</string>
@@ -56,7 +55,6 @@
     <string name="crypto_username_hint">Nom d\'usuari</string>
     <string name="crypto_pass_label">Contrasenya</string>
     <string name="crypto_extra_label">Contingut extra</string>
-    <string name="crypto_encrypt_username_label">Xifra el nom d\'usuari</string>
     <string name="crypto_select">Selecciona</string>
     <string name="crypto_save">Desa</string>
     <string name="crypto_save_and_copy">Desa i copia</string>
@@ -68,7 +66,6 @@
     <string name="copy_password">Copia la contrasenya</string>
     <string name="share_as_plaintext">Comparteix com a text</string>
     <string name="pref_category_repository_title">Repositori</string>
-    <string name="pref_edit_git_server_settings">Edita la configuració del servidor Git</string>
     <string name="pref_edit_git_config">Configuració local de Git i utilitats</string>
     <string name="pref_import_ssh_key_title">Importa clau SSH</string>
     <string name="pref_ssh_keygen_title">Genera un parell de claus SSH</string>
@@ -168,7 +165,6 @@
     <string name="app_icon_hint">Icona de l\'aplicació</string>
     <string name="oreo_autofill_select_and_fill_into">Selecciona l\'entrada a omplir</string>
     <string name="oreo_autofill_strict_domain_search">Cerca resistent al Phishing</string>
-    <string name="oreo_autofill_match_with">Coincideix amb %1$s</string>
     <string name="oreo_autofill_matches_clear_existing">Neteja les concordances</string>
     <string name="oreo_autofill_filter_no_results">Sense resultats.</string>
     <string name="oreo_autofill_search_in_store">Entrada de la cerca</string>
@@ -176,7 +172,6 @@
     <string name="oreo_autofill_save_app_not_supported">Aquesta aplicació no està actualment suportada</string>
     <string name="oreo_autofill_save_passwords_dont_match">Les contrasenyes no coincideixen</string>
     <string name="oreo_autofill_generate_password">Crea una entrada</string>
-    <string name="oreo_autofill_max_matches_reached">Nombre màxim de coincidències (%1$d) assolit; neteja les concordances abans d\'afegir noves.</string>
     <string name="oreo_autofill_warning_publisher_header">L\'editor d\'aquesta aplicació ha canviat des que hi vau associar per primera vegada una entrada del magatzem de contrasenyes:</string>
     <string name="oreo_autofill_warning_publisher_footer"><b>És possible que l\'aplicació instal·lada actualment estigui intentant robar les vostres credencials fent-se passar per una aplicació de confiança.</b> Proveu de desinstal·lar i tornar a instal·lar l\'aplicació des d\'una font de confiança, com ara Play Store, Amazon Appstore, F-Droid o la botiga del fabricant del telèfon.</string>
     <string name="oreo_autofill_warning_publisher_install_time">Instal·lat: %1$s</string>

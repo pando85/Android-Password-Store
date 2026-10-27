@@ -9,6 +9,7 @@ object PreferenceKeys {
 
   const val APP_THEME = "app_theme"
   const val AUTOFILL_ENABLE = "autofill_enable"
+  const val AUTOFILL_ASK_TO_SAVE_PASSWORDS = "autofill_ask_to_save_passwords"
   const val BIOMETRIC_AUTH = "biometric_auth"
   const val BIOMETRIC_AUTH_2 = "biometric_auth_delete_soon_please"
   @Deprecated(
@@ -27,13 +28,10 @@ object PreferenceKeys {
   const val GIT_CONFIG = "git_config"
   const val GIT_CONFIG_AUTHOR_EMAIL = "git_config_user_email"
   const val GIT_CONFIG_AUTHOR_NAME = "git_config_user_name"
+  const val GIT_SHOW_SSH_SERVER_RESPONSE = "git_show_ssh_server_response"
 
-  @Deprecated(message = "We're removing support for external storage")
-  const val GIT_EXTERNAL = "git_external"
+  const val PREF_SHARED_REPO = "pref_shared_repo"
 
-  @Deprecated(message = "We're removing support for external storage")
-  const val GIT_EXTERNAL_REPO = "git_external_repo"
-  const val GIT_EXTERNAL_MIGRATED = "git_external_migrated"
   const val GIT_REMOTE_AUTH = "git_remote_auth"
   const val GIT_REMOTE_KEY_TYPE = "git_remote_key_type"
 
@@ -60,6 +58,8 @@ object PreferenceKeys {
   const val DIRECTORY_STRUCTURE = "oreo_autofill_directory_structure"
   const val AUTOFILL_SAVE_DIRECTORY = "oreo_autofill_save_directory"
   const val STRICT_DOMAIN_SEARCH = "oreo_autofill_strict_domain_search"
+  const val DOMAIN_QUICK_SELECT_ADD = "oreo_autofill_domain_quick_select_add"
+  const val DOMAIN_QUICK_SELECT_REMOVE = "oreo_autofill_domain_quick_select_remove"
   const val PREF_KEY_PWGEN_TYPE = "pref_key_pwgen_type"
   const val REPOSITORY_INITIALIZED = "repository_initialized"
   const val REPO_CHANGED = "repo_changed"

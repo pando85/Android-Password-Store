@@ -4,6 +4,7 @@
  */
 package app.passwordstore.data.repo
 
+import android.os.Environment
 import androidx.core.content.edit
 import app.passwordstore.Application
 import app.passwordstore.data.password.PasswordItem
@@ -15,6 +16,14 @@ import com.github.michaelbull.result.getOrElse
 import com.github.michaelbull.result.onErr
 import com.github.michaelbull.result.runCatching
 import java.io.File
+import java.io.IOException
+import java.nio.file.FileVisitResult
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.Paths
+import java.nio.file.SimpleFileVisitor
+import java.nio.file.attribute.BasicFileAttributes
+import kotlin.io.path.name
 import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.lib.BranchTrackingStatus
 import org.eclipse.jgit.lib.Constants
@@ -25,6 +34,9 @@ import org.eclipse.jgit.transport.RemoteConfig
 import org.eclipse.jgit.transport.URIish
 
 object PasswordRepository {
+
+  const val TYPE_FILE: Int = 1
+  const val TYPE_DIR: Int = 2
 
   var repository: Repository? = null
   private val settings by unsafeLazy { Application.instance.sharedPrefs }
@@ -105,11 +117,29 @@ object PasswordRepository {
   fun closeRepository() {
     repository?.close()
     repository = null
+    settings.edit {
+      putBoolean(PreferenceKeys.REPOSITORY_INITIALIZED, false)
+      putBoolean(PreferenceKeys.PREF_SHARED_REPO, false)
+    }
   }
 
-  fun getRepositoryDirectory(): File {
-    return File(filesDir.toString(), "/store")
+  fun deleteRepository() {
+    getRepositoryDirectory().let { dir ->
+      dir.deleteRecursively()
+    }
+    closeRepository()
   }
+
+  fun getRepositoryDirectory(): File =
+    if (settings.getBoolean(PreferenceKeys.PREF_SHARED_REPO, false))
+      File(
+        File(
+          Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS),
+          "PasswordStore",
+        ),
+        "store",
+      )
+    else File(filesDir, "store")
 
   /* referencePath: /a/b/c
    * /a/b/c/d/e/dir -> /d/e/dir
@@ -254,5 +284,59 @@ object PasswordRepository {
     }
     passwordList.sortWith(sortOrder.comparator)
     return passwordList
+  }
+
+  /**
+   * Recursively finds files and/or directories (see [type]) below [startPath] whose name equals
+   * [name]. Hidden directories (such as `.git`) are not descended into.
+   */
+  fun findByName(
+    startPath: String,
+    name: String,
+    type: Int = TYPE_DIR or TYPE_FILE,
+    ignoreCase: Boolean = false,
+  ): List<Path> =
+    walkNonHidden(Paths.get(startPath), type) { it.name.equals(name, ignoreCase = ignoreCase) }
+
+  /**
+   * Recursively finds files and/or directories (see [type]) below [startPath] whose parent
+   * directory's name equals [name]. Hidden directories (such as `.git`) are not descended into.
+   */
+  fun findByParentName(
+    startPath: String,
+    name: String,
+    type: Int = TYPE_DIR or TYPE_FILE,
+    ignoreCase: Boolean = false,
+  ): List<Path> =
+    walkNonHidden(Paths.get(startPath), type) { path ->
+      val parent: Path? = path.parent
+      parent != null && parent.name.equals(name, ignoreCase = ignoreCase)
+    }
+
+  private fun walkNonHidden(start: Path, type: Int, predicate: (Path) -> Boolean): List<Path> {
+    val matches = mutableListOf<Path>()
+    if (!Files.isDirectory(start)) return matches
+    Files.walkFileTree(
+      start,
+      object : SimpleFileVisitor<Path>() {
+        override fun preVisitDirectory(
+          dir: Path,
+          attrs: BasicFileAttributes,
+        ): FileVisitResult {
+          if (dir != start && dir.name.startsWith('.')) return FileVisitResult.SKIP_SUBTREE
+          if (dir != start && type and TYPE_DIR != 0 && predicate(dir)) matches.add(dir)
+          return FileVisitResult.CONTINUE
+        }
+
+        override fun visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult {
+          if (type and TYPE_FILE != 0 && attrs.isRegularFile && predicate(file)) matches.add(file)
+          return FileVisitResult.CONTINUE
+        }
+
+        override fun visitFileFailed(file: Path, exc: IOException): FileVisitResult =
+          FileVisitResult.CONTINUE
+      },
+    )
+    return matches
   }
 }

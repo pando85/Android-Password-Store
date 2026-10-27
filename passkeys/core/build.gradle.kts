@@ -10,6 +10,7 @@ plugins {
 dependencies {
   api(projects.crypto.common)
   implementation(libs.thirdparty.kotlinResult)
+  implementation(platform(libs.thirdparty.bouncycastle.bom))
   implementation(libs.thirdparty.bouncycastle.bcprov)
   implementation(libs.thirdparty.logcat)
   implementation(libs.kotlinx.coroutines.core)

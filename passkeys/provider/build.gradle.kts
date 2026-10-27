@@ -28,6 +28,7 @@ dependencies {
   implementation(libs.kotlinx.coroutines.core)
   implementation(libs.kotlinx.datetime)
   implementation(libs.kotlinx.serialization.json)
+  implementation(platform(libs.thirdparty.bouncycastle.bom))
   implementation(libs.thirdparty.bouncycastle.bcprov)
   implementation(libs.thirdparty.kotlinResult)
   implementation(libs.thirdparty.logcat)

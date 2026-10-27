@@ -11,16 +11,21 @@ import android.service.autofill.Dataset
 import android.service.autofill.FillCallback
 import android.service.autofill.FillRequest
 import android.service.autofill.FillResponse
+import android.service.autofill.RegexValidator
 import android.service.autofill.SaveInfo
+import android.view.autofill.AutofillId
 import app.passwordstore.ui.autofill.AutofillDecryptActivity
 import app.passwordstore.ui.autofill.AutofillFilterView
 import app.passwordstore.ui.autofill.AutofillPublisherChangedActivity
 import app.passwordstore.ui.autofill.AutofillSaveActivity
+import app.passwordstore.util.extensions.sharedPrefs
+import app.passwordstore.util.settings.PreferenceKeys
 import com.github.androidpasswordstore.autofillparser.AutofillAction
 import com.github.androidpasswordstore.autofillparser.FillableForm
 import com.github.androidpasswordstore.autofillparser.fillWith
 import com.github.michaelbull.result.fold
 import java.io.File
+import java.util.regex.Pattern
 import logcat.LogPriority.ERROR
 import logcat.asLog
 import logcat.logcat
@@ -59,22 +64,23 @@ class Api26AutofillResponseBuilder private constructor(form: FillableForm) :
 
   private fun makeMatchDataset(context: Context, file: File): Dataset? {
     if (!scenario.hasFieldsToFillOn(AutofillAction.Match)) return null
-    val metadata = makeFillMatchMetadata(context, file)
+    val metadata = makeFillMatchMetadata(context, file, 0, 0)
     val intentSender = AutofillDecryptActivity.makeDecryptFileIntentSender(file, context)
     return makeIntentDataset(context, AutofillAction.Match, intentSender, metadata)
   }
 
   private fun makeSearchDataset(context: Context): Dataset? {
     if (!scenario.hasFieldsToFillOn(AutofillAction.Search)) return null
-    val metadata = makeSearchAndFillMetadata(context)
+    val metadata = makeSearchAndFillMetadata(context, 0, 0)
     val intentSender = AutofillFilterView.makeMatchAndDecryptFileIntentSender(context, formOrigin)
     return makeIntentDataset(context, AutofillAction.Search, intentSender, metadata)
   }
 
   private fun makeGenerateDataset(context: Context): Dataset? {
     if (!scenario.hasFieldsToFillOn(AutofillAction.Generate)) return null
-    val metadata = makeGenerateAndFillMetadata(context)
-    val intentSender = AutofillSaveActivity.makeSaveIntentSender(context, null, formOrigin)
+    val metadata = makeGenerateAndFillMetadata(context, 0, 0)
+    val intentSender =
+      AutofillSaveActivity.makeSaveIntentSender(context, null, formOrigin, clientState)
     return makeIntentDataset(context, AutofillAction.Generate, intentSender, metadata)
   }
 
@@ -111,8 +117,12 @@ class Api26AutofillResponseBuilder private constructor(form: FillableForm) :
   // TODO: Support multi-step authentication flows in apps via FLAG_DELAY_SAVE
   // See:
   // https://developer.android.com/reference/android/service/autofill/SaveInfo#FLAG_DELAY_SAVE
-  private fun makeSaveInfo(): SaveInfo? {
-    if (!canBeSaved) return null
+  private fun makeSaveInfo(context: Context): SaveInfo? {
+    if (
+      !canBeSaved ||
+        !context.sharedPrefs.getBoolean(PreferenceKeys.AUTOFILL_ASK_TO_SAVE_PASSWORDS, true)
+    )
+      return null
     check(saveFlags != null) { "saveFlags must not be null" }
     val idsToSave = scenario.fieldsToSave.toTypedArray()
     if (idsToSave.isEmpty()) return null
@@ -120,7 +130,29 @@ class Api26AutofillResponseBuilder private constructor(form: FillableForm) :
     if (scenario.hasUsername) {
       saveDataTypes = saveDataTypes or SaveInfo.SAVE_DATA_TYPE_USERNAME
     }
+
     return SaveInfo.Builder(saveDataTypes, idsToSave).run {
+
+      /**
+       * Suppress autofill save UI ("Save username and password to Password Store?") if at least one
+       * of .../<origin>/<username>.gpg or .../<origin>/<username>/password.gpg exists in the repo
+       */
+      if (Build.VERSION.SDK_INT > Build.VERSION_CODES.O) {
+        val knownUsernames =
+          findKnownUsernamesFor(formOrigin.getPrettyIdentifier(context, untrusted = false))
+        if (
+          !knownUsernames.isEmpty() && scenario.username != null && scenario.username is AutofillId
+        ) {
+          val pattern =
+            Pattern.compile(
+              // negative (= not matching) regex
+              "^(?!(" + knownUsernames.map { Pattern.quote(it) }.joinToString("|") + ")$).*$"
+            )
+          val validator = RegexValidator(scenario.username as AutofillId, pattern)
+          setValidator(validator)
+        }
+      }
+
       setFlags(saveFlags)
       build()
     }
@@ -152,7 +184,7 @@ class Api26AutofillResponseBuilder private constructor(form: FillableForm) :
           )
         )
       }
-      makeSaveInfo()?.let { setSaveInfo(it) }
+      makeSaveInfo(context)?.let { setSaveInfo(it) }
       setClientState(clientState)
       setIgnoredIds(*ignoredIds.toTypedArray())
       build()

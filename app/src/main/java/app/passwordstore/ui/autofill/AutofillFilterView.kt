@@ -8,6 +8,8 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.IntentSender
+import android.content.SharedPreferences
+import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
 import android.view.View
@@ -25,18 +27,22 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import app.passwordstore.R
 import app.passwordstore.data.password.PasswordItem
 import app.passwordstore.databinding.ActivityOreoAutofillFilterBinding
+import app.passwordstore.injection.prefs.SettingsPreferences
 import app.passwordstore.util.autofill.AutofillMatcher
+import app.passwordstore.util.autofill.AutofillPasskeyExclusion
 import app.passwordstore.util.autofill.AutofillPreferences
 import app.passwordstore.util.coroutines.DispatcherProvider
 import app.passwordstore.util.extensions.enableEdgeToEdgeView
 import app.passwordstore.util.extensions.viewBinding
 import app.passwordstore.util.settings.DirectoryStructure
+import app.passwordstore.util.settings.PreferenceKeys
 import app.passwordstore.util.viewmodel.FilterMode
 import app.passwordstore.util.viewmodel.ListMode
 import app.passwordstore.util.viewmodel.SearchMode
 import app.passwordstore.util.viewmodel.SearchableRepositoryAdapter
 import app.passwordstore.util.viewmodel.SearchableRepositoryViewModel
 import com.github.androidpasswordstore.autofillparser.FormOrigin
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlinx.coroutines.flow.collect
@@ -49,16 +55,18 @@ class AutofillFilterView : AppCompatActivity() {
 
   @Inject lateinit var dispatcherProvider: DispatcherProvider
 
+  @SettingsPreferences @Inject lateinit var settings: SharedPreferences
+
   companion object {
 
-    private const val HEIGHT_PERCENTAGE = 0.9
-    private const val WIDTH_PERCENTAGE = 0.75
+    private const val HEIGHT_PERCENTAGE = .9
+    private const val WIDTH_PERCENTAGE = .95
 
     private const val EXTRA_FORM_ORIGIN_WEB =
       "app.passwordstore.autofill.oreo.ui.EXTRA_FORM_ORIGIN_WEB"
     private const val EXTRA_FORM_ORIGIN_APP =
       "app.passwordstore.autofill.oreo.ui.EXTRA_FORM_ORIGIN_APP"
-    private var matchAndDecryptFileRequestCode = 1
+    private var matchAndDecryptFileRequestCode = 900000
 
     fun makeMatchAndDecryptFileIntentSender(
       context: Context,
@@ -99,22 +107,33 @@ class AutofillFilterView : AppCompatActivity() {
       finish()
     }
 
+  private fun resize() {
+    val params = window.attributes
+    params.height = (HEIGHT_PERCENTAGE * resources.displayMetrics.heightPixels).toInt()
+    params.width = (WIDTH_PERCENTAGE * resources.displayMetrics.widthPixels).toInt()
+    window.attributes = params
+  }
+
+  override fun onConfigurationChanged(newConfig: Configuration) {
+    super.onConfigurationChanged(newConfig)
+
+    resize()
+  }
+
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     enableEdgeToEdgeView(binding.root)
     setContentView(binding.root)
     setFinishOnTouchOutside(true)
 
-    val params = window.attributes
-    params.height = (HEIGHT_PERCENTAGE * resources.displayMetrics.heightPixels).toInt()
-    params.width = (WIDTH_PERCENTAGE * resources.displayMetrics.widthPixels).toInt()
-    window.attributes = params
+    resize()
 
     if (intent?.hasExtra(AutofillManager.EXTRA_CLIENT_STATE) != true) {
       logcat(ERROR) { "AutofillFilterActivity started without EXTRA_CLIENT_STATE" }
       finish()
       return
     }
+
     formOrigin =
       when {
         intent?.hasExtra(EXTRA_FORM_ORIGIN_WEB) == true -> {
@@ -135,81 +154,79 @@ class AutofillFilterView : AppCompatActivity() {
           return
         }
       }
+
     directoryStructure = AutofillPreferences.directoryStructure(this)
 
     supportActionBar?.hide()
+
+    binding.filterMenuButton.setOnClickListener {
+      var items =
+        arrayOf(
+          getString(
+            R.string.oreo_autofill_match_with,
+            formOrigin.getPrettyIdentifier(applicationContext, untrusted = false),
+          ),
+          getString(R.string.oreo_autofill_matches_clear_existing),
+        )
+
+      var checked =
+        booleanArrayOf(
+          AutofillPreferences.addQuickSelectButton(this@AutofillFilterView),
+          AutofillPreferences.removeQuickSelectButtons(this@AutofillFilterView),
+        )
+
+      if (formOrigin is FormOrigin.Web) {
+        items = arrayOf(getString(R.string.oreo_autofill_strict_domain_search)) + items
+        checked =
+          booleanArrayOf(AutofillPreferences.strictDomainSearch(this@AutofillFilterView)) + checked
+      }
+
+      MaterialAlertDialogBuilder(this)
+        .setMultiChoiceItems(items, checked) { _, which, isChecked ->
+          if (formOrigin is FormOrigin.Web) {
+            when (which) {
+              0 -> {
+                AutofillPreferences.strictDomainSearch(this@AutofillFilterView, isChecked)
+                updateSearch()
+              }
+              1 -> AutofillPreferences.addQuickSelectButton(this@AutofillFilterView, isChecked)
+              2 -> AutofillPreferences.removeQuickSelectButtons(this@AutofillFilterView, isChecked)
+            }
+          } else {
+            when (which) {
+              0 -> AutofillPreferences.addQuickSelectButton(this@AutofillFilterView, isChecked)
+              1 -> AutofillPreferences.removeQuickSelectButtons(this@AutofillFilterView, isChecked)
+            }
+          }
+        }
+        .show()
+    }
+
     bindUI()
     updateSearch()
     setResult(RESULT_CANCELED)
   }
 
   private fun bindUI() {
-    val strictDomainSearchPref =
-      formOrigin is FormOrigin.Web && AutofillPreferences.strictDomainSearch(this)
     with(binding) {
-      rvPassword.apply {
-        adapter =
-          SearchableRepositoryAdapter(
-              R.layout.oreo_autofill_filter_row,
-              ::PasswordViewHolder,
-              lifecycleScope,
-              dispatcherProvider,
-            ) { item, _ ->
-              val file = item.file.relativeTo(item.rootDir)
-              val pathToIdentifier = directoryStructure.getPathToIdentifierFor(file)
-              val identifier = directoryStructure.getIdentifierFor(file)
-              val accountPart = directoryStructure.getAccountPartFor(file)
-              check(identifier != null || accountPart != null) {
-                "At least one of identifier and accountPart should always be non-null"
-              }
-              title.text =
-                if (identifier != null) {
-                  buildSpannedString {
-                    if (pathToIdentifier != null) append("$pathToIdentifier/")
-                    bold { underline { append(identifier) } }
-                  }
-                } else {
-                  accountPart
-                }
-              subtitle.apply {
-                if (identifier != null && accountPart != null) {
-                  text = accountPart
-                  visibility = View.VISIBLE
-                } else {
-                  visibility = View.GONE
-                }
-              }
-            }
-            .onItemClicked { _, item -> decryptAndFill(item) }
-        layoutManager = LinearLayoutManager(context)
-      }
       search.apply {
         val initialSearch = formOrigin.getPrettyIdentifier(applicationContext, untrusted = false)
         setText(initialSearch, TextView.BufferType.EDITABLE)
         addTextChangedListener { updateSearch() }
       }
       origin.text = buildSpannedString {
-        append(getString(R.string.oreo_autofill_select_and_fill_into))
-        append("\n")
+        append(getString(R.string.oreo_autofill_select_and_fill_into) + " ")
         bold { append(formOrigin.getPrettyIdentifier(applicationContext, untrusted = true)) }
       }
-      strictDomainSearch.apply {
-        visibility = if (formOrigin is FormOrigin.Web) View.VISIBLE else View.GONE
-        isChecked = strictDomainSearchPref
-        setOnCheckedChangeListener { _, _ -> updateSearch() }
-      }
-      shouldMatch.text =
-        getString(
-          R.string.oreo_autofill_match_with,
-          formOrigin.getPrettyIdentifier(applicationContext),
-        )
       lifecycleScope.launch { handleSearchResults() }
     }
   }
 
   private suspend fun handleSearchResults() {
     model.searchResult.collect { result ->
-      val list = result.passwordItems
+      // Only offer password files: no hidden files or directories (even if the "show hidden
+      // contents" setting is enabled), and never passkey credentials.
+      val list = result.passwordItems.filter { isFillableSearchResult(it) }
       (binding.rvPassword.adapter as SearchableRepositoryAdapter).submitList(list) {
         binding.rvPassword.scrollToPosition(0)
       }
@@ -224,27 +241,91 @@ class AutofillFilterView : AppCompatActivity() {
     }
   }
 
+  private fun isFillableSearchResult(item: PasswordItem): Boolean {
+    val relativeFile = item.file.relativeTo(item.rootDir)
+    return item.file.extension == "gpg" &&
+      relativeFile.invariantSeparatorsPath.split('/').none { it.startsWith('.') } &&
+      !AutofillPasskeyExclusion.isPasskeyCredentialFile(
+        item.file,
+        item.rootDir,
+        resolveLinks = false,
+      )
+  }
+
+  private fun buildResultList() {
+    binding.rvPassword.apply {
+      adapter =
+        SearchableRepositoryAdapter(
+            R.layout.oreo_autofill_filter_row,
+            ::PasswordViewHolder,
+            lifecycleScope,
+            dispatcherProvider,
+          ) { item, _ ->
+            val file = item.file.relativeTo(item.rootDir)
+            val pathString =
+              file.parentFile?.let { parentFile -> "${parentFile}/${file.nameWithoutExtension}" }
+                ?: file.nameWithoutExtension
+
+            val searchString = binding.search.text.toString()
+            val parts = pathString.split(searchString, ignoreCase = true)
+            val matches =
+              Regex(Regex.escape(searchString), RegexOption.IGNORE_CASE)
+                .findAll(pathString)
+                .map { it.value }
+                .toList()
+
+            val pathWithMatches = buildSpannedString {
+              append("/")
+              parts.getOrNull(0)?.let { append(it) }
+              matches.forEachIndexed { i, m ->
+                if (i == 0 || parts.getOrNull(i)?.isNotEmpty() ?: false)
+                  bold { underline { append(m) } }
+                else append(m)
+                parts.getOrNull(i + 1)?.let { append(it) }
+              }
+            }
+
+            val endPath = directoryStructure.getPathStringWithAtMostTwoParentsFor(file)
+
+            title.text = pathWithMatches
+
+            if (pathString.equals(endPath)) {
+              subtitle.visibility = View.GONE
+              title.setTextSize(14f)
+            } else {
+              subtitle.text = endPath
+            }
+          }
+          .onItemClicked { _, item -> decryptAndFill(item) }
+      layoutManager = LinearLayoutManager(context)
+    }
+  }
+
   private fun updateSearch() {
-    if (formOrigin is FormOrigin.Web)
-      AutofillPreferences.setStrictDomainSearch(this, binding.strictDomainSearch.isChecked)
     model.search(
-      binding.search.text.toString().trim(),
+      binding.search.text.toString(),
       filterMode =
-        if (binding.strictDomainSearch.isChecked) FilterMode.StrictDomain else FilterMode.Fuzzy,
+        if (
+          formOrigin is FormOrigin.Web &&
+            AutofillPreferences.strictDomainSearch(this@AutofillFilterView)
+        )
+          FilterMode.StrictDomain
+        else if (settings.getString(PreferenceKeys.SEARCH_FILTER_MODE, "exact") == "fuzzy")
+          FilterMode.Fuzzy
+        else FilterMode.Exact,
       searchMode = SearchMode.RecursivelyInSubdirectories,
       listMode = ListMode.FilesOnly,
     )
+    buildResultList()
   }
 
   private fun decryptAndFill(item: PasswordItem) {
-    if (binding.shouldClear.isChecked)
+    if (AutofillPreferences.removeQuickSelectButtons(this@AutofillFilterView))
       AutofillMatcher.clearMatchesFor(applicationContext, formOrigin)
-    if (binding.shouldMatch.isChecked)
-      AutofillMatcher.addMatchFor(applicationContext, formOrigin, item.file)
-    // intent?.extras? is checked to be non-null in onCreate
     decryptAction.launch(
       AutofillDecryptActivity.makeDecryptFileIntent(
         item.file,
+        // intent?.extras? is checked to be non-null in onCreate
         intent?.extras ?: throw NullPointerException(),
         this,
       )

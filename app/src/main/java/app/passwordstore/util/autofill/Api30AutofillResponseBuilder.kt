@@ -13,7 +13,9 @@ import android.service.autofill.FillCallback
 import android.service.autofill.FillRequest
 import android.service.autofill.FillResponse
 import android.service.autofill.Presentations
+import android.service.autofill.RegexValidator
 import android.service.autofill.SaveInfo
+import android.view.autofill.AutofillId
 import android.view.inputmethod.InlineSuggestionsRequest
 import android.widget.inline.InlinePresentationSpec
 import androidx.annotation.RequiresApi
@@ -21,11 +23,14 @@ import app.passwordstore.ui.autofill.AutofillDecryptActivity
 import app.passwordstore.ui.autofill.AutofillFilterView
 import app.passwordstore.ui.autofill.AutofillPublisherChangedActivity
 import app.passwordstore.ui.autofill.AutofillSaveActivity
+import app.passwordstore.util.extensions.sharedPrefs
+import app.passwordstore.util.settings.PreferenceKeys
 import com.github.androidpasswordstore.autofillparser.AutofillAction
 import com.github.androidpasswordstore.autofillparser.FillableForm
 import com.github.androidpasswordstore.autofillparser.fillWith
 import com.github.michaelbull.result.fold
 import java.io.File
+import java.util.regex.Pattern
 import logcat.LogPriority.ERROR
 import logcat.asLog
 import logcat.logcat
@@ -104,7 +109,7 @@ class Api30AutofillResponseBuilder private constructor(form: FillableForm) :
     val presentationsBuilder = Presentations.Builder()
     if (imeSpec != null) {
       val inlinePresentation = makeInlinePresentation(context, imeSpec, metadata)
-      if (inlinePresentation != null) {
+      if (inlinePresentation != null && metadata.suggestionCount < metadata.maxSuggestions - 1) {
         presentationsBuilder.setInlinePresentation(inlinePresentation)
       } else {
         presentationsBuilder.setMenuPresentation(makeRemoteView(context, metadata))
@@ -124,25 +129,56 @@ class Api30AutofillResponseBuilder private constructor(form: FillableForm) :
     context: Context,
     file: File,
     imeSpec: InlinePresentationSpec?,
+    suggestionCount: Int,
+    maxSuggestions: Int,
   ): Dataset? {
     if (!scenario.hasFieldsToFillOn(AutofillAction.Match)) return null
-    val metadata = makeFillMatchMetadata(context, file)
+    val metadata = makeFillMatchMetadata(context, file, suggestionCount, maxSuggestions)
     val intentSender = AutofillDecryptActivity.makeDecryptFileIntentSender(file, context)
-    return makeIntentDataset(context, AutofillAction.Match, intentSender, metadata, imeSpec)
+    return makeIntentDataset(
+      context,
+      AutofillAction.Match,
+      intentSender,
+      metadata,
+      imeSpec,
+    )
   }
 
-  private fun makeSearchDataset(context: Context, imeSpec: InlinePresentationSpec?): Dataset? {
+  private fun makeSearchDataset(
+    context: Context,
+    imeSpec: InlinePresentationSpec?,
+    suggestionCount: Int,
+    maxSuggestions: Int,
+  ): Dataset? {
     if (!scenario.hasFieldsToFillOn(AutofillAction.Search)) return null
-    val metadata = makeSearchAndFillMetadata(context)
+    val metadata = makeSearchAndFillMetadata(context, suggestionCount, maxSuggestions)
     val intentSender = AutofillFilterView.makeMatchAndDecryptFileIntentSender(context, formOrigin)
-    return makeIntentDataset(context, AutofillAction.Search, intentSender, metadata, imeSpec)
+    return makeIntentDataset(
+      context,
+      AutofillAction.Search,
+      intentSender,
+      metadata,
+      imeSpec,
+    )
   }
 
-  private fun makeGenerateDataset(context: Context, imeSpec: InlinePresentationSpec?): Dataset? {
+  private fun makeGenerateDataset(
+    context: Context,
+    imeSpec: InlinePresentationSpec?,
+    suggestionCount: Int,
+    maxSuggestions: Int,
+  ): Dataset? {
     if (!scenario.hasFieldsToFillOn(AutofillAction.Generate)) return null
-    val metadata = makeGenerateAndFillMetadata(context)
-    val intentSender = AutofillSaveActivity.makeSaveIntentSender(context, null, formOrigin)
-    return makeIntentDataset(context, AutofillAction.Generate, intentSender, metadata, imeSpec)
+    val metadata = makeGenerateAndFillMetadata(context, suggestionCount, maxSuggestions)
+    val intentSender =
+      AutofillSaveActivity.makeSaveIntentSender(context, null, formOrigin, clientState)
+    return makeIntentDataset(
+      context,
+      AutofillAction.Generate,
+      intentSender,
+      metadata,
+      imeSpec,
+    )
   }
 
   private fun makePublisherChangedDataset(
@@ -195,16 +231,16 @@ class Api30AutofillResponseBuilder private constructor(form: FillableForm) :
       }
     return FillResponse.Builder().run {
       for (file in matchedFiles) {
-        makeMatchDataset(context, file, nextImeSpec())?.let {
+        makeMatchDataset(context, file, nextImeSpec(), matchedFiles.size, maxSuggestions)?.let {
           datasetCount++
           addDataset(it)
         }
       }
-      makeGenerateDataset(context, nextImeSpec())?.let {
+      makeGenerateDataset(context, nextImeSpec(), matchedFiles.size, maxSuggestions)?.let {
         datasetCount++
         addDataset(it)
       }
-      makeSearchDataset(context, nextImeSpec())?.let {
+      makeSearchDataset(context, nextImeSpec(), matchedFiles.size, maxSuggestions)?.let {
         datasetCount++
         addDataset(it)
       }
@@ -215,7 +251,9 @@ class Api30AutofillResponseBuilder private constructor(form: FillableForm) :
           makeHeaderMetadata(formOrigin.getPrettyIdentifier(context, untrusted = true)),
         )
       )
-      makeSaveInfo()?.let { setSaveInfo(it) }
+      makeSaveInfo(context)?.let {
+        setSaveInfo(it)
+      }
       setClientState(clientState)
       setIgnoredIds(*ignoredIds.toTypedArray())
       build()
@@ -225,8 +263,12 @@ class Api30AutofillResponseBuilder private constructor(form: FillableForm) :
   // TODO: Support multi-step authentication flows in apps via FLAG_DELAY_SAVE
   // See:
   // https://developer.android.com/reference/android/service/autofill/SaveInfo#FLAG_DELAY_SAVE
-  private fun makeSaveInfo(): SaveInfo? {
-    if (!canBeSaved) return null
+  private fun makeSaveInfo(context: Context): SaveInfo? {
+    if (
+      !canBeSaved ||
+        !context.sharedPrefs.getBoolean(PreferenceKeys.AUTOFILL_ASK_TO_SAVE_PASSWORDS, true)
+    )
+      return null
     check(saveFlags != null) { "saveFlags must not be null" }
     val idsToSave = scenario.fieldsToSave.toTypedArray()
     if (idsToSave.isEmpty()) return null
@@ -234,7 +276,27 @@ class Api30AutofillResponseBuilder private constructor(form: FillableForm) :
     if (scenario.hasUsername) {
       saveDataTypes = saveDataTypes or SaveInfo.SAVE_DATA_TYPE_USERNAME
     }
+
     return SaveInfo.Builder(saveDataTypes, idsToSave).run {
+
+      /**
+       * Suppress autofill save UI ("Save username and password to Password Store?") if at least one
+       * of .../<origin>/<username>.gpg or .../<origin>/<username>/password.gpg exists in the repo
+       */
+      val knownUsernames =
+        findKnownUsernamesFor(formOrigin.getPrettyIdentifier(context, untrusted = false))
+      if (
+        !knownUsernames.isEmpty() && scenario.username != null && scenario.username is AutofillId
+      ) {
+        val pattern =
+          Pattern.compile(
+            // negative (= not matching) regex
+            "^(?!(" + knownUsernames.map { Pattern.quote(it) }.joinToString("|") + ")$).*$"
+          )
+        val validator = RegexValidator(scenario.username as AutofillId, pattern)
+        setValidator(validator)
+      }
+
       setFlags(saveFlags)
       build()
     }

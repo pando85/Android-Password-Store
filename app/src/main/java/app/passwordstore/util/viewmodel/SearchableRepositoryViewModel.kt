@@ -327,7 +327,9 @@ constructor(
   ) {
     require(newDirectory.isInsideRepository()) { "Trying to access target outside the repository" }
     if (!newDirectory.exists()) return
-    require(newDirectory.isDirectory) { "Can only navigate to a directory" }
+    require(newDirectory.isDirectory) {
+      "Cannot navigate into non-directory ${newDirectory}"
+    }
     if (pushPreviousLocation) {
       navigationStack.addFirst(NavigationStackEntry(_currentDir.value, recyclerViewState))
     }
@@ -407,7 +409,7 @@ constructor(
       // path separator.
       val suffix = """(?:\.gpg|/)"""
       // Match any relative path with a component that is a subdomain of the filter.
-      return Regex(prefix + subdomain + suffix)
+      return Regex(prefix + subdomain + suffix, RegexOption.IGNORE_CASE)
     }
   }
 }

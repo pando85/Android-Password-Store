@@ -39,7 +39,6 @@ import java.security.PublicKey
 import java.security.SecureRandom
 import java.security.spec.ECGenParameterSpec
 import java.security.spec.PKCS8EncodedKeySpec
-import java.security.spec.X509EncodedKeySpec
 import javax.crypto.SecretKey
 import javax.crypto.SecretKeyFactory
 import logcat.asLog
@@ -47,7 +46,6 @@ import logcat.logcat
 import net.schmizz.sshj.SSHClient
 import net.schmizz.sshj.common.Buffer
 import net.schmizz.sshj.common.KeyType
-import net.schmizz.sshj.common.SSHRuntimeException
 import net.schmizz.sshj.common.SecurityUtils
 import net.schmizz.sshj.userauth.keyprovider.KeyProvider
 import net.schmizz.sshj.userauth.password.PasswordFinder
@@ -69,45 +67,12 @@ private val KeyStore.sshPublicKey
 fun parseSshPublicKey(sshPublicKey: String): PublicKey? {
   val sshKeyParts = sshPublicKey.split("""\s+""".toRegex())
   if (sshKeyParts.size < 2) return null
-  return normalizeForSshj(
-    Buffer.PlainBuffer(Base64.decode(sshKeyParts[1], Base64.NO_WRAP)).readPublicKey()
-  )
-}
-
-internal fun normalizeForSshj(key: PublicKey): PublicKey {
-  if (KeyType.fromKey(key) != KeyType.UNKNOWN) return key
-
-  val encoded =
-    key.encoded
-      ?: throw SSHRuntimeException(
-        "Cannot normalize key: encoded form is null (${key.javaClass.name})"
-      )
-
-  val bcAlgorithm =
-    when (key.algorithm) {
-      "EdDSA",
-      "Ed25519",
-      "1.3.101.112" -> "Ed25519"
-      else -> key.algorithm
-    }
-
-  return runCatching {
-    KeyFactory.getInstance(bcAlgorithm, BouncyCastleProvider.PROVIDER_NAME)
-      .generatePublic(X509EncodedKeySpec(encoded))
-  }
-    .getOrElse { error ->
-      logcat("normalizeForSshj") { error.asLog() }
-      throw SSHRuntimeException(
-        "Cannot normalize ${key.javaClass.name} (algorithm=${key.algorithm}) for SSHJ",
-        error,
-      )
-    }
+  return Buffer.PlainBuffer(Base64.decode(sshKeyParts[1], Base64.NO_WRAP)).readPublicKey()
 }
 
 fun toSshPublicKey(publicKey: PublicKey): String {
-  val normalizedKey = normalizeForSshj(publicKey)
-  val rawPublicKey = Buffer.PlainBuffer().putPublicKey(normalizedKey).compactData
-  val keyType = KeyType.fromKey(normalizedKey)
+  val rawPublicKey = Buffer.PlainBuffer().putPublicKey(publicKey).compactData
+  val keyType = KeyType.fromKey(publicKey)
   return "$keyType ${Base64.encodeToString(rawPublicKey, Base64.NO_WRAP)}"
 }
 
@@ -271,7 +236,10 @@ object SshKey {
         context.getString(R.string.ssh_key_import_error_not_an_ssh_key_message)
       )
 
-    val userId = context.sharedPrefs.getString(PreferenceKeys.GIT_CONFIG_AUTHOR_EMAIL) ?: "nn@aps"
+    val userId =
+      context.sharedPrefs.getString(PreferenceKeys.GIT_CONFIG_AUTHOR_EMAIL, null).let {
+        if (it.isNullOrEmpty()) "aps@" + android.os.Build.MODEL.replace(' ', '_') else it
+      }
 
     // At this point, we are reasonably confident that we have actually been provided a private
     // key and delete the old key.
@@ -308,7 +276,10 @@ object SshKey {
         generateKeyPair()
       }
 
-    val userId = context.sharedPrefs.getString(PreferenceKeys.GIT_CONFIG_AUTHOR_EMAIL) ?: "nn@aps"
+    val userId =
+      context.sharedPrefs.getString(PreferenceKeys.GIT_CONFIG_AUTHOR_EMAIL, null).let {
+        if (it.isNullOrEmpty()) "aps@" + android.os.Build.MODEL.replace(' ', '_') else it
+      }
 
     // Write public key in SSH format to .ssh_key.pub.
     publicKeyFile.writeText(toSshPublicKey(keyPair.public) + " " + userId)
@@ -341,7 +312,10 @@ object SshKey {
       )
     }
 
-    val userId = context.sharedPrefs.getString(PreferenceKeys.GIT_CONFIG_AUTHOR_EMAIL) ?: "nn@aps"
+    val userId =
+      context.sharedPrefs.getString(PreferenceKeys.GIT_CONFIG_AUTHOR_EMAIL, null).let {
+        if (it.isNullOrEmpty()) "aps@" + android.os.Build.MODEL.replace(' ', '_') else it
+      }
     publicKeyFile.writeText(toSshPublicKey(keyPair.public) + " " + userId)
 
     type = Type.KeystoreWrappedEd25519
@@ -382,9 +356,11 @@ object SshKey {
     val publicKey = androidKeystore.sshPublicKey ?: throw NullPointerException()
     val privateKey = androidKeystore.sshPrivateKey ?: throw NullPointerException()
 
-    // SSHJ 0.41.1 resets the BouncyCastle registration mode when its configured provider is
-    // cleared. Clear the provider first, then explicitly disable BC so Android Keystore-backed
-    // private keys are signed by the platform provider without requiring an exportable encoding.
+    /**
+     * SSHJ 0.41.1 resets the BouncyCastle registration mode when its configured provider is
+     * cleared. Clear the provider first, then explicitly disable BC so Android Keystore-backed
+     * private keys are signed by the platform provider without requiring an exportable encoding.
+     */
     SecurityUtils.setSecurityProvider(null)
     SecurityUtils.setRegisterBouncyCastle(false)
 
@@ -415,10 +391,6 @@ object SshKey {
     val keyFactory = KeyFactory.getInstance("Ed25519", BouncyCastleProvider())
     val keySpec = PKCS8EncodedKeySpec(privateKeyEncoded)
     val privateKey = keyFactory.generatePrivate(keySpec)
-
-    // ensure that BC carries out cryptographic operations
-    SecurityUtils.setRegisterBouncyCastle(true)
-    SecurityUtils.setSecurityProvider(BouncyCastleProvider.PROVIDER_NAME)
 
     client.loadKeys(KeyPair(publicKey, privateKey))
   }

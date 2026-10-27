@@ -8,8 +8,11 @@ import android.util.Base64
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.FragmentActivity
 import app.passwordstore.R
+import app.passwordstore.databinding.DialogSelectableMessageBinding
+import app.passwordstore.ui.git.base.BaseGitActivity
 import app.passwordstore.util.coroutines.DispatcherProvider
 import app.passwordstore.util.extensions.getString
+import app.passwordstore.util.extensions.unsafeLazy
 import app.passwordstore.util.git.operation.CredentialFinder
 import app.passwordstore.util.settings.AuthMode
 import com.github.michaelbull.result.getOrElse
@@ -90,14 +93,13 @@ private fun makeTofuHostKeyVerifier(
   if (!hostKeyFile.exists()) {
     return object : HostKeyVerifier {
       override fun verify(hostname: String?, port: Int, key: PublicKey?): Boolean {
-        val normalizedKey = key?.let { normalizeForSshj(it) }
         val digest = runCatching {
           SecurityUtils.getMessageDigest("SHA-256")
         }
           .getOrElse { e -> throw SSHRuntimeException(e) }
-        digest.update(PlainBuffer().putPublicKey(normalizedKey).compactData)
+        digest.update(PlainBuffer().putPublicKey(key).compactData)
         val digestData = digest.digest()
-        val keyType = KeyType.fromKey(normalizedKey)
+        val keyType = KeyType.fromKey(key)
         val hostKeyEntry = "SHA256:${Base64.encodeToString(digestData, Base64.NO_WRAP)}"
         val hostKeyEntryNoPadding =
           "SHA256:${Base64.encodeToString(digestData, Base64.NO_WRAP or Base64.NO_PADDING)}"
@@ -114,22 +116,21 @@ private fun makeTofuHostKeyVerifier(
                   R.string.git_server_hostkey_dialog_message,
                   hostKeyEntryNoPadding,
                 )
-              val showHostKeyDialog =
-                MaterialAlertDialogBuilder(callingActivity)
-                  .setCancelable(false)
-                  .setTitle(title)
-                  .setMessage(message)
-                  .setPositiveButton(R.string.git_server_hostkey_dialog_connect) { _, _ ->
-                    hostKeyFile.writeText(hostKeyEntry)
-                    logcat(SshjSessionFactory::class.java.simpleName) {
-                      "Trusting host key after approval by user: $hostKeyEntryNoPadding"
-                    }
-                    cont.resume(true)
+              MaterialAlertDialogBuilder(callingActivity)
+                .setCancelable(false)
+                .setTitle(title)
+                .setMessage(message)
+                .setPositiveButton(R.string.git_server_hostkey_dialog_connect) { _, _ ->
+                  hostKeyFile.writeText(hostKeyEntry)
+                  logcat(SshjSessionFactory::class.java.simpleName) {
+                    "Trusting host key after approval by user: $hostKeyEntryNoPadding"
                   }
-                  .setNegativeButton(R.string.git_server_hostkey_dialog_abort) { _, _ ->
-                    cont.resume(false)
-                  }
-                  .show()
+                  cont.resume(true)
+                }
+                .setNegativeButton(R.string.git_server_hostkey_dialog_abort) { _, _ ->
+                  cont.resume(false)
+                }
+                .show()
             }
           }
         return hostKeyTrusted
@@ -145,7 +146,7 @@ private fun makeTofuHostKeyVerifier(
     val delegate = FingerprintVerifier.getInstance(hostKeyEntry)
     return object : HostKeyVerifier {
       override fun verify(hostname: String?, port: Int, key: PublicKey?): Boolean {
-        return delegate.verify(hostname, port, key?.let { normalizeForSshj(it) })
+        return delegate.verify(hostname, port, key)
       }
 
       override fun findExistingAlgorithms(hostname: String?, port: Int): MutableList<String> {
@@ -171,21 +172,7 @@ private class SshjSession(
   private lateinit var ssh: SSHClient
   private var currentCommand: Session? = null
 
-  private val uri =
-    if (uri.host.contains('@')) {
-      // URIish's String constructor cannot handle '@' in the user part of the URI and the URL
-      // constructor can't be used since Java's URL does not recognize the ssh scheme. We thus
-      // need to patch everything up ourselves.
-      logcat { "Before fixup: user=${uri.user}, host=${uri.host}" }
-      val userPlusHost = "${uri.user}@${uri.host}"
-      val realUser = userPlusHost.substringBeforeLast('@')
-      val realHost = userPlusHost.substringAfterLast('@')
-      uri.setUser(realUser).setHost(realHost).also {
-        logcat { "After fixup: user=${it.user}, host=${it.host}" }
-      }
-    } else {
-      uri
-    }
+  private val uri = fixUri(uri)
 
   fun connect(): SshjSession {
     ssh = SSHClient(SshjConfig())
@@ -211,7 +198,31 @@ private class SshjSession(
         ssh.auth(username, pubkeyAuth)
       }
     }
-    return this
+
+    val gitSettings = (callingActivity as BaseGitActivity).gitSettings
+    return if (!ssh.getUserAuth().getBanner().isBlank() && gitSettings.showSshServerResponse) {
+      runBlocking(dispatcherProvider.main()) {
+        suspendCoroutine { cont ->
+          val binding by unsafeLazy {
+            DialogSelectableMessageBinding.inflate(callingActivity.layoutInflater)
+          }
+          binding.message.setText(ssh.getUserAuth().getBanner())
+          binding.doNotShowAgain.isChecked = !gitSettings.showSshServerResponse
+
+          MaterialAlertDialogBuilder(callingActivity)
+            .setView(binding.root)
+            .setCancelable(false)
+            .setTitle(R.string.git_server_response_dialog_title)
+            .setOnDismissListener {
+              gitSettings.showSshServerResponse = !binding.doNotShowAgain.isChecked
+            }
+            .setPositiveButton(R.string.dialog_ok) { _, _ ->
+              cont.resume(this@SshjSession)
+            }
+            .show()
+        }
+      }
+    } else this
   }
 
   override fun exec(commandName: String?, timeout: Int): Process {
@@ -261,3 +272,19 @@ private class SshjProcess(private val command: Session.Command, private val time
 
   override fun getInputStream(): InputStream = command.inputStream
 }
+
+fun fixUri(uri: URIish): URIish =
+  if (uri.host.contains('@')) {
+    // URIish's String constructor cannot handle '@' in the user part of the URI and the URL
+    // constructor can't be used since Java's URL does not recognize the ssh scheme. We thus
+    // need to patch everything up ourselves.
+    logcat("sshj.fixUri") { "Before fixup: user=${uri.user}, host=${uri.host}" }
+    val userPlusHost = "${uri.user}@${uri.host}"
+    val realUser = userPlusHost.substringBeforeLast('@')
+    val realHost = userPlusHost.substringAfterLast('@')
+    uri.setUser(realUser).setHost(realHost).also {
+      logcat("sshj.fixUri") { "After fixup: user=${it.user}, host=${it.host}" }
+    }
+  } else {
+    uri
+  }

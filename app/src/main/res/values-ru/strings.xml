@@ -16,7 +16,6 @@
   <string name="dialog_delete_msg">Директория уже существует. Текущая версия поддерживает только одно хранилище. Хотите удалить существующую директорию\n(%1$s)</string>
   <string name="dialog_delete">Удалить директорию</string>
   <string name="dialog_do_not_delete">Отменить</string>
-  <string name="title_activity_git_clone">Информация о репозитории</string>
   <string name="title_activity_git_log">Журнал изменений</string>
   <!-- Password Store -->
   <string name="creation_dialog_text">Пожалуйста, клонируйте или создайте новый репозиторий перед тем, как добавлять пароль или выполнять синхронизацию.</string>
@@ -65,7 +64,6 @@
   <string name="crypto_name_hint">название</string>
   <string name="crypto_pass_label">Пароль</string>
   <string name="crypto_extra_label">Дополнительно</string>
-  <string name="crypto_encrypt_username_label">Зашифровать имя пользователя</string>
   <string name="crypto_select">Выбрать</string>
   <string name="crypto_save">Сохранить</string>
   <string name="crypto_save_and_copy">Сохранить и скопировать</string>
@@ -78,7 +76,6 @@
   <string name="share_as_plaintext">Поделиться в открытом виде</string>
   <!-- Preferences -->
   <string name="pref_category_repository_title">Репозиторий</string>
-  <string name="pref_edit_git_server_settings">Изменить настройки сервера Git</string>
   <string name="pref_edit_git_config">Конфигурация локального Git</string>
   <string name="pref_import_ssh_key_title">Импортировать SSH ключ</string>
   <string name="pref_ssh_keygen_title">Сгенерировать пару SSH ключей</string>
@@ -168,7 +165,6 @@
   <!-- Oreo Autofill -->
   <string name="oreo_autofill_select_and_fill_into">Выберите запись для заполнения</string>
   <string name="oreo_autofill_strict_domain_search">Устойчивый к фишингу поиск</string>
-  <string name="oreo_autofill_match_with">Совпадает с %1$s</string>
   <string name="oreo_autofill_matches_clear_existing">Очистить существующие совпадения</string>
   <string name="oreo_autofill_filter_no_results">Не найдено.</string>
   <string name="oreo_autofill_search_in_store">Искать в хранилище</string>
@@ -176,7 +172,6 @@
   <string name="oreo_autofill_save_app_not_supported">Это приложение в настоящее время не поддерживается</string>
   <string name="oreo_autofill_save_passwords_dont_match">Пароли не совпадают</string>
   <string name="oreo_autofill_generate_password">Сгенерировать пароль</string>
-  <string name="oreo_autofill_max_matches_reached">Достигнуто максимальное количество совпадений (%1$d); очистите совпадения перед тем как добавите новые.</string>
   <string name="oreo_autofill_warning_publisher_header">Издатель приложения изменился с тех пор как вы первый раз связали с ним запись хранилища паролей:</string>
   <string name="oreo_autofill_warning_publisher_footer"><b>Установленное приложение может попытаться украсть ваши учетные данные, выдавая себя за доверенное приложение</b>\n\nПопробуйте удалить или переустановить  приложение из доверенного источника, такого как Play Store, Amazon Appstore, F-Droid или магазин приложений производителя вашего смартфона.</string>
   <string name="oreo_autofill_warning_publisher_install_time">Установлено: %1$s</string>
