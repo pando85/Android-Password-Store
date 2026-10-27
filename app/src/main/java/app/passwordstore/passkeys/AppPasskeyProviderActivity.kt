@@ -7,7 +7,6 @@
 
 package app.passwordstore.passkeys
 
-import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
@@ -723,17 +722,16 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
       .show()
   }
 
-  @SuppressLint("ApplySharedPref")
   private fun expirePersistentPassphrasesIfNeeded() {
     val timeoutDays =
       sharedPrefs.getString(PreferenceKeys.BIOMETRICS_AND_PIN_TIMEOUT, null)?.toLongOrNull() ?: 3L
     val lastUse = persistentPassphrases.getLong(PreferenceKeys.BIOMETRICS_AND_PIN_LAST_USE, 0L)
     if (PasskeyFastUnlockPolicy.isExpired(System.currentTimeMillis(), lastUse, timeoutDays)) {
-      // Use commit() instead of apply() to ensure durable writes before clearing the cache.
+      // Use commit = true to ensure durable writes before clearing the cache.
       // If the app crashes after clearing passphraseCache but before apply() flushes,
       // the expired passphrases would persist, contradicting the expiry enforcement.
-      persistentPassphrases.edit().clear().commit()
-      unlockPins.edit().clear().commit()
+      persistentPassphrases.edit(commit = true) { clear() }
+      unlockPins.edit(commit = true) { clear() }
       passphraseCache.clear()
     }
   }
