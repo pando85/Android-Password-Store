@@ -7,11 +7,11 @@ package app.passwordstore.passkeys
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
-import kotlin.test.assertNull
 import kotlinx.coroutines.runBlocking
 
 class KeystorePgpUnlockContextTest {

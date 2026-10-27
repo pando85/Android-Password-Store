@@ -47,8 +47,7 @@ open class PasskeyPassphraseCache @Inject constructor() {
     return AESEncryption.decrypt(encrypted, KeyType.TEMPORARY)
   }
 
-  @Synchronized
-  open fun contains(keyId: String): Boolean = cache.containsKey(keyId)
+  @Synchronized open fun contains(keyId: String): Boolean = cache.containsKey(keyId)
 
   @Synchronized
   open fun clear() {
