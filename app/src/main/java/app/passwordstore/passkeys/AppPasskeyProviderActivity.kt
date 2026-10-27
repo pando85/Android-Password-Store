@@ -76,7 +76,7 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
   @Inject lateinit var signatureCounterTransaction: SignatureCounterTransaction
   @Inject lateinit var openPgpInteractionCoordinator: OpenPgpInteractionCoordinator
   @Inject lateinit var passphraseCache: PasskeyPassphraseCache
-  @Inject lateinit var pinUnlocker: PasskeyPinUnlocker
+  @Inject internal lateinit var pinUnlocker: PasskeyPinUnlocker
   @Inject lateinit var metadataIndex: PasskeyMetadataIndex
   private val openPgpInteractionHandler = OpenPgpActivityInteractionHandler(this)
 
@@ -284,12 +284,16 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
                     cipher = authResult.cipher,
                   )
                 if (decrypted == null) {
-                  finishWithGetError(GetCredentialUnknownException("Cannot unlock cached passphrase"))
+                  finishWithGetError(
+                    GetCredentialUnknownException("Cannot unlock cached passphrase")
+                  )
                   return
                 }
                 passphraseCache.put(persistentEntry.primaryKeyId, decrypted)
                 if (!passphraseCache.contains(persistentEntry.primaryKeyId)) {
-                  finishWithGetError(GetCredentialUnknownException("Cannot cache unlocked passphrase"))
+                  finishWithGetError(
+                    GetCredentialUnknownException("Cannot cache unlocked passphrase")
+                  )
                   return
                 }
                 persistentPassphrases.edit {
@@ -718,8 +722,7 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
   private fun expirePersistentPassphrasesIfNeeded() {
     val timeoutDays =
       sharedPrefs.getString(PreferenceKeys.BIOMETRICS_AND_PIN_TIMEOUT, null)?.toLongOrNull() ?: 3L
-    val lastUse =
-      persistentPassphrases.getLong(PreferenceKeys.BIOMETRICS_AND_PIN_LAST_USE, 0L)
+    val lastUse = persistentPassphrases.getLong(PreferenceKeys.BIOMETRICS_AND_PIN_LAST_USE, 0L)
     if (PasskeyFastUnlockPolicy.isExpired(System.currentTimeMillis(), lastUse, timeoutDays)) {
       persistentPassphrases.edit { clear() }
       unlockPins.edit { clear() }
@@ -790,7 +793,8 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
           description = getString(AppR.string.pin_entry_passkey_description),
         )
       if (isError) dialog.setError()
-      supportFragmentManager.setFragmentResultListener(PinDialog.PIN_RESULT_KEY, this) { _, result ->
+      supportFragmentManager.setFragmentResultListener(PinDialog.PIN_RESULT_KEY, this) { _, result
+        ->
         supportFragmentManager.clearFragmentResultListener(PinDialog.PIN_RESULT_KEY)
         val pin = result.getCharArray(PinDialog.PIN_KEY)
         if (continuation.isActive) {

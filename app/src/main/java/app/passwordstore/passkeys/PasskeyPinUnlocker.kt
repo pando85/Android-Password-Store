@@ -33,12 +33,14 @@ constructor(
     encryptedPassphrase: CharArray,
     candidatePin: CharArray,
   ): Result {
-    val encryptedPin = unlockPins.getString(persistedId, null)?.toCharArray()
-      ?: return Result.Unavailable
+    val encryptedPin =
+      unlockPins.getString(persistedId, null)?.toCharArray() ?: return Result.Unavailable
     val plaintextPin =
-      AESEncryption.decrypt(encryptedPin, keyType = KeyType.PERSISTENT)
-        ?: return Result.Unavailable
-    encryptedPin.fill('\u0000')
+      try {
+        AESEncryption.decrypt(encryptedPin, keyType = KeyType.PERSISTENT)
+      } finally {
+        encryptedPin.fill('\u0000')
+      } ?: return Result.Unavailable
     val record =
       try {
         PasskeyPinPolicy.parse(plaintextPin)

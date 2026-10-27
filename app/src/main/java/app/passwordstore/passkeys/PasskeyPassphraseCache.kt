@@ -17,11 +17,12 @@ open class PasskeyPassphraseCache @Inject constructor() {
   private val cache = ConcurrentHashMap<String, CharArray>()
 
   open fun put(keyId: String, passphrase: CharArray) {
-    val encrypted = try {
-      AESEncryption.encrypt(passphrase, KeyType.TEMPORARY)
-    } finally {
-      passphrase.fill('\u0000')
-    } ?: return
+    val encrypted =
+      try {
+        AESEncryption.encrypt(passphrase, KeyType.TEMPORARY)
+      } finally {
+        passphrase.fill('\u0000')
+      } ?: return
     cache.put(keyId, encrypted)?.fill('\u0000')
   }
 

@@ -34,11 +34,12 @@ class PasskeyFastUnlockPolicyTest {
 
   @Test
   fun `skips non-key entries and accepts primary key IDs`() {
-    val entries = linkedMapOf(
-      "unlock_pin" to "hidden",
-      "biometrics_and_pin_last_use" to 42L,
-      keyA to "encrypted",
-    )
+    val entries =
+      linkedMapOf(
+        "unlock_pin" to "hidden",
+        "biometrics_and_pin_last_use" to 42L,
+        keyA to "encrypted",
+      )
     val result =
       PasskeyFastUnlockPolicy.findMatchingPassphrase(entries, setOf(keyA)) { it.toString() }
 
