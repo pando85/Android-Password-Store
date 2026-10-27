@@ -12,7 +12,7 @@ import app.passwordstore.util.crypto.AESEncryption.KeyType
 import javax.inject.Inject
 
 /** Validates the app's Fast Unlock PIN before unwrapping the PGP passphrase. */
-internal class PasskeyPinUnlocker
+class PasskeyPinUnlocker
 @Inject
 constructor(
   @UnlockPins private val unlockPins: SharedPreferences,

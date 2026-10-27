@@ -76,7 +76,7 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
   @Inject lateinit var signatureCounterTransaction: SignatureCounterTransaction
   @Inject lateinit var openPgpInteractionCoordinator: OpenPgpInteractionCoordinator
   @Inject lateinit var passphraseCache: PasskeyPassphraseCache
-  @Inject internal lateinit var pinUnlocker: PasskeyPinUnlocker
+  @Inject lateinit var pinUnlocker: PasskeyPinUnlocker
   @Inject lateinit var metadataIndex: PasskeyMetadataIndex
   private val openPgpInteractionHandler = OpenPgpActivityInteractionHandler(this)
 
