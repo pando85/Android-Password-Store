@@ -27,7 +27,7 @@ class BiometricPasskeyAuthenticator @Inject constructor() : PasskeyAuthenticator
       dialogDescriptionRes = R.string.passkey_auth_description,
       allowPin = true,
     ) { result ->
-      if (continuation.isActive) {
+      if (result !is BiometricAuthenticator.Result.Retry && continuation.isActive) {
         continuation.resume(convertResult(result))
       }
     }
@@ -43,7 +43,7 @@ class BiometricPasskeyAuthenticator @Inject constructor() : PasskeyAuthenticator
       dialogDescriptionRes = R.string.passkey_auth_description,
       allowPin = true,
     ) { result ->
-      if (continuation.isActive) {
+      if (result !is BiometricAuthenticator.Result.Retry && continuation.isActive) {
         continuation.resume(convertResult(result))
       }
     }

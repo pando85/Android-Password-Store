@@ -30,6 +30,13 @@ public interface PasskeyStorage {
     return loadForSigning(ref.credentialId)
   }
 
+  /** Read recipient key IDs from a version-pinned encrypted credential. */
+  public suspend fun resolveRecipientPrimaryKeyIdsExact(
+    ref: PasskeyFileRef,
+    expectedVersion: CredentialSourceVersion,
+  ): Result<Set<String>, Throwable> =
+    Err(UnsupportedOperationException("Recipient inspection unavailable"))
+
   public suspend fun saveCredential(
     credential: PasskeyCredential,
     privateKey: ByteArray,

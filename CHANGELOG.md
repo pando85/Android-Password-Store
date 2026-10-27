@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file
 
 ## [Unreleased]
 
+### Changed
+
+- Passkey Fast Unlock now selects the persisted passphrase by the encrypted credential's PGP recipient, supports app-PIN protected credentials, enforces the configured expiry, and discards passphrases after each serialized request. Recoverable biometric retries no longer cancel in-progress prompts.
+
 ### Fixed
 
 - Passkey sign-in no longer fails for passphrase-protected PGP keys when the passphrase is cached with biometric Fast Unlock

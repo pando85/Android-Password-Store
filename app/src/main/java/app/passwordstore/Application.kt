@@ -21,6 +21,7 @@ import androidx.appcompat.app.AppCompatDelegate
 import app.passwordstore.injection.context.FilesDirPath
 import app.passwordstore.injection.prefs.PGPPassphrases
 import app.passwordstore.injection.prefs.SettingsPreferences
+import app.passwordstore.passkeys.PasskeyPassphraseCache
 import app.passwordstore.passsecrets.PassSecretsMapStore
 import app.passwordstore.ui.crypto.BasePGPActivity.Companion.cachedPassphrases
 import app.passwordstore.util.coroutines.DispatcherProvider
@@ -53,6 +54,7 @@ class Application : android.app.Application(), SharedPreferences.OnSharedPrefere
   @Inject lateinit var gitSettings: GitSettings
   @Inject lateinit var proxyUtils: ProxyUtils
   @Inject lateinit var features: Features
+  @Inject lateinit var passkeyPassphraseCache: PasskeyPassphraseCache
 
   private val isDebuggableApp: Boolean
     get() = (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
@@ -155,6 +157,7 @@ class Application : android.app.Application(), SharedPreferences.OnSharedPrefere
           if (intent.action == Intent.ACTION_SCREEN_OFF) {
             cachedPassphrases.values.forEach { it.wipe() }
             cachedPassphrases.clear()
+            passkeyPassphraseCache.clear()
             PassSecretsMapStore.clear()
           }
         }
@@ -171,6 +174,12 @@ class Application : android.app.Application(), SharedPreferences.OnSharedPrefere
   override fun onSharedPreferenceChanged(prefs: SharedPreferences, key: String?) {
     if (key == PreferenceKeys.APP_THEME) {
       setNightMode()
+    }
+    if (
+      key == PreferenceKeys.PREF_FAST_UNLOCK_OPTION ||
+        key == PreferenceKeys.BIOMETRICS_AND_PIN_TIMEOUT
+    ) {
+      passkeyPassphraseCache.clear()
     }
   }
 

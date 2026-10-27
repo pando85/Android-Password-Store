@@ -164,6 +164,30 @@ public class FilePasskeyStorage<
       loadFromExactRef(ref, expectedVersion)
     }
 
+  override suspend fun resolveRecipientPrimaryKeyIdsExact(
+    ref: PasskeyFileRef,
+    expectedVersion: CredentialSourceVersion,
+  ): Result<Set<String>, Throwable> =
+    withContext(Dispatchers.IO) {
+      confinedStore
+        .openExact(ref, expectedVersion)
+        .fold(
+          success = { opened ->
+            try {
+              val ciphertext = opened.readBytes()
+              try {
+                Ok(passkeyPgpDecryptor.inspectRecipientPrimaryKeyIds(ciphertext, inputLimits))
+              } finally {
+                ciphertext.fill(0)
+              }
+            } finally {
+              opened.close()
+            }
+          },
+          failure = { Err(SecurityException("Cannot inspect selected credential: ${it.message}")) },
+        )
+    }
+
   override suspend fun loadCredentialMetadata(
     ref: PasskeyFileRef,
     expectedVersion: CredentialSourceVersion?,
