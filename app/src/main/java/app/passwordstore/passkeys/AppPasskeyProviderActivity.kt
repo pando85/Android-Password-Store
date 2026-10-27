@@ -12,6 +12,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.annotation.RequiresApi
+import androidx.core.content.edit
 import androidx.credentials.CreatePublicKeyCredentialRequest
 import androidx.credentials.CreatePublicKeyCredentialResponse
 import androidx.credentials.GetCredentialResponse
@@ -23,7 +24,6 @@ import androidx.credentials.exceptions.GetCredentialUnknownException
 import androidx.credentials.provider.PendingIntentHandler
 import androidx.lifecycle.lifecycleScope
 import app.passwordstore.R as AppR
-import app.passwordstore.crypto.PGPIdentifier
 import app.passwordstore.data.crypto.OpenPgpActivityInteractionHandler
 import app.passwordstore.data.crypto.OpenPgpInteractionCoordinator
 import app.passwordstore.data.repo.PasswordRepository
@@ -45,6 +45,7 @@ import app.passwordstore.passkeys.storage.SignatureCounterHighWaterMark
 import app.passwordstore.passkeys.storage.SignatureCounterPolicy
 import app.passwordstore.passkeys.storage.SignatureCounterTransaction
 import app.passwordstore.passkeys.storage.SourceVersionResult
+import app.passwordstore.ui.crypto.PinDialog
 import app.passwordstore.ui.git.base.BaseGitActivity
 import app.passwordstore.ui.pgp.PGPKeyListActivity
 import app.passwordstore.util.extensions.sharedPrefs
@@ -55,8 +56,10 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlin.coroutines.resume
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import logcat.LogPriority
 import logcat.logcat
 
@@ -73,12 +76,17 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
   @Inject lateinit var signatureCounterTransaction: SignatureCounterTransaction
   @Inject lateinit var openPgpInteractionCoordinator: OpenPgpInteractionCoordinator
   @Inject lateinit var passphraseCache: PasskeyPassphraseCache
+  @Inject lateinit var pinUnlocker: PasskeyPinUnlocker
   @Inject lateinit var metadataIndex: PasskeyMetadataIndex
   private val openPgpInteractionHandler = OpenPgpActivityInteractionHandler(this)
 
   @Inject
   @app.passwordstore.injection.prefs.PGPPassphrases
   lateinit var persistentPassphrases: android.content.SharedPreferences
+
+  @Inject
+  @app.passwordstore.injection.prefs.UnlockPins
+  lateinit var unlockPins: android.content.SharedPreferences
 
   private fun maybeSyncToGit() {
     if (!sharedPrefs.getBoolean(PreferenceKeys.PASSKEY_AUTO_GIT_SYNC, true)) return
@@ -118,6 +126,8 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
   private suspend fun handleGetCredential(
     request: androidx.credentials.provider.ProviderGetCredentialRequest
   ) {
+    // Never reuse a passphrase unlocked for a previous credential-provider request.
+    passphraseCache.clear()
     try {
       @Suppress("InlinedApi")
       val selectedCredentialId =
@@ -229,64 +239,102 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
 
       var userVerified = false
       if (authenticator.canAuthenticate(this)) {
-        val persistentEntry = findFirstPersistentPassphrase()
-        if (persistentEntry != null) {
-          val (keyId, encrypted) = persistentEntry
-          val cipher =
-            app.passwordstore.util.crypto.AESEncryption.getCipher(
-              app.passwordstore.util.crypto.AESEncryption.KeyType.PERSISTENT_WITH_AUTHENTICATION,
-              encrypted,
-            )
-          val authResult = authenticateWithCipher(cipher)
-          when (authResult) {
-            is AuthOutcome.Success -> {
-              userVerified = true
-              val decrypted =
-                app.passwordstore.util.crypto.AESEncryption.decrypt(
-                  encrypted,
-                  keyType =
-                    app.passwordstore.util.crypto.AESEncryption.KeyType
-                      .PERSISTENT_WITH_AUTHENTICATION,
-                  cipher = authResult.cipher,
+        val fastUnlockOption =
+          sharedPrefs.getString(PreferenceKeys.PREF_FAST_UNLOCK_OPTION, "disabled")
+        val persistentEntry =
+          if (fastUnlockOption == "fingerprint" || fastUnlockOption == "PIN") {
+            expirePersistentPassphrasesIfNeeded()
+            val recipientIds =
+              passkeyStorage
+                .resolveRecipientPrimaryKeyIdsExact(fileRef, pickerVersion)
+                .fold(
+                  success = { it },
+                  failure = { error ->
+                    logcat(LogPriority.WARN) { "Unable to inspect passkey recipient: $error" }
+                    emptySet()
+                  },
                 )
-              if (decrypted != null) {
-                passphraseCache.put(keyId, decrypted)
+            withContext(Dispatchers.IO) { findFirstPersistentPassphrase(recipientIds) }
+          } else {
+            null
+          }
+        try {
+          if (persistentEntry != null && fastUnlockOption == "fingerprint") {
+            val cipher =
+              app.passwordstore.util.crypto.AESEncryption.getCipher(
+                app.passwordstore.util.crypto.AESEncryption.KeyType.PERSISTENT_WITH_AUTHENTICATION,
+                persistentEntry.encrypted,
+              )
+            if (cipher == null) {
+              finishWithGetError(
+                GetCredentialUnknownException(
+                  "Fast Unlock credential is unavailable; unlock a password to refresh it"
+                )
+              )
+              return
+            }
+            when (val authResult = authenticateWithCipher(cipher)) {
+              is AuthOutcome.Success -> {
+                val decrypted =
+                  app.passwordstore.util.crypto.AESEncryption.decrypt(
+                    persistentEntry.encrypted,
+                    keyType =
+                      app.passwordstore.util.crypto.AESEncryption.KeyType
+                        .PERSISTENT_WITH_AUTHENTICATION,
+                    cipher = authResult.cipher,
+                  )
+                if (decrypted == null) {
+                  finishWithGetError(GetCredentialUnknownException("Cannot unlock cached passphrase"))
+                  return
+                }
+                passphraseCache.put(persistentEntry.primaryKeyId, decrypted)
+                if (!passphraseCache.contains(persistentEntry.primaryKeyId)) {
+                  finishWithGetError(GetCredentialUnknownException("Cannot cache unlocked passphrase"))
+                  return
+                }
+                persistentPassphrases.edit {
+                  putLong(PreferenceKeys.BIOMETRICS_AND_PIN_LAST_USE, System.currentTimeMillis())
+                }
+                userVerified = true
+              }
+              is AuthOutcome.Canceled -> {
+                finishWithGetError(GetCredentialCancellationException("Authentication canceled"))
+                return
+              }
+              is AuthOutcome.Failed -> {
+                finishWithGetError(GetCredentialUnknownException(authResult.message))
+                return
               }
             }
-            is AuthOutcome.Canceled -> {
-              finishWithGetError(GetCredentialCancellationException("Authentication canceled"))
-              return
+          } else {
+            when (val authResult = authenticator.authenticateForPasskey(this, metadata.rpId)) {
+              is PasskeyAuthenticator.Result.Success -> userVerified = true
+              is PasskeyAuthenticator.Result.Canceled -> {
+                finishWithGetError(GetCredentialCancellationException("Authentication canceled"))
+                return
+              }
+              is PasskeyAuthenticator.Result.NotAvailable -> {
+                finishWithGetError(
+                  GetCredentialUnknownException("Biometric or device authentication not available")
+                )
+                return
+              }
+              is PasskeyAuthenticator.Result.Failure -> {
+                finishWithGetError(
+                  GetCredentialUnknownException("Authentication failed: ${authResult.message}")
+                )
+                return
+              }
             }
-            is AuthOutcome.Failed -> {
-              finishWithGetError(GetCredentialUnknownException(authResult.message))
-              return
-            }
-          }
-        } else {
-          when (val authResult = authenticator.authenticateForPasskey(this, metadata.rpId)) {
-            is PasskeyAuthenticator.Result.Success -> {
-              userVerified = true
-            }
-            is PasskeyAuthenticator.Result.Canceled -> {
-              finishWithGetError(GetCredentialCancellationException("Authentication canceled"))
-              return
-            }
-            is PasskeyAuthenticator.Result.NotAvailable -> {
-              finishWithGetError(
-                GetCredentialUnknownException("Biometric authentication required but not available")
-              )
-              return
-            }
-            is PasskeyAuthenticator.Result.Failure -> {
-              finishWithGetError(
-                GetCredentialUnknownException("Authentication failed: ${authResult.message}")
-              )
-              return
+            if (persistentEntry != null && fastUnlockOption == "PIN") {
+              if (!authenticateWithSavedPin(persistentEntry)) return
             }
           }
+        } finally {
+          persistentEntry?.encrypted?.fill('\u0000')
         }
       } else {
-        finishWithGetError(GetCredentialUnknownException("Biometric authentication required"))
+        finishWithGetError(GetCredentialUnknownException("Device authentication required"))
         return
       }
 
@@ -474,6 +522,8 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
     } catch (e: Exception) {
       logcat(LogPriority.ERROR) { "handleGetCredential unexpected error: $e" }
       finishWithGetError(GetCredentialUnknownException("Unexpected error"))
+    } finally {
+      passphraseCache.clear()
     }
   }
 
@@ -665,16 +715,101 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
       .show()
   }
 
-  private fun findFirstPersistentPassphrase(): Pair<String, CharArray>? {
-    val allKeys = persistentPassphrases.all
-    for ((id, value) in allKeys) {
-      if (id == "unlock_pin" || id == PreferenceKeys.BIOMETRICS_AND_PIN_LAST_USE) continue
-      val keyId = PGPIdentifier.fromString(id)?.let(repository::getLongKeyIdFromKeyId) ?: continue
-      if (passphraseCache.contains(keyId)) continue
-      val encrypted = (value as? String)?.toCharArray() ?: continue
-      return keyId to encrypted
+  private fun expirePersistentPassphrasesIfNeeded() {
+    val timeoutDays =
+      sharedPrefs.getString(PreferenceKeys.BIOMETRICS_AND_PIN_TIMEOUT, null)?.toLongOrNull() ?: 3L
+    val lastUse =
+      persistentPassphrases.getLong(PreferenceKeys.BIOMETRICS_AND_PIN_LAST_USE, 0L)
+    if (PasskeyFastUnlockPolicy.isExpired(System.currentTimeMillis(), lastUse, timeoutDays)) {
+      persistentPassphrases.edit { clear() }
+      unlockPins.edit { clear() }
+      passphraseCache.clear()
     }
-    return null
+  }
+
+  private fun findFirstPersistentPassphrase(
+    recipientPrimaryKeyIds: Set<String>
+  ): PersistentPassphraseEntry? =
+    PasskeyFastUnlockPolicy.findMatchingPassphrase(
+      persistentPassphrases.all,
+      recipientPrimaryKeyIds,
+      repository::getLongKeyIdFromKeyId,
+    )
+
+  /** PIN Fast Unlock is a separate secret from Android's device credential. */
+  private suspend fun authenticateWithSavedPin(entry: PersistentPassphraseEntry): Boolean {
+    var showError = false
+    repeat(PIN_MAX_RETRIES) {
+      val pin = requestFastUnlockPin(showError)
+      if (pin == null) {
+        finishWithGetError(GetCredentialCancellationException("PIN entry canceled"))
+        return false
+      }
+      val outcome =
+        try {
+          withContext(Dispatchers.IO) {
+            pinUnlocker.unlock(entry.persistedId, entry.encrypted, pin)
+          }
+        } finally {
+          pin.fill('\u0000')
+        }
+      when (outcome) {
+        is PasskeyPinUnlocker.Result.Unlocked -> {
+          passphraseCache.put(entry.primaryKeyId, outcome.passphrase)
+          if (!passphraseCache.contains(entry.primaryKeyId)) {
+            finishWithGetError(GetCredentialUnknownException("Cannot cache unlocked passphrase"))
+            return false
+          }
+          persistentPassphrases.edit {
+            putLong(PreferenceKeys.BIOMETRICS_AND_PIN_LAST_USE, System.currentTimeMillis())
+          }
+          return true
+        }
+        is PasskeyPinUnlocker.Result.Incorrect -> showError = true
+        PasskeyPinUnlocker.Result.LockedOut -> {
+          finishWithGetError(GetCredentialUnknownException("Fast Unlock PIN attempts exhausted"))
+          return false
+        }
+        PasskeyPinUnlocker.Result.Unavailable -> {
+          finishWithGetError(
+            GetCredentialUnknownException("Fast Unlock PIN unavailable; unlock a password again")
+          )
+          return false
+        }
+      }
+    }
+    finishWithGetError(GetCredentialUnknownException("Fast Unlock PIN attempts exhausted"))
+    return false
+  }
+
+  private suspend fun requestFastUnlockPin(isError: Boolean): CharArray? =
+    suspendCancellableCoroutine { continuation ->
+      val dialog =
+        PinDialog.newInstance(
+          title = getString(AppR.string.pin_entry_title),
+          description = getString(AppR.string.pin_entry_passkey_description),
+        )
+      if (isError) dialog.setError()
+      supportFragmentManager.setFragmentResultListener(PinDialog.PIN_RESULT_KEY, this) { _, result ->
+        supportFragmentManager.clearFragmentResultListener(PinDialog.PIN_RESULT_KEY)
+        val pin = result.getCharArray(PinDialog.PIN_KEY)
+        if (continuation.isActive) {
+          continuation.resume(if (result.getBoolean(PinDialog.PIN_CANCEL)) null else pin)
+        } else {
+          pin?.fill('\u0000')
+        }
+      }
+      continuation.invokeOnCancellation {
+        runOnUiThread {
+          supportFragmentManager.clearFragmentResultListener(PinDialog.PIN_RESULT_KEY)
+          dialog.dismissAllowingStateLoss()
+        }
+      }
+      dialog.show(supportFragmentManager, "PASSKEY_PIN_DIALOG")
+    }
+
+  private companion object {
+    const val PIN_MAX_RETRIES = 3
   }
 
   private suspend fun authenticateWithCipher(cipher: javax.crypto.Cipher?): AuthOutcome {
@@ -683,7 +818,7 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
         activity = this,
         dialogTitleRes = AppR.string.passkey_auth_title,
         dialogDescriptionRes = AppR.string.passkey_auth_description,
-        allowPin = true,
+        allowPin = false,
         cipher = cipher,
       ) { result ->
         if (continuation.isActive) {

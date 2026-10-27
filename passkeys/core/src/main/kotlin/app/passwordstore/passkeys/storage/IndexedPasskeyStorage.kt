@@ -323,6 +323,12 @@ public class IndexedPasskeyStorage(
     }
   }
 
+  override suspend fun resolveRecipientPrimaryKeyIdsExact(
+    ref: PasskeyFileRef,
+    expectedVersion: CredentialSourceVersion,
+  ): Result<Set<String>, Throwable> =
+    delegate.resolveRecipientPrimaryKeyIdsExact(ref, expectedVersion)
+
   override suspend fun loadForSigningExact(
     ref: PasskeyFileRef,
     expectedVersion: CredentialSourceVersion?,

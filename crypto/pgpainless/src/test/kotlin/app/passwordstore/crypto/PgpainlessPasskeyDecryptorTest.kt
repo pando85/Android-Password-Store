@@ -9,6 +9,7 @@ import app.passwordstore.crypto.CryptoConstants.KEY_PASSPHRASE
 import app.passwordstore.crypto.CryptoConstants.PLAIN_TEXT
 import app.passwordstore.crypto.PGPIdentifier.KeyId
 import app.passwordstore.passkeys.crypto.PgpUnlockContext
+import app.passwordstore.passkeys.security.PasskeyInputLimits
 import com.github.michaelbull.result.unwrap
 import java.io.ByteArrayOutputStream
 import kotlin.test.Test
@@ -37,6 +38,11 @@ class PgpainlessPasskeyDecryptorTest {
           PGPEncryptOptions.Builder().build(),
         )
         .unwrap()
+      val recipientPrimaryKeyIds =
+        PgpainlessPasskeyDecryptor(cryptoHandler, keyManager)
+          .inspectRecipientPrimaryKeyIds(ciphertext.toByteArray(), PasskeyInputLimits.DEFAULT)
+      assertEquals(setOf(KeyId(KEY_ID).toString()), recipientPrimaryKeyIds)
+
       val unlockContext =
         object : PgpUnlockContext {
           override suspend fun unlockKey(keyId: String) =
