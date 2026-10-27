@@ -130,6 +130,7 @@
   <string name="pref_recently_used_sort_order">Recently used</string>
   <string name="pref_category_autofill_title">Autofill</string>
   <string name="pref_autofill_enable_title">Enable Autofill</string>
+  <string name="pref_autofill_ask_save_passwords_title">Ask to save passwords</string>
   <string name="pref_category_misc_title">Misc</string>
   <string name="pref_category_passkey_title">Passkeys</string>
   <string name="pref_passkey_signature_counter_policy_title">Zero signature counter (recommended for synced repos)</string>
