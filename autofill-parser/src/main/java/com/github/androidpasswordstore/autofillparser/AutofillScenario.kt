@@ -198,7 +198,7 @@ internal data class ClassifiedAutofillScenario<T : Any>(
     get() = currentPassword
 
   override val passwordFieldsToFillOnGenerate
-    get() = newPassword
+    get() = newPassword.ifEmpty { currentPassword }
 
   override val passwordFieldsToSave
     get() = newPassword.ifEmpty { currentPassword }
@@ -255,6 +255,7 @@ public fun Dataset.Builder.fillWith(
         else -> credentialsToFill.password
       }
     var charBuf = value?.let { CharBuffer.wrap(it) }
+
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
       setField(field, Field.Builder().setValue(AutofillValue.forText(charBuf)).build())
     } else {

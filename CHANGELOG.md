@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file
 
 ## [Unreleased]
 
+### Added
+
+- Option to keep the password store in a shared external folder (`Documents/PasswordStore`); passkeys follow the selected repository
+- Setting to enable Autofill directly from the app settings
+- Dialog showing the SSH server's authentication banner, if any
+- Android 17: runtime request for the local network permission and a connectivity check for local Git servers
+
+### Changed
+
+- Autofill search pane: whitespace-tolerant search, persistent filter switches, start-ellipsised paths, better username lookup (also from the file path) and more inline suggestions
+- New password entries and Autofill-saved credentials honour the directory structure setting and keep the subfolder of the entry
+- Bouncy Castle and coroutines versions are aligned through BOMs
+
+### Fixed
+
+- Classic Autofill no longer offers or fills passkey entries
+- Autofill-saved credentials are filled in right after creation, with the username pre-filled
+- SSH host key verification and compatibility with sshj 0.41
+- Alert dialogs are no longer clipped by the keyboard on short screens
+- An empty Git author email is now allowed
+- Spanish translation fixes
+
 ## [1.26.0] - 2026-10-27
 
 ### Changed

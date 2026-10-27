@@ -8,11 +8,10 @@ package app.passwordstore.ui.settings
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.provider.Settings
+import androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult
 import androidx.appcompat.widget.AppCompatTextView
 import androidx.core.net.toUri
 import androidx.fragment.app.FragmentActivity
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import app.passwordstore.BuildConfig
 import app.passwordstore.R
 import app.passwordstore.util.extensions.autofillManager
@@ -25,23 +24,20 @@ import de.Maxr1998.modernpreferences.helpers.editText
 import de.Maxr1998.modernpreferences.helpers.onClick
 import de.Maxr1998.modernpreferences.helpers.switch
 import de.Maxr1998.modernpreferences.preferences.SwitchPreference
+import kotlinx.coroutines.launch
 
 class AutofillSettings(private val activity: FragmentActivity) : SettingsProvider {
 
-  private val isAutofillServiceEnabled: Boolean
-    get() {
-      return activity.autofillManager?.hasEnabledAutofillServices() == true
+  val isAutofillServiceEnabled: Boolean
+    get() = activity.autofillManager?.hasEnabledAutofillServices() == true
+
+  var autofillSwitchPreference: SwitchPreference? = null
+  private val requestSetAutofillServiceAction =
+    activity.registerForActivityResult(StartActivityForResult()) { _ ->
+      autofillSwitchPreference?.run { checked = isAutofillServiceEnabled }
     }
 
-  private fun showAutofillDialog(pref: SwitchPreference) {
-    val observer = LifecycleEventObserver { _, event ->
-      when (event) {
-        Lifecycle.Event.ON_RESUME -> {
-          pref.checked = isAutofillServiceEnabled
-        }
-        else -> {}
-      }
-    }
+  private fun showAutofillDialog() {
     MaterialAlertDialogBuilder(activity).run {
       setTitle(R.string.pref_autofill_enable_title)
       @SuppressLint("InflateParams")
@@ -75,11 +71,9 @@ class AutofillSettings(private val activity: FragmentActivity) : SettingsProvide
           Intent(Settings.ACTION_REQUEST_SET_AUTOFILL_SERVICE).apply {
             data = "package:${BuildConfig.APPLICATION_ID}".toUri()
           }
-        activity.startActivity(intent)
+        requestSetAutofillServiceAction.launch(intent)
       }
       setNegativeButton(R.string.dialog_cancel, null)
-      setOnDismissListener { pref.checked = isAutofillServiceEnabled }
-      activity.lifecycle.addObserver(observer)
       show()
     }
   }
@@ -88,15 +82,16 @@ class AutofillSettings(private val activity: FragmentActivity) : SettingsProvide
     builder.apply {
       switch(PreferenceKeys.AUTOFILL_ENABLE) {
         titleRes = R.string.pref_autofill_enable_title
-        defaultValue = isAutofillServiceEnabled
+        autofillSwitchPreference = this
         onClick {
-          if (isAutofillServiceEnabled) {
-            activity.autofillManager?.disableAutofillServices()
-          } else {
-            showAutofillDialog(this)
-          }
+          if (checked) showAutofillDialog() else activity.autofillManager?.disableAutofillServices()
           false
         }
+      }
+      switch(PreferenceKeys.AUTOFILL_ASK_TO_SAVE_PASSWORDS) {
+        titleRes = R.string.pref_autofill_ask_save_passwords_title
+        defaultValue = true
+        dependency = PreferenceKeys.AUTOFILL_ENABLE
       }
       editText(PreferenceKeys.OREO_AUTOFILL_DEFAULT_USERNAME) {
         dependency = PreferenceKeys.AUTOFILL_ENABLE

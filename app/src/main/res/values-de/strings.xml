@@ -17,7 +17,7 @@
   <string name="dialog_delete_msg">Zielordner existiert bereits. Die aktuelle Version unterstützt nur eine einzige Datenquelle. Möchten Sie die aktuelle Datenquelle löschen?\n(%1$s)</string>
   <string name="dialog_delete">Ordner löschen</string>
   <string name="dialog_do_not_delete">Abbruch</string>
-  <string name="title_activity_git_clone">Repository-Informationen</string>
+  <string name="title_activity_git_remote">Remote-Repository</string>
   <string name="title_activity_git_config">Git-Konfiguration</string>
   <string name="title_activity_git_log">Commit-Log</string>
 
@@ -45,8 +45,10 @@
 
   <!-- PGPHandler -->
   <string name="clipboard_copied_text">In die Zwischenablage kopiert.</string>
+  <string name="empty_name_toast_text">Bitte setzen Sie einen Namen.</string>
   <string name="file_toast_text">Bitte setzen Sie einen Dateinamen.</string>
   <string name="empty_toast_text">Sie müssen mindestens ein Passwort oder Zusatzangaben eintragen.</string>
+  <string name="empty_username_toast_text">Bitte setzen Sie einen Benutzernamen.</string>
 
   <!-- Git Async Task -->
   <string name="jgit_error_dialog_title">Es ist ein Fehler während der Git-Operation aufgetreten</string>
@@ -64,8 +66,8 @@
   <!-- Clone fragment -->
 
   <string name="server_url">Repository-URL</string>
-
   <string name="connection_mode">Authentifizierungsmethode</string>
+  <string name="show_server_response">Serverbanner anzeigen (wenn vorhanden)</string>
 
   <!-- Git Config fragment -->
   <string name="git_user_name_hint">Benutzername</string>
@@ -76,9 +78,10 @@
   <!-- PGP Handler -->
   <string name="crypto_name_hint">Name</string>
   <string name="crypto_username_hint">Benutzername</string>
+  <string name="crypto_filename_hint">Dateiname</string>
   <string name="crypto_pass_label">Passwort</string>
   <string name="crypto_extra_label">Zusätzliche Angaben</string>
-  <string name="crypto_encrypt_username_label">Benutzername verschlüsseln</string>
+  <string name="crypto_insert_username_label">Benutzernamen einfügen</string>
   <string name="crypto_select">Auswählen</string>
   <string name="crypto_save">Speichern</string>
   <string name="crypto_save_and_copy">Speichern und kopieren</string>
@@ -94,7 +97,6 @@
 
   <!-- Preferences -->
   <string name="pref_category_repository_title">Repository</string>
-  <string name="pref_edit_git_server_settings">Git-Server-Einstellungen</string>
   <string name="pref_git_server_auth_key">Authentifizierungsschlüssel</string>
   <string name="pref_edit_git_config">Lokale Git-Konfiguration &amp; Dienstprogramme</string>
   <string name="pref_ssh_use_pgp_key_title">PGP-Schlüssel verwenden</string>
@@ -129,10 +131,13 @@
   <string name="pref_recently_used_sort_order">Zuletzt verwendet</string>
   <string name="pref_category_autofill_title">Automatisch ausfüllen</string>
   <string name="pref_autofill_enable_title">Autofill aktivieren</string>
+  <string name="pref_autofill_ask_save_passwords_title">Fragen, ob Passwörter gespeichert werden sollen</string>
   <string name="pref_category_misc_title">Verschiedenes</string>
   <string name="pref_clear_clipboard_title">Zwischenablagenverlauf umgehen</string>
   <string name="pref_clear_clipboard_summary">Zwischenablagenverlauf (Samsung-Geräte, Gboard) mit Zufallszahlen überschreiben, um ggf. bestehende Passwörter zu entfernen.</string>
-  <string name="pref_git_delete_repo_summary">Lösche das lokale (versteckte) Repository.</string>
+  <string name="pref_git_delete_repo_summary">Löscht das versteckte, app-interne Repository.</string>
+  <string name="prefs_external_repository_title">Externes Repository</string>
+  <string name="prefs_external_repository_summary">Das Passwort-Repository befindet sich in einem freigegebenen Ordner, auf den auch andere Apps zugreifen können.</string>
   <string name="prefs_export_passwords_title">Passwörter exportieren</string>
   <string name="prefs_export_passwords_summary">Exportiert das Password-Repository in ein externes Verzeichnis.</string>
   <string name="prefs_export_passwords_dialog_title">Passwörter werden exportiert</string>
@@ -209,6 +214,7 @@
   <string name="dialog_yes">Ja</string>
   <string name="dialog_no">Nein</string>
   <string name="dialog_cancel">Abbruch</string>
+  <string name="dialog_continue">Weiter</string>
   <string name="git_sync">Synchronisiere Repository</string>
   <string name="git_pull">Git Pull</string>
   <string name="git_push">Git Push</string>
@@ -227,15 +233,14 @@
   <!-- Oreo Autofill -->
   <string name="oreo_autofill_select_and_fill_into">Eintrag zum Ausfüllen auswählen</string>
   <string name="oreo_autofill_strict_domain_search">Phishing-resistente Suche</string>
-  <string name="oreo_autofill_match_with">Übereinstimmung mit %1$s</string>
-  <string name="oreo_autofill_matches_clear_existing">Bestehende Übereinstimmungen löschen</string>
+  <string name="oreo_autofill_match_with">Schnellauswahltaste für %1$s hinzufügen</string>
+  <string name="oreo_autofill_matches_clear_existing">Schnellauswahltasten entfernen</string>
   <string name="oreo_autofill_filter_no_results">Keine Ergebnisse</string>
   <string name="oreo_autofill_search_in_store">Eintrag suchen</string>
   <string name="oreo_autofill_save_internal_error">Speichern aufgrund eines internen Fehlers fehlgeschlagen.</string>
   <string name="oreo_autofill_save_app_not_supported">Diese App wird derzeit nicht unterstützt.</string>
   <string name="oreo_autofill_save_passwords_dont_match">Die Passwörter stimmen nicht überein.</string>
   <string name="oreo_autofill_generate_password">Passwort erstellen…</string>
-  <string name="oreo_autofill_max_matches_reached">Maximale Anzahl an Übereinstimmungen (%1$d) erreicht; lösche Übereinstimmungen, bevor neue hinzugefügt werden.</string>
   <string name="oreo_autofill_warning_publisher_header">Der Hersteller dieser App hat sich geändert, seit Sie einen Eintrag zum Passwort-Speicher mit ihr verknüpft haben: </string>
   <string name="oreo_autofill_warning_publisher_footer"><b>Die derzeit installierte App versucht, Ihre Anmeldeinformationen zu stehlen, indem sie vorgibt, eine vertrauenswürdige App zu sein.</b>\n\nVersuchen Sie, die App zu deinstallieren und installieren Sie sie erneut aus einer vertrauenswürdigen Quelle wie dem Play Store, Amazon Appstore, F-Droid oder dem Shop Ihres Telefonherstellers.</string>
   <string name="oreo_autofill_warning_publisher_install_time">Installiert: %1$s</string>
@@ -297,6 +302,8 @@
   <string name="git_server_hostkey_dialog_message">%s\n\nÜberprüfen Sie die Korrektheit des Fingerabdrucks vor dem Verbinden.</string>
   <string name="git_server_hostkey_dialog_connect">Verbinden</string>
   <string name="git_server_hostkey_dialog_abort">Abbruch</string>
+  <string name="git_server_response_dialog_title">Serverbanner</string>
+  <string name="git_server_response_dialog_do_not_show_again">Nicht mehr anzeigen</string>
   <string name="git_server_config_save_success">Konfiguration erfolgreich gespeichert</string>
   <string name="git_server_config_save_error">Die angegebene Repository-URL ist ungültig.</string>
   <string name="git_server_config_save_missing_username_https">Bitte geben Sie den HTTPS-Benutzernamen in der Form https://username@example.com/… an.</string>
@@ -314,7 +321,7 @@
   <string name="bottom_sheet_create_pgp_key">Neuen Schlüssel erstellen</string>
   <string name="pref_debug_logging_summary">Debug-Ausgaben aktivieren (Erfordert Neustart der App).</string>
   <string name="pref_debug_logging_title">Debug-Logging</string>
-  <string name="preference_default_username_summary">Kann die Autofill-Funktion den Benutzernamen nicht aus dem Inhalt einer Passwortdatei abrufen, wird der hier angegebene Wert verwendet.</string>
+  <string name="preference_default_username_summary">Kann die Autofill-Funktion den Benutzernamen nicht aus dem Inhalt oder dem Kontext einer Passwortdatei ermitteln, wird der hier angegebene Wert verwendet.</string>
   <string name="preference_default_username_title">Standard-Benutzername</string>
   <string name="git_operation_hint_password">Passwort</string>
   <string name="preference_custom_public_suffixes_title">Benutzerdefinierte Domains</string>
@@ -339,13 +346,16 @@
   <string name="empty_gpg_id">.gpg-id wurde gefunden, ist jedoch leer.</string>
   <string name="missing_gpg_id">.gpg-id wurde nicht gefunden.</string>
   <string name="short_gpg_id">.gpg-id wurde gefunden, enthält jedoch eine kurze Hex-ID, die nicht unterstützt wird.</string>
-  <string name="invalid_filename_text">Dateiname darf kein \'/\' enthalten; Verzeichnis oben setzen.</string>
+  <string name="invalid_filename_text">Der Dateiname darf kein \'/\' enthalten; Verzeichnis oben setzen.</string>
+  <string name="invalid_name_text">Der Name darf kein \'/\' enthalten; Verzeichnis oben setzen.</string>
+  <string name="invalid_username_text">Der Benutzername darf kein \'/\' enthalten.</string>
   <string name="directory_hint">Ordner</string>
   <string name="new_folder_set_gpg_key">PGP-Schlüssel für Ordner festlegen</string>
 
   <!-- Password decryption failure -->
-  <string name="password_decryption_no_decryption_key">Entschlüsseln fehlgeschlagen. Kein geeigneter geheimer Schlüssel gefunden.</string>
+  <string name="password_decryption_no_decryption_key">Entschlüsseln fehlgeschlagen. Kein geeigneter geheimer Schlüssel gefunden</string>
   <string name="password_decryption_unknown_error">Unbekannter Fehler beim Entschlüsseln</string>
+  <string name="password_decryption_no_autofill_with_passkey_error">Automatisches Ausfüllen mit Passkey-Daten nicht möglich</string>
 
   <!-- GitException messages -->
   <string name="git_unknown_error">Unbekannter Fehler</string>
@@ -356,6 +366,11 @@
   <string name="git_push_generic_error">Push wurde von Remote abgelehnt, Grund: %1$s</string>
   <string name="git_push_other_error">Remote hat den Push abgelehnt. Prüfen Sie die Variable receive.denyNonFastForwards in der Konfigurationsdatei des Ziel-Repositorys.</string>
   <string name="git_unknown_host">Unbekannter Host: %1$s</string>
+  <string name="git_local_network_unreachable_dialog_title">Server nicht erreichbar</string>
+  <string name="git_local_network_unreachable_dialog_message">Falls sich der Server %1$s im lokalen Netz befindet, muss die Berechtigung „Geräte in der Nähe“ erteilt werden.</string>
+  <string name="git_local_network_permission_skip">Überspringen</string>
+  <string name="git_local_network_permission_grant">Berechtigung erteilen</string>
+  <string name="git_url_not_set_error">Git-URL ist nicht gesetzt.</string>
   <string name="git_operation_running">Git-Operation wird ausgeführt…</string>
   <string name="git_break_out_of_detached_success">Es gab einen Konflikt während des Rebase-Prozesses. Ihr lokaler Branch %1$s wurde auf einen anderen Branch namens %2$s gepusht.\nNutzen Sie diesen Branch, um den Konflikt auf dem Server zu beheben</string>
   <string name="git_break_out_of_detached_unneeded">Das Repository befindet sich nicht im Rebase-Prozess; es ist nicht nötig, den Zustand auf einen weiteren Branch zu pushen.</string>
@@ -366,15 +381,21 @@
   <string name="folder_creation_err_folder_exists">Ein Ordner mit diesem Namen existiert bereits.</string>
 
   <!-- Onboarding flow -->
-  <string name="let_s_go">Los geht\'s</string>
-  <string name="select_n_repository_type">Wählen Sie einen \nRepository-Typ.</string>
-  <string name="select_repo_type_text">Wählen Sie aus, ob Sie ein lokales Repository anlegen, oder ein Remote-Repository klonen möchten.</string>
+  <string name="let_s_go">Los geht’s</string>
+  <string name="select_n_repository_type">Repository-Typ</string>
+  <string name="select_repo_type_text">Wählen Sie aus, ob Sie ein Remote-Repository klonen oder ein lokales Repository anlegen möchten.</string>
   <string name="clone_remote_repo">Remote-Repository klonen</string>
   <string name="create_local_repo">Lokales Repository anlegen</string>
   <string name="select_gpg_key_title">PGP-Schlüssel wählen</string>
   <string name="select_gpg_key_message">Wählen Sie einen oder mehrere PGP-Schlüssel, mit denen der Store initialisiert werden soll.</string>
   <string name="gpg_key_select">Schlüssel auswählen</string>
   <string name="gpg_key_single_select">Schlüssel auswählen</string>
+  <string name="select_n_repository_visibility">Sichtbarkeit des Repositorys</string>
+  <string name="select_repo_visibility_clone_text">Legen Sie fest, ob das Repository in das interne Verzeichnis der App (empfohlen) oder in einen freigegebenen Ordner geklont werden soll, auf den auch andere Apps zugreifen können.</string>
+  <string name="select_repo_visibility_create_text">Legen Sie fest, ob das Repository innerhalb des internen Verzeichnisses der App (empfohlen) oder in einem freigegebenen Ordner angelegt werden soll, auf den auch andere Apps zugreifen können.</string>
+  <string name="internal_repo">app-intern (versteckt)</string>
+  <string name="shared_repo">freigegebener Ordner</string>
+
 
   <!-- SSH port validation -->
   <string name="ssh_scheme_needed_title">Möglicherweise inkorrekte URL</string>
