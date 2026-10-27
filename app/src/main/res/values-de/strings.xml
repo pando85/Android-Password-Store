@@ -64,8 +64,8 @@
   <!-- Clone fragment -->
 
   <string name="server_url">Repository-URL</string>
-
   <string name="connection_mode">Authentifizierungsmethode</string>
+  <string name="show_server_response">Serverbanner anzeigen (wenn vorhanden)</string>
 
   <!-- Git Config fragment -->
   <string name="git_user_name_hint">Benutzername</string>
@@ -131,7 +131,9 @@
   <string name="pref_category_misc_title">Verschiedenes</string>
   <string name="pref_clear_clipboard_title">Zwischenablagenverlauf umgehen</string>
   <string name="pref_clear_clipboard_summary">Zwischenablagenverlauf (Samsung-Geräte, Gboard) mit Zufallszahlen überschreiben, um ggf. bestehende Passwörter zu entfernen.</string>
-  <string name="pref_git_delete_repo_summary">Lösche das lokale (versteckte) Repository.</string>
+  <string name="pref_git_delete_repo_summary">Löscht das versteckte, app-interne Repository.</string>
+  <string name="prefs_external_repository_title">Externes Repository</string>
+  <string name="prefs_external_repository_summary">Das Passwort-Repository befindet sich in einem freigegebenen Ordner, auf den auch andere Apps zugreifen können.</string>
   <string name="prefs_export_passwords_title">Passwörter exportieren</string>
   <string name="prefs_export_passwords_summary">Exportiert das Password-Repository in ein externes Verzeichnis.</string>
   <string name="prefs_export_passwords_dialog_title">Passwörter werden exportiert</string>
@@ -208,6 +210,7 @@
   <string name="dialog_yes">Ja</string>
   <string name="dialog_no">Nein</string>
   <string name="dialog_cancel">Abbruch</string>
+  <string name="dialog_continue">Weiter</string>
   <string name="git_sync">Synchronisiere Repository</string>
   <string name="git_pull">Git Pull</string>
   <string name="git_push">Git Push</string>
@@ -296,6 +299,8 @@
   <string name="git_server_hostkey_dialog_message">%s\n\nÜberprüfen Sie die Korrektheit des Fingerabdrucks vor dem Verbinden.</string>
   <string name="git_server_hostkey_dialog_connect">Verbinden</string>
   <string name="git_server_hostkey_dialog_abort">Abbruch</string>
+  <string name="git_server_response_dialog_title">Serverbanner</string>
+  <string name="git_server_response_dialog_do_not_show_again">Nicht mehr anzeigen</string>
   <string name="git_server_config_save_success">Konfiguration erfolgreich gespeichert</string>
   <string name="git_server_config_save_error">Die angegebene Repository-URL ist ungültig.</string>
   <string name="git_server_config_save_missing_username_https">Bitte geben Sie den HTTPS-Benutzernamen in der Form https://username@example.com/… an.</string>
@@ -355,6 +360,11 @@
   <string name="git_push_generic_error">Push wurde von Remote abgelehnt, Grund: %1$s</string>
   <string name="git_push_other_error">Remote hat den Push abgelehnt. Prüfen Sie die Variable receive.denyNonFastForwards in der Konfigurationsdatei des Ziel-Repositorys.</string>
   <string name="git_unknown_host">Unbekannter Host: %1$s</string>
+  <string name="git_local_network_unreachable_dialog_title">Server nicht erreichbar</string>
+  <string name="git_local_network_unreachable_dialog_message">Falls sich der Server %1$s im lokalen Netz befindet, muss die Berechtigung „Geräte in der Nähe“ erteilt werden.</string>
+  <string name="git_local_network_permission_skip">Überspringen</string>
+  <string name="git_local_network_permission_grant">Berechtigung erteilen</string>
+  <string name="git_url_not_set_error">Git-URL ist nicht gesetzt.</string>
   <string name="git_operation_running">Git-Operation wird ausgeführt…</string>
   <string name="git_break_out_of_detached_success">Es gab einen Konflikt während des Rebase-Prozesses. Ihr lokaler Branch %1$s wurde auf einen anderen Branch namens %2$s gepusht.\nNutzen Sie diesen Branch, um den Konflikt auf dem Server zu beheben</string>
   <string name="git_break_out_of_detached_unneeded">Das Repository befindet sich nicht im Rebase-Prozess; es ist nicht nötig, den Zustand auf einen weiteren Branch zu pushen.</string>
@@ -365,15 +375,21 @@
   <string name="folder_creation_err_folder_exists">Ein Ordner mit diesem Namen existiert bereits.</string>
 
   <!-- Onboarding flow -->
-  <string name="let_s_go">Los geht\'s</string>
-  <string name="select_n_repository_type">Wählen Sie einen \nRepository-Typ.</string>
-  <string name="select_repo_type_text">Wählen Sie aus, ob Sie ein lokales Repository anlegen, oder ein Remote-Repository klonen möchten.</string>
+  <string name="let_s_go">Los geht’s</string>
+  <string name="select_n_repository_type">Repository-Typ</string>
+  <string name="select_repo_type_text">Wählen Sie aus, ob Sie ein Remote-Repository klonen oder ein lokales Repository anlegen möchten.</string>
   <string name="clone_remote_repo">Remote-Repository klonen</string>
   <string name="create_local_repo">Lokales Repository anlegen</string>
   <string name="select_gpg_key_title">PGP-Schlüssel wählen</string>
   <string name="select_gpg_key_message">Wählen Sie einen oder mehrere PGP-Schlüssel, mit denen der Store initialisiert werden soll.</string>
   <string name="gpg_key_select">Schlüssel auswählen</string>
   <string name="gpg_key_single_select">Schlüssel auswählen</string>
+  <string name="select_n_repository_visibility">Sichtbarkeit des Repositorys</string>
+  <string name="select_repo_visibility_clone_text">Legen Sie fest, ob das Repository in das interne Verzeichnis der App (empfohlen) oder in einen freigegebenen Ordner geklont werden soll, auf den auch andere Apps zugreifen können.</string>
+  <string name="select_repo_visibility_create_text">Legen Sie fest, ob das Repository innerhalb des internen Verzeichnisses der App (empfohlen) oder in einem freigegebenen Ordner angelegt werden soll, auf den auch andere Apps zugreifen können.</string>
+  <string name="internal_repo">app-intern (versteckt)</string>
+  <string name="shared_repo">freigegebener Ordner</string>
+
 
   <!-- SSH port validation -->
   <string name="ssh_scheme_needed_title">Möglicherweise inkorrekte URL</string>
