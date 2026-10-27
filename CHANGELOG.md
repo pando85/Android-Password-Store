@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file
 
 ## [Unreleased]
 
+## [1.27.0] - 2026-10-27
+
 ### Added
 
 - Setting to enable Autofill directly from the app settings
@@ -983,7 +985,8 @@ All notable changes to this project will be documented in this file
 
 - Fix elements overlapping.
 
-[unreleased]: https://github.com/pando85/Android-Password-Store/compare/v1.26.0...HEAD
+[unreleased]: https://github.com/pando85/Android-Password-Store/compare/v1.27.0...HEAD
+[1.27.0]: https://github.com/pando85/Android-Password-Store/compare/v1.26.0...v1.27.0
 [1.26.0]: https://github.com/pando85/Android-Password-Store/compare/v1.25.2...v1.26.0
 [1.25.2]: https://github.com/pando85/Android-Password-Store/compare/v1.25.1...v1.25.2
 [1.25.1]: https://github.com/pando85/Android-Password-Store/compare/v1.25.0...v1.25.1
