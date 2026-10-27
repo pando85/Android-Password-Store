@@ -129,6 +129,7 @@ class AppPasskeyProviderActivity : BaseGitActivity() {
     passphraseCache.withExclusiveGetRequest { handleGetCredentialLocked(request) }
   }
 
+  @RequiresApi(34)
   private suspend fun handleGetCredentialLocked(
     request: androidx.credentials.provider.ProviderGetCredentialRequest
   ) {
