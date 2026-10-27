@@ -345,6 +345,7 @@
   <!-- Password decryption failure -->
   <string name="password_decryption_no_decryption_key">Entschlüsseln fehlgeschlagen. Kein geeigneter geheimer Schlüssel gefunden.</string>
   <string name="password_decryption_unknown_error">Unbekannter Fehler beim Entschlüsseln</string>
+  <string name="password_decryption_no_autofill_with_passkey_error">Kein automatisches Ausfüllen mit Passkey-Daten</string>
 
   <!-- GitException messages -->
   <string name="git_unknown_error">Unbekannter Fehler</string>

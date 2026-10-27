@@ -21,6 +21,7 @@ import app.passwordstore.data.passfile.PasswordEntry
 import app.passwordstore.data.repo.PasswordRepository
 import app.passwordstore.ui.crypto.BasePGPActivity
 import app.passwordstore.util.autofill.AutofillMatcher
+import app.passwordstore.util.autofill.AutofillPasskeyExclusion
 import app.passwordstore.util.autofill.AutofillPreferences
 import app.passwordstore.util.autofill.AutofillResponseBuilder
 import app.passwordstore.util.extensions.snackbar
@@ -76,6 +77,14 @@ class AutofillDecryptActivity : BasePGPActivity() {
     // death between the fill request and the dataset authentication.
     formOrigin = FormOrigin.fromBundle(clientState)
     origin = formOrigin?.getPrettyIdentifier(this, untrusted = false) // web origin or app name
+    // Classic Autofill must never fill passkey data: refuse before anything is decrypted.
+    if (AutofillPasskeyExclusion.isPasskeyCredentialFile(File(filePath))) {
+      logcat(ERROR) { "AutofillDecryptActivity refuses to fill a passkey credential file" }
+      AutofillMatcher.updateMatches(this, delete = listOf(File(filePath)))
+      snackbar(message = getString(R.string.password_decryption_no_autofill_with_passkey_error))
+      Executors.newSingleThreadScheduledExecutor().schedule({ finish() }, 4, TimeUnit.SECONDS)
+      return
+    }
     val isSearchAction =
       intent?.getBooleanExtra(EXTRA_SEARCH_ACTION, true) ?: throw NullPointerException()
     action = if (isSearchAction) AutofillAction.Search else AutofillAction.Match
@@ -265,7 +274,10 @@ class AutofillDecryptActivity : BasePGPActivity() {
 
   /** Update the autofill suggestion order (most recently used first). */
   private fun updateAutofillMatches() {
-    formOrigin?.let { AutofillMatcher.addMatchFor(this@AutofillDecryptActivity, it, File(filePath)) }
+    formOrigin?.let {
+      if (AutofillPreferences.addQuickSelectButton(this@AutofillDecryptActivity))
+        AutofillMatcher.addMatchFor(this@AutofillDecryptActivity, it, File(filePath))
+    }
   }
 
   companion object {

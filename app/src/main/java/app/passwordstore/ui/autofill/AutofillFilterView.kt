@@ -26,6 +26,7 @@ import app.passwordstore.R
 import app.passwordstore.data.password.PasswordItem
 import app.passwordstore.databinding.ActivityOreoAutofillFilterBinding
 import app.passwordstore.util.autofill.AutofillMatcher
+import app.passwordstore.util.autofill.AutofillPasskeyExclusion
 import app.passwordstore.util.autofill.AutofillPreferences
 import app.passwordstore.util.coroutines.DispatcherProvider
 import app.passwordstore.util.extensions.enableEdgeToEdgeView
@@ -179,7 +180,15 @@ class AutofillFilterView : AppCompatActivity() {
 
   private suspend fun handleSearchResults() {
     model.searchResult.collect { result ->
-      val list = result.passwordItems
+      // Classic Autofill never offers passkey credentials.
+      val list =
+        result.passwordItems.filterNot {
+          AutofillPasskeyExclusion.isPasskeyCredentialFile(
+            it.file,
+            it.rootDir,
+            resolveLinks = false,
+          )
+        }
       (binding.rvPassword.adapter as SearchableRepositoryAdapter).submitList(list) {
         binding.rvPassword.scrollToPosition(0)
       }
@@ -250,8 +259,6 @@ class AutofillFilterView : AppCompatActivity() {
     if (binding.shouldClear.isChecked)
       AutofillMatcher.clearMatchesFor(applicationContext, formOrigin)
     AutofillPreferences.addQuickSelectButton(this, binding.shouldMatch.isChecked)
-    if (binding.shouldMatch.isChecked)
-      AutofillMatcher.addMatchFor(applicationContext, formOrigin, item.file)
     // intent?.extras? is checked to be non-null in onCreate
     decryptAction.launch(
       AutofillDecryptActivity.makeDecryptFileIntent(

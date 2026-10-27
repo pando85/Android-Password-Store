@@ -135,7 +135,7 @@ class AutofillMatcher {
       val matchedFiles = readMatches(matchPreferences, matchesKey(formOrigin)).map { File(it) }
       return Ok(
         matchedFiles
-          .filter { it.exists() }
+          .filter { it.exists() && !AutofillPasskeyExclusion.isPasskeyCredentialFile(it) }
           .also { validFiles ->
             matchPreferences.edit {
               putString(
@@ -162,7 +162,7 @@ class AutofillMatcher {
      * may crash when too many datasets are offered.
      */
     fun addMatchFor(context: Context, formOrigin: FormOrigin, file: File) {
-      if (!file.exists()) return
+      if (!file.exists() || AutofillPasskeyExclusion.isPasskeyCredentialFile(file)) return
       if (hasFormOriginHashChanged(context, formOrigin)) {
         // This should never happen since we already verified the publisher in
         // getMatchesFor.
