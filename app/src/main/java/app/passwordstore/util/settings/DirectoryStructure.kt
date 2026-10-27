@@ -4,17 +4,41 @@
  */
 package app.passwordstore.util.settings
 
+import app.passwordstore.data.repo.PasswordRepository
+import com.github.androidpasswordstore.sublimefuzzy.Fuzzy
 import java.io.File
 import java.nio.file.Paths
 
 enum class DirectoryStructure(val value: String) {
-  EncryptedUsername("encrypted_username"),
-  FileBased("file"),
-  DirectoryBased("directory");
+  EncryptedUsername("encrypted_username"), // work/example.org.gpg
+  FileBased("file"), // work/example.org/jon@doe.org.gpg
+  DirectoryBased("directory"); // work/example.org/jon@doe.org/password.gpg
 
   /**
-   * Returns the username associated to [file], following the convention of the current
-   * [DirectoryStructure].
+   * Returns path string with at most two parent dir levels for [file] [DirectoryStructure].
+   *
+   * Examples:
+   * - example.org.gpg --> example.org
+   * - work/example.org.gpg --> work/example.org
+   * - work/example.org/john@doe.org.gpg --> work/example.org/john@doe.org
+   * - work/example.org/john@doe.org/password.gpg --> example.org/john@doe.org/password
+   */
+  fun getPathStringWithAtMostTwoParentsFor(file: File): String =
+    listOf<String?>(
+        file.parentFile?.parentFile?.name?.let { it + "/" },
+        file.parentFile?.name?.let { it + "/" },
+        file.nameWithoutExtension,
+      )
+      .filterNotNull()
+      .joinToString(separator = "")
+
+  /**
+   * Returns the username associated with [file]
+   *
+   * tries to deduce the directory structure by comparing parent and grandparent directory names
+   * with the origin identifier, first using exact, then fuzzy matching
+   *
+   * without origin identifier given, current DirectoryStructure setting is used
    *
    * Examples:
    * - * --> null (EncryptedUsername)
@@ -22,12 +46,38 @@ enum class DirectoryStructure(val value: String) {
    * - work/example.org/john@doe.org/password.gpg --> john@doe.org (DirectoryBased)
    * - Temporary PIN.gpg --> Temporary PIN (DirectoryBased, fallback)
    */
-  fun getUsernameFor(file: File): String? =
-    when (this) {
-      EncryptedUsername -> null
-      FileBased -> file.nameWithoutExtension
-      DirectoryBased -> file.parentFile?.name ?: file.nameWithoutExtension
+  fun getUsernameFor(file: File, origin: String? = null): String? {
+    val passFile =
+      if (file.isAbsolute()) file.relativeTo(PasswordRepository.getRepositoryDirectory()) else file
+
+    return if (origin != null) {
+      val grandparent = passFile.parentFile?.parentFile?.name ?: ""
+      val parent = passFile.parentFile?.name ?: ""
+      if (
+        origin.equals(passFile.nameWithoutExtension, ignoreCase = true)
+      ) // EncryptedUsername, with no username provided
+       null
+      else if (origin.equals(parent, ignoreCase = true)) passFile.nameWithoutExtension // FileBased
+      else if (origin.equals(grandparent, ignoreCase = true))
+        passFile.parentFile?.name // DirectoryBased
+      else if (fuzzyMatches(origin, parent)) passFile.nameWithoutExtension // FileBased
+      else if (fuzzyMatches(origin, grandparent)) passFile.parentFile?.name // DirectoryBased
+      else null // no-match
+    } else {
+      when (this) { // current directory structure setting as fallback for missing origin
+        EncryptedUsername -> null
+        FileBased -> passFile.nameWithoutExtension
+        DirectoryBased -> passFile.parentFile?.name ?: passFile.nameWithoutExtension
+      }
     }
+  }
+
+  /**
+   * Fuzzy match in either direction; an empty folder name (e.g. the repository root) never matches.
+   */
+  private fun fuzzyMatches(origin: String, folderName: String): Boolean =
+    folderName.isNotBlank() &&
+      (Fuzzy.fuzzyMatchSimple(origin, folderName) || Fuzzy.fuzzyMatchSimple(folderName, origin))
 
   /**
    * Returns the origin identifier associated to [file], following the convention of the current

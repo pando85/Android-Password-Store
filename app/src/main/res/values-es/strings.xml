@@ -77,7 +77,6 @@
   <string name="crypto_username_hint">Usuario</string>
   <string name="crypto_pass_label">Contraseña</string>
   <string name="crypto_extra_label">Contenido extra</string>
-  <string name="crypto_encrypt_username_label">Cifrar Username</string>
   <string name="crypto_select">Seleccionar</string>
   <string name="crypto_save">Guardar</string>
   <string name="crypto_save_and_copy">Guardar y copiar</string>
@@ -205,7 +204,6 @@
   <!-- Oreo Autofill -->
   <string name="oreo_autofill_select_and_fill_into">Seleccione la entrada para completar</string>
   <string name="oreo_autofill_strict_domain_search">Búsqueda resistente al phishing</string>
-  <string name="oreo_autofill_match_with">Match with %1$s</string>
   <string name="oreo_autofill_matches_clear_existing">Borrar coincidencias existentes</string>
   <string name="oreo_autofill_filter_no_results">Sin resultados.</string>
   <string name="oreo_autofill_search_in_store">Búsqueda de entrada</string>
@@ -213,7 +211,6 @@
   <string name="oreo_autofill_save_app_not_supported">Esta aplicación no es compatible</string>
   <string name="oreo_autofill_save_passwords_dont_match">Las contraseñas no coinciden</string>
   <string name="oreo_autofill_generate_password">Crear entrada</string>
-  <string name="oreo_autofill_max_matches_reached">Número máximo de coincidencias (%1$d) alcanzadas; Borra las coincidencias antes de agregar otras nuevas.</string>
   <string name="oreo_autofill_warning_publisher_header">El editor de esta aplicación ha cambiado desde que asoció por primera vez una entrada de almacén de contraseñas con ella:</string>
   <string name="oreo_autofill_warning_publisher_footer"><b>Es posible que la aplicación instalada actualmente esté intentando robar sus credenciales haciéndose pasar por una aplicación de confianza.</b>\n\nIntente desinstalar y volver a instalar la aplicación desde una fuente confiable, como Play Store, Amazon Appstore, F-Droid o la tienda del fabricante de su teléfono.</string>
   <string name="oreo_autofill_warning_publisher_install_time">Instalado: %1$s</string>

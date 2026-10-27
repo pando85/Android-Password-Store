@@ -60,7 +60,6 @@
   <string name="crypto_name_hint">Nome</string>
   <string name="crypto_pass_label">Senha</string>
   <string name="crypto_extra_label">Conteúdo extra</string>
-  <string name="crypto_encrypt_username_label">Criptografar nome de usuário</string>
   <string name="crypto_select">Selecionar</string>
   <string name="crypto_save">Salvar</string>
   <string name="crypto_save_and_copy">Salvar e Copiar</string>
@@ -168,7 +167,6 @@
   <!-- Oreo Autofill -->
   <string name="oreo_autofill_select_and_fill_into">Selecione a entrada para preencher</string>
   <string name="oreo_autofill_strict_domain_search">Busca resistente a phishing</string>
-  <string name="oreo_autofill_match_with">Combinar com %1$s</string>
   <string name="oreo_autofill_matches_clear_existing">Limpar correspondências existentes</string>
   <string name="oreo_autofill_filter_no_results">Sem resultados.</string>
   <string name="oreo_autofill_search_in_store">Pesquisar no armazenamento…</string>
@@ -176,7 +174,6 @@
   <string name="oreo_autofill_save_app_not_supported">Este app não é suportado no momento</string>
   <string name="oreo_autofill_save_passwords_dont_match">As senhas não coincidem</string>
   <string name="oreo_autofill_generate_password">Gerar senha…</string>
-  <string name="oreo_autofill_max_matches_reached">Número máximo de correspondências (%1$d) atingidas; limpar correspondências antes de adicionar novas.</string>
   <string name="oreo_autofill_warning_publisher_header">O editor deste aplicativo mudou desde a primeira vez que você associou uma entrada no Password Store:</string>
   <string name="oreo_autofill_warning_publisher_footer"><b>O aplicativo atualmente instalado pode estar tentando roubar suas credenciais fingindo ser um aplicativo confiável.</b>\n\nTente desinstalar e reinstalar o aplicativo de uma fonte confiável, como a Play Store, Amazon Appstore, F-Droid ou a loja do fabricante do seu telefone.</string>
   <string name="oreo_autofill_warning_publisher_install_time">Instalado: %1$s</string>

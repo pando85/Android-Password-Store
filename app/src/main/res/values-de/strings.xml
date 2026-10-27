@@ -45,8 +45,10 @@
 
   <!-- PGPHandler -->
   <string name="clipboard_copied_text">In die Zwischenablage kopiert.</string>
+  <string name="empty_name_toast_text">Bitte setzen Sie einen Namen.</string>
   <string name="file_toast_text">Bitte setzen Sie einen Dateinamen.</string>
   <string name="empty_toast_text">Sie müssen mindestens ein Passwort oder Zusatzangaben eintragen.</string>
+  <string name="empty_username_toast_text">Bitte setzen Sie einen Benutzernamen.</string>
 
   <!-- Git Async Task -->
   <string name="jgit_error_dialog_title">Es ist ein Fehler während der Git-Operation aufgetreten</string>
@@ -76,9 +78,10 @@
   <!-- PGP Handler -->
   <string name="crypto_name_hint">Name</string>
   <string name="crypto_username_hint">Benutzername</string>
+  <string name="crypto_filename_hint">Dateiname</string>
   <string name="crypto_pass_label">Passwort</string>
   <string name="crypto_extra_label">Zusätzliche Angaben</string>
-  <string name="crypto_encrypt_username_label">Benutzername verschlüsseln</string>
+  <string name="crypto_insert_username_label">Benutzernamen einfügen</string>
   <string name="crypto_select">Auswählen</string>
   <string name="crypto_save">Speichern</string>
   <string name="crypto_save_and_copy">Speichern und kopieren</string>
@@ -128,6 +131,7 @@
   <string name="pref_recently_used_sort_order">Zuletzt verwendet</string>
   <string name="pref_category_autofill_title">Automatisch ausfüllen</string>
   <string name="pref_autofill_enable_title">Autofill aktivieren</string>
+  <string name="pref_autofill_ask_save_passwords_title">Fragen, ob Passwörter gespeichert werden sollen</string>
   <string name="pref_category_misc_title">Verschiedenes</string>
   <string name="pref_clear_clipboard_title">Zwischenablagenverlauf umgehen</string>
   <string name="pref_clear_clipboard_summary">Zwischenablagenverlauf (Samsung-Geräte, Gboard) mit Zufallszahlen überschreiben, um ggf. bestehende Passwörter zu entfernen.</string>
@@ -229,15 +233,14 @@
   <!-- Oreo Autofill -->
   <string name="oreo_autofill_select_and_fill_into">Eintrag zum Ausfüllen auswählen</string>
   <string name="oreo_autofill_strict_domain_search">Phishing-resistente Suche</string>
-  <string name="oreo_autofill_match_with">Übereinstimmung mit %1$s</string>
-  <string name="oreo_autofill_matches_clear_existing">Bestehende Übereinstimmungen löschen</string>
+  <string name="oreo_autofill_match_with">Schnellauswahltaste für %1$s hinzufügen</string>
+  <string name="oreo_autofill_matches_clear_existing">Schnellauswahltasten entfernen</string>
   <string name="oreo_autofill_filter_no_results">Keine Ergebnisse</string>
   <string name="oreo_autofill_search_in_store">Eintrag suchen</string>
   <string name="oreo_autofill_save_internal_error">Speichern aufgrund eines internen Fehlers fehlgeschlagen.</string>
   <string name="oreo_autofill_save_app_not_supported">Diese App wird derzeit nicht unterstützt.</string>
   <string name="oreo_autofill_save_passwords_dont_match">Die Passwörter stimmen nicht überein.</string>
   <string name="oreo_autofill_generate_password">Passwort erstellen…</string>
-  <string name="oreo_autofill_max_matches_reached">Maximale Anzahl an Übereinstimmungen (%1$d) erreicht; lösche Übereinstimmungen, bevor neue hinzugefügt werden.</string>
   <string name="oreo_autofill_warning_publisher_header">Der Hersteller dieser App hat sich geändert, seit Sie einen Eintrag zum Passwort-Speicher mit ihr verknüpft haben: </string>
   <string name="oreo_autofill_warning_publisher_footer"><b>Die derzeit installierte App versucht, Ihre Anmeldeinformationen zu stehlen, indem sie vorgibt, eine vertrauenswürdige App zu sein.</b>\n\nVersuchen Sie, die App zu deinstallieren und installieren Sie sie erneut aus einer vertrauenswürdigen Quelle wie dem Play Store, Amazon Appstore, F-Droid oder dem Shop Ihres Telefonherstellers.</string>
   <string name="oreo_autofill_warning_publisher_install_time">Installiert: %1$s</string>
@@ -318,7 +321,7 @@
   <string name="bottom_sheet_create_pgp_key">Neuen Schlüssel erstellen</string>
   <string name="pref_debug_logging_summary">Debug-Ausgaben aktivieren (Erfordert Neustart der App).</string>
   <string name="pref_debug_logging_title">Debug-Logging</string>
-  <string name="preference_default_username_summary">Kann die Autofill-Funktion den Benutzernamen nicht aus dem Inhalt einer Passwortdatei abrufen, wird der hier angegebene Wert verwendet.</string>
+  <string name="preference_default_username_summary">Kann die Autofill-Funktion den Benutzernamen nicht aus dem Inhalt oder dem Kontext einer Passwortdatei ermitteln, wird der hier angegebene Wert verwendet.</string>
   <string name="preference_default_username_title">Standard-Benutzername</string>
   <string name="git_operation_hint_password">Passwort</string>
   <string name="preference_custom_public_suffixes_title">Benutzerdefinierte Domains</string>
@@ -343,13 +346,16 @@
   <string name="empty_gpg_id">.gpg-id wurde gefunden, ist jedoch leer.</string>
   <string name="missing_gpg_id">.gpg-id wurde nicht gefunden.</string>
   <string name="short_gpg_id">.gpg-id wurde gefunden, enthält jedoch eine kurze Hex-ID, die nicht unterstützt wird.</string>
-  <string name="invalid_filename_text">Dateiname darf kein \'/\' enthalten; Verzeichnis oben setzen.</string>
+  <string name="invalid_filename_text">Der Dateiname darf kein \'/\' enthalten; Verzeichnis oben setzen.</string>
+  <string name="invalid_name_text">Der Name darf kein \'/\' enthalten; Verzeichnis oben setzen.</string>
+  <string name="invalid_username_text">Der Benutzername darf kein \'/\' enthalten.</string>
   <string name="directory_hint">Ordner</string>
   <string name="new_folder_set_gpg_key">PGP-Schlüssel für Ordner festlegen</string>
 
   <!-- Password decryption failure -->
-  <string name="password_decryption_no_decryption_key">Entschlüsseln fehlgeschlagen. Kein geeigneter geheimer Schlüssel gefunden.</string>
+  <string name="password_decryption_no_decryption_key">Entschlüsseln fehlgeschlagen. Kein geeigneter geheimer Schlüssel gefunden</string>
   <string name="password_decryption_unknown_error">Unbekannter Fehler beim Entschlüsseln</string>
+  <string name="password_decryption_no_autofill_with_passkey_error">Automatisches Ausfüllen mit Passkey-Daten nicht möglich</string>
 
   <!-- GitException messages -->
   <string name="git_unknown_error">Unbekannter Fehler</string>

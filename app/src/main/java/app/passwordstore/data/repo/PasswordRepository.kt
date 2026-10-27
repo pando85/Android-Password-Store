@@ -16,6 +16,14 @@ import com.github.michaelbull.result.getOrElse
 import com.github.michaelbull.result.onErr
 import com.github.michaelbull.result.runCatching
 import java.io.File
+import java.io.IOException
+import java.nio.file.FileVisitResult
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.Paths
+import java.nio.file.SimpleFileVisitor
+import java.nio.file.attribute.BasicFileAttributes
+import kotlin.io.path.name
 import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.lib.BranchTrackingStatus
 import org.eclipse.jgit.lib.Constants
@@ -26,6 +34,9 @@ import org.eclipse.jgit.transport.RemoteConfig
 import org.eclipse.jgit.transport.URIish
 
 object PasswordRepository {
+
+  const val TYPE_FILE: Int = 1
+  const val TYPE_DIR: Int = 2
 
   var repository: Repository? = null
   private val settings by unsafeLazy { Application.instance.sharedPrefs }
@@ -273,5 +284,59 @@ object PasswordRepository {
     }
     passwordList.sortWith(sortOrder.comparator)
     return passwordList
+  }
+
+  /**
+   * Recursively finds files and/or directories (see [type]) below [startPath] whose name equals
+   * [name]. Hidden directories (such as `.git`) are not descended into.
+   */
+  fun findByName(
+    startPath: String,
+    name: String,
+    type: Int = TYPE_DIR or TYPE_FILE,
+    ignoreCase: Boolean = false,
+  ): List<Path> =
+    walkNonHidden(Paths.get(startPath), type) { it.name.equals(name, ignoreCase = ignoreCase) }
+
+  /**
+   * Recursively finds files and/or directories (see [type]) below [startPath] whose parent
+   * directory's name equals [name]. Hidden directories (such as `.git`) are not descended into.
+   */
+  fun findByParentName(
+    startPath: String,
+    name: String,
+    type: Int = TYPE_DIR or TYPE_FILE,
+    ignoreCase: Boolean = false,
+  ): List<Path> =
+    walkNonHidden(Paths.get(startPath), type) { path ->
+      val parent: Path? = path.parent
+      parent != null && parent.name.equals(name, ignoreCase = ignoreCase)
+    }
+
+  private fun walkNonHidden(start: Path, type: Int, predicate: (Path) -> Boolean): List<Path> {
+    val matches = mutableListOf<Path>()
+    if (!Files.isDirectory(start)) return matches
+    Files.walkFileTree(
+      start,
+      object : SimpleFileVisitor<Path>() {
+        override fun preVisitDirectory(
+          dir: Path,
+          attrs: BasicFileAttributes,
+        ): FileVisitResult {
+          if (dir != start && dir.name.startsWith('.')) return FileVisitResult.SKIP_SUBTREE
+          if (dir != start && type and TYPE_DIR != 0 && predicate(dir)) matches.add(dir)
+          return FileVisitResult.CONTINUE
+        }
+
+        override fun visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult {
+          if (type and TYPE_FILE != 0 && attrs.isRegularFile && predicate(file)) matches.add(file)
+          return FileVisitResult.CONTINUE
+        }
+
+        override fun visitFileFailed(file: Path, exc: IOException): FileVisitResult =
+          FileVisitResult.CONTINUE
+      },
+    )
+    return matches
   }
 }

@@ -6,9 +6,7 @@ package app.passwordstore.util.autofill
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.widget.Toast
 import androidx.core.content.edit
-import app.passwordstore.R
 import com.github.androidpasswordstore.autofillparser.FormOrigin
 import com.github.androidpasswordstore.autofillparser.computeCertificatesHash
 import com.github.michaelbull.result.Err
@@ -51,7 +49,33 @@ class AutofillMatcher {
 
   companion object {
 
-    private const val MAX_NUM_MATCHES = 10
+    private const val MAX_NUM_MATCHES = 65536
+
+    /**
+     * Matches are stored as an ordered (most recently used first) list of absolute password file
+     * paths concatenated with this separator, which is unlikely to appear in a file path.
+     */
+    private const val MATCHES_SEPARATOR = "|§+"
+
+    private fun splitMatches(value: String): List<String> =
+      value.split(MATCHES_SEPARATOR).filter { it.isNotEmpty() }
+
+    /**
+     * Reads the ordered list of matches stored under [key]. Older versions stored matches as an
+     * unordered `Set<String>`; such values are migrated in place to the ordered representation
+     * instead of being discarded.
+     */
+    private fun readMatches(prefs: SharedPreferences, key: String): List<String> {
+      return when (val value = prefs.all[key]) {
+        is String -> splitMatches(value)
+        is Set<*> -> {
+          val migrated = value.filterIsInstance<String>()
+          prefs.edit { putString(key, migrated.joinToString(MATCHES_SEPARATOR)) }
+          migrated
+        }
+        else -> emptyList()
+      }
+    }
 
     private const val PREFERENCE_PREFIX_TOKEN = "token;"
 
@@ -108,15 +132,16 @@ class AutofillMatcher {
         return Err(AutofillPublisherChangedException(formOrigin))
       }
       val matchPreferences = context.matchPreferences(formOrigin)
-      val matchedFiles =
-        matchPreferences.getStringSet(matchesKey(formOrigin), emptySet())?.map { File(it) }
-          ?: throw NullPointerException()
+      val matchedFiles = readMatches(matchPreferences, matchesKey(formOrigin)).map { File(it) }
       return Ok(
         matchedFiles
-          .filter { it.exists() }
+          .filter { it.exists() && !AutofillPasskeyExclusion.isPasskeyCredentialFile(it) }
           .also { validFiles ->
             matchPreferences.edit {
-              putStringSet(matchesKey(formOrigin), validFiles.map { it.absolutePath }.toSet())
+              putString(
+                matchesKey(formOrigin),
+                validFiles.joinToString(MATCHES_SEPARATOR) { it.absolutePath },
+              )
             }
           }
       )
@@ -137,7 +162,7 @@ class AutofillMatcher {
      * may crash when too many datasets are offered.
      */
     fun addMatchFor(context: Context, formOrigin: FormOrigin, file: File) {
-      if (!file.exists()) return
+      if (!file.exists() || AutofillPasskeyExclusion.isPasskeyCredentialFile(file)) return
       if (hasFormOriginHashChanged(context, formOrigin)) {
         // This should never happen since we already verified the publisher in
         // getMatchesFor.
@@ -146,20 +171,15 @@ class AutofillMatcher {
       }
       val matchPreferences = context.matchPreferences(formOrigin)
       val matchedFiles =
-        matchPreferences.getStringSet(matchesKey(formOrigin), emptySet())?.map { File(it) }
-          ?: throw NullPointerException()
-      val newFiles = setOf(file.absoluteFile).union(matchedFiles)
-      if (newFiles.size > MAX_NUM_MATCHES) {
-        Toast.makeText(
-            context,
-            context.getString(R.string.oreo_autofill_max_matches_reached, MAX_NUM_MATCHES),
-            Toast.LENGTH_LONG,
-          )
-          .show()
-        return
-      }
+        readMatches(matchPreferences, matchesKey(formOrigin))
+          .asSequence()
+          .minus(file.absolutePath)
+          .filter { File(it).exists() }
+          .take(MAX_NUM_MATCHES - 1)
+          .toList()
+      val newFiles = listOf(file.absolutePath) + matchedFiles
       matchPreferences.edit {
-        putStringSet(matchesKey(formOrigin), newFiles.map { it.absolutePath }.toSet())
+        putString(matchesKey(formOrigin), newFiles.joinToString(MATCHES_SEPARATOR))
       }
       storeFormOriginHash(context, formOrigin)
       logcat { "Stored match for $formOrigin" }
@@ -180,13 +200,16 @@ class AutofillMatcher {
       for (prefs in listOf(context.autofillAppMatches, context.autofillWebMatches)) {
         for ((key, value) in prefs.all) {
           if (!key.startsWith(PREFERENCE_PREFIX_MATCHES)) continue
-          // We know that preferences starting with `PREFERENCE_PREFIX_MATCHES` were
-          // created with `putStringSet`.
-          @Suppress("UNCHECKED_CAST") val oldMatches = value as? Set<String>
-          if (oldMatches == null) {
-            logcat(WARN) { "Failed to read matches for $key" }
-            continue
-          }
+          val oldMatches =
+            when (value) {
+              is String -> splitMatches(value)
+              // Legacy (unordered) Set<String> representation, see readMatches().
+              is Set<*> -> value.filterIsInstance<String>()
+              else -> {
+                logcat(WARN) { "Failed to read matches for $key" }
+                continue
+              }
+            }
           // Delete all matches for file locations that are going to be overwritten, then
           // transfer matches over to the files at their new locations.
           val newMatches =
@@ -199,8 +222,9 @@ class AutofillMatcher {
                 logcat { "Updating match for $key: $match --> $newPath" }
                 newPath
               }
-              .toSet()
-          if (newMatches != oldMatches) prefs.edit { putStringSet(key, newMatches) }
+              .toList()
+          if (newMatches != oldMatches || value !is String)
+            prefs.edit { putString(key, newMatches.joinToString(MATCHES_SEPARATOR)) }
         }
       }
     }

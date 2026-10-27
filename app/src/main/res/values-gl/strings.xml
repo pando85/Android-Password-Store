@@ -60,7 +60,6 @@
   <string name="crypto_name_hint">Nome</string>
   <string name="crypto_pass_label">Contrasinal</string>
   <string name="crypto_extra_label">Contido extra</string>
-  <string name="crypto_encrypt_username_label">Cifrar identificador</string>
   <string name="crypto_select">Seleccionar</string>
   <string name="crypto_save">Gardar</string>
   <string name="crypto_save_and_copy">Gardar e copiar</string>
@@ -169,7 +168,6 @@
   <!-- Oreo Autofill -->
   <string name="oreo_autofill_select_and_fill_into">Elixe o elemento a completar</string>
   <string name="oreo_autofill_strict_domain_search">Busca resistente ao phishing</string>
-  <string name="oreo_autofill_match_with">Coincidencia con %1$s</string>
   <string name="oreo_autofill_matches_clear_existing">Limpar coincidencias existentes</string>
   <string name="oreo_autofill_filter_no_results">Sen resultados.</string>
   <string name="oreo_autofill_search_in_store">Buscar elemento</string>
@@ -177,7 +175,6 @@
   <string name="oreo_autofill_save_app_not_supported">Esta app non está soportada actualmente</string>
   <string name="oreo_autofill_save_passwords_dont_match">Non concordan os contrasinais</string>
   <string name="oreo_autofill_generate_password">Crear elemento</string>
-  <string name="oreo_autofill_max_matches_reached">Acadouse o máximo número de coincidencias (%1$d); eliminar as coincidencias antes de engadir máis.</string>
   <string name="oreo_autofill_warning_publisher_header">A autoría desta app cambiou desde que rexistraches a entrada Password Store con ela:</string>
   <string name="oreo_autofill_warning_publisher_footer"><b>A aplicación actualmente instalada podería intentar roubar as túas credenciais pretendendo ser unha app de confianza.</b>\n\nIntenta desinstalar e reinstalar
 a app desde unha fonte de confianza, como a Play Store, Amazon Appstore, F-Droid ou a tenda do fabricante do teu móbil.</string>
