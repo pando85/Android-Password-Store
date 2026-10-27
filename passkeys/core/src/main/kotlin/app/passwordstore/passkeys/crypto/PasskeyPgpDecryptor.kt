@@ -13,6 +13,12 @@ import java.io.InputStream
 
 public interface PasskeyPgpDecryptor {
 
+  /** Inspect only recipient packets, without decrypting or exposing secret key material. */
+  public suspend fun inspectRecipientPrimaryKeyIds(
+    ciphertext: ByteArray,
+    limits: PasskeyInputLimits = PasskeyInputLimits.DEFAULT,
+  ): Set<String> = emptySet()
+
   public suspend fun decrypt(
     file: File,
     unlockContext: PgpUnlockContext,
@@ -43,5 +49,6 @@ public interface PasskeyPgpDecryptor {
 }
 
 public interface PgpUnlockContext {
+  /** [keyId] is the key's primary key ID, as formatted by `PGPIdentifier.KeyId`. */
   public suspend fun unlockKey(keyId: String): CharArray?
 }

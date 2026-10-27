@@ -164,6 +164,30 @@ public class FilePasskeyStorage<
       loadFromExactRef(ref, expectedVersion)
     }
 
+  override suspend fun resolveRecipientPrimaryKeyIdsExact(
+    ref: PasskeyFileRef,
+    expectedVersion: CredentialSourceVersion,
+  ): Result<Set<String>, Throwable> =
+    withContext(Dispatchers.IO) {
+      confinedStore
+        .openExact(ref, expectedVersion)
+        .fold(
+          success = { opened ->
+            try {
+              val ciphertext = opened.readBytes()
+              try {
+                Ok(passkeyPgpDecryptor.inspectRecipientPrimaryKeyIds(ciphertext, inputLimits))
+              } finally {
+                ciphertext.fill(0)
+              }
+            } finally {
+              opened.close()
+            }
+          },
+          failure = { Err(SecurityException("Cannot inspect selected credential: ${it.message}")) },
+        )
+    }
+
   override suspend fun loadCredentialMetadata(
     ref: PasskeyFileRef,
     expectedVersion: CredentialSourceVersion?,
@@ -177,13 +201,14 @@ public class FilePasskeyStorage<
               val decryptResult =
                 try {
                   val fileSize = file.fileSize()
-                  val stream = file.inputStream()
-                  passkeyPgpDecryptor.decryptFromStream(
-                    stream,
-                    fileSize,
-                    pgpUnlockContext,
-                    inputLimits,
-                  )
+                  file.inputStream().use { stream ->
+                    passkeyPgpDecryptor.decryptFromStream(
+                      stream,
+                      fileSize,
+                      pgpUnlockContext,
+                      inputLimits,
+                    )
+                  }
                 } finally {
                   concurrencyLimiter.decryptionSemaphore.release()
                 }
@@ -240,13 +265,14 @@ public class FilePasskeyStorage<
             val decryptResult =
               try {
                 val fileSize = file.fileSize()
-                val stream = file.inputStream()
-                passkeyPgpDecryptor.decryptFromStream(
-                  stream,
-                  fileSize,
-                  pgpUnlockContext,
-                  inputLimits,
-                )
+                file.inputStream().use { stream ->
+                  passkeyPgpDecryptor.decryptFromStream(
+                    stream,
+                    fileSize,
+                    pgpUnlockContext,
+                    inputLimits,
+                  )
+                }
               } finally {
                 concurrencyLimiter.decryptionSemaphore.release()
               }
@@ -490,18 +516,21 @@ public class FilePasskeyStorage<
             val sensitivePlaintext =
               try {
                 val fileSize = file.fileSize()
-                val stream = file.inputStream()
-                passkeyPgpDecryptor
-                  .decryptFromStream(stream, fileSize, pgpUnlockContext, inputLimits)
-                  .fold(
-                    success = { it },
-                    failure = { error ->
-                      return@withContext Err(
-                        IllegalStateException("Decryption failed: ${formatDecryptionError(error)}")
-                      )
-                        as Result<Unit, Throwable>
-                    },
-                  )
+                file.inputStream().use { stream ->
+                  passkeyPgpDecryptor
+                    .decryptFromStream(stream, fileSize, pgpUnlockContext, inputLimits)
+                    .fold(
+                      success = { it },
+                      failure = { error ->
+                        return@withContext Err(
+                          IllegalStateException(
+                            "Decryption failed: ${formatDecryptionError(error)}"
+                          )
+                        )
+                          as Result<Unit, Throwable>
+                      },
+                    )
+                }
               } finally {
                 concurrencyLimiter.decryptionSemaphore.release()
               }

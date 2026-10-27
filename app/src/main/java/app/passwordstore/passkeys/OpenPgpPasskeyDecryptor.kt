@@ -35,6 +35,13 @@ constructor(
   @SettingsPreferences private val settings: SharedPreferences,
 ) : PasskeyPgpDecryptor {
 
+  override suspend fun inspectRecipientPrimaryKeyIds(
+    ciphertext: ByteArray,
+    limits: PasskeyInputLimits,
+  ): Set<String> =
+    if (usesExternalProvider()) emptySet()
+    else localDecryptor.inspectRecipientPrimaryKeyIds(ciphertext, limits)
+
   override suspend fun decrypt(
     file: File,
     unlockContext: PgpUnlockContext,

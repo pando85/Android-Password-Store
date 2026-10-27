@@ -34,6 +34,21 @@ public class PgpainlessPasskeyDecryptor(
   private val keyManager: PGPKeyManager,
 ) : PasskeyPgpDecryptor {
 
+  override suspend fun inspectRecipientPrimaryKeyIds(
+    ciphertext: ByteArray,
+    limits: PasskeyInputLimits,
+  ): Set<String> =
+    withContext(Dispatchers.IO) {
+      if (ciphertext.isEmpty() || ciphertext.size.toLong() > limits.maxCiphertextBytes) {
+        return@withContext emptySet()
+      }
+      val recipientIds = inspectRecipientKeyIds(ciphertext, limits)
+      val allKeys = keyManager.getAllKeys().get() ?: return@withContext emptySet()
+      findMatchingSecretKeys(allKeys, recipientIds)
+        .mapNotNull { (key, _) -> KeyUtils.tryGetKeyId(key)?.toString() }
+        .toSet()
+    }
+
   override suspend fun decrypt(
     file: File,
     unlockContext: PgpUnlockContext,
@@ -138,7 +153,7 @@ public class PgpainlessPasskeyDecryptor(
     var lastError: PasskeyDecryptionError? = null
 
     for ((key, keyId) in matchingKeys) {
-      val passphrase = unlockContext.unlockKey(keyId.toString())
+      val passphrase = unlockContext.unlockKey(KeyUtils.tryGetKeyId(key).toString())
 
       try {
         val plaintext = attemptBoundedDecryption(key, passphrase, ciphertext, limits)
