@@ -97,7 +97,7 @@ enum class DirectoryStructure(val value: String) {
     when (this) {
       EncryptedUsername -> file.nameWithoutExtension
       FileBased -> file.parentFile?.name ?: file.nameWithoutExtension
-      DirectoryBased -> file.parentFile?.parent
+      DirectoryBased -> file.parentFile?.parentFile?.name
     }
 
   /**

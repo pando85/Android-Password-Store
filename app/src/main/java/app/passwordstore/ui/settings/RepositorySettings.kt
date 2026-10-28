@@ -163,7 +163,7 @@ class RepositorySettings(private val activity: FragmentActivity) : SettingsProvi
         val progressDialog =
           MaterialAlertDialogBuilder(activity)
             .setTitle(R.string.prefs_import_passwords_dialog_title)
-            .setMessage(R.string.prefs_export_passwords_dialog_message)
+            .setMessage(R.string.prefs_import_passwords_dialog_message)
             .setCancelable(false)
             .create()
 
@@ -540,7 +540,7 @@ private fun renameFilesInDirectoryTree(
       override fun visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult {
         val fileName = file.fileName.toString()
         if (fileName.endsWith(oldExtension)) {
-          val newFileName = fileName.replace(oldExtension, newExtension)
+          val newFileName = fileName.removeSuffix(oldExtension) + newExtension
           val newFile = file.resolveSibling(newFileName)
           Files.move(file, newFile)
         }
