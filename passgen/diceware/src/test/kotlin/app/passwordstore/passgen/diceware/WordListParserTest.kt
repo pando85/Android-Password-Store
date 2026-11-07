@@ -30,8 +30,11 @@ class WordListParserTest {
 
   companion object {
     fun getDefaultWordList(): InputStream {
-      return requireNotNull(this::class.java.classLoader) { "Null classloader????" }
-        .getResourceAsStream("diceware_wordlist.txt")
+      val classLoader = requireNotNull(this::class.java.classLoader) { "Null classloader????" }
+      return requireNotNull(classLoader.getResourceAsStream("diceware_wordlist.txt")) {
+        "Could not find diceware_wordlist.txt on the test classpath. " +
+          "Ensure src/test/resources/diceware_wordlist.txt exists and is included in test resources."
+      }
     }
   }
 }
