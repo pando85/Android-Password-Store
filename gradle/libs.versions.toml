@@ -1,7 +1,7 @@
 [versions]
 agp = "9.5.1"
 androidxActivity = "1.13.0"
-bouncycastle = "1.86.2"
+bouncycastle = "1.87"
 coroutines = "1.11.0"
 flowbinding = "1.2.0"
 hilt = "2.60.1"
@@ -41,7 +41,7 @@ aps-zxingAndroidEmbedded = "com.github.android-password-store:zxing-android-embe
 build-agp = { module = "com.android.tools.build:gradle", version.ref = "agp" }
 build-kotlin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
 build-okhttp = "com.squareup.okhttp3:okhttp:5.5.1"
-build-r8 = "com.android.tools:r8:9.5.29"
+build-r8 = "com.android.tools:r8:9.5.32"
 build-semver = "com.github.zafarkhaja:java-semver:0.10.2"
 build-spotless = "com.diffplug.spotless:spotless-plugin-gradle:8.11.0"
 build-vcu = "nl.littlerobots.version-catalog-update:nl.littlerobots.version-catalog-update.gradle.plugin:1.1.2"
@@ -60,7 +60,7 @@ kotlinx-coroutines-bom = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-bo
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test" }
 kotlinx-datetime = "org.jetbrains.kotlinx:kotlinx-datetime:0.8.0-0.6.x-compat"
-kotlinx-serialization-json = "org.jetbrains.kotlinx:kotlinx-serialization-json:1.12.0"
+kotlinx-serialization-json = "org.jetbrains.kotlinx:kotlinx-serialization-json:1.13.0"
 testing-junit = "junit:junit:4.13.2"
 testing-kotlintest-junit = { module = "org.jetbrains.kotlin:kotlin-test-junit", version.ref = "kotlin" }
 testing-robolectric = "org.robolectric:robolectric:4.17"
