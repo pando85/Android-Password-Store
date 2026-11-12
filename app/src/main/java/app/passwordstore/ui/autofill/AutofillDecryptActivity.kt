@@ -56,8 +56,10 @@ class AutofillDecryptActivity : BasePGPActivity() {
   private var formOrigin: FormOrigin? = null
   private var origin: String? = null
 
-  override fun onStart() {
-    super.onStart()
+  // Start decryption from onCreate rather than onStart: an OpenPGP provider's interaction activity
+  // stops this activity, and restarting it would decrypt (and prompt) a second time.
+  override fun onCreate(savedInstanceState: Bundle?) {
+    super.onCreate(savedInstanceState)
     filePath =
       intent?.getStringExtra(BasePGPActivity.EXTRA_FILE_PATH)
         ?: run {
@@ -151,7 +153,8 @@ class AutofillDecryptActivity : BasePGPActivity() {
                   TimeUnit.SECONDS,
                 )
               }
-              entry.clear()
+              // Do not clear the entry here: the dataset's AutofillValues wrap the same CharArrays
+              // and are only parceled after finish(), so clearing would fill NUL characters.
             }
             updateAutofillMatches()
             withContext(dispatcherProvider.main()) { finish() }
