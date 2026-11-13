@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file
 
 ## [Unreleased]
 
+## [1.28.1] - 2026-11-13
+
+### Fixed
+
+- Autofill with external OpenPGP provider no longer prompts twice for decryption
+- Autofill with external OpenPGP provider correctly fills passwords instead of empty values
+
+### Fork infrastructure
+
+- Updated dependencies: Gradle 9.9.1, gradle plugins, and GitHub Actions
+
 ## [1.28.0] - 2026-11-07
 
 ### Added
@@ -1013,7 +1024,8 @@ All notable changes to this project will be documented in this file
 
 - Fix elements overlapping.
 
-[unreleased]: https://github.com/pando85/Android-Password-Store/compare/v1.28.0...HEAD
+[unreleased]: https://github.com/pando85/Android-Password-Store/compare/v1.28.1...HEAD
+[1.28.1]: https://github.com/pando85/Android-Password-Store/compare/v1.28.0...v1.28.1
 [1.28.0]: https://github.com/pando85/Android-Password-Store/compare/v1.27.0...v1.28.0
 [1.27.0]: https://github.com/pando85/Android-Password-Store/compare/v1.26.0...v1.27.0
 [1.26.0]: https://github.com/pando85/Android-Password-Store/compare/v1.25.2...v1.26.0
