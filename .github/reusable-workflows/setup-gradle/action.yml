@@ -43,6 +43,11 @@ runs:
         distribution: temurin
         java-version: ${{ inputs.java-version }}
 
+    - name: Install Android SDK platform 37 (latest revision)
+      shell: bash
+      run: |
+        yes | ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager --install "platforms;android-37" || true
+
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
       with:
