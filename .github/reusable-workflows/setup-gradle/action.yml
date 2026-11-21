@@ -43,6 +43,25 @@ runs:
         distribution: temurin
         java-version: ${{ inputs.java-version }}
 
+    - name: Install Android SDK Platform 37.1
+      shell: bash
+      run: |
+        SDK_MANAGER=""
+        for dir in "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+                   "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" \
+                   "$ANDROID_HOME/cmdline-tools/*/bin/sdkmanager" \
+                   "$ANDROID_SDK_ROOT/cmdline-tools/*/bin/sdkmanager"; do
+          if [ -f "$dir" ]; then
+            SDK_MANAGER="$dir"
+            break
+          fi
+        done
+        if [ -n "$SDK_MANAGER" ]; then
+          yes | "$SDK_MANAGER" "platforms;android-37.1" || echo "Warning: Failed to install android-37.1 platform"
+        else
+          echo "Warning: sdkmanager not found, assuming platform is pre-installed"
+        fi
+
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
       with:
